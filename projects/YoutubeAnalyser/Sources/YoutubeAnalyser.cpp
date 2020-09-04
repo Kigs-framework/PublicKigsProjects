@@ -750,12 +750,8 @@ void	YoutubeAnalyser::refreshAllThumbs()
 			dray *= 0.98f;
 			toSetup["ChannelName"]("Text") = toPlace.first->mName;
 
-			char Asciipercent[128];
-
 			int percent = (int)(100.0f*((float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters));
-			sprintf(Asciipercent, "%d", percent);
-
-			toSetup["ChannelPercent"]("Text")=Asciipercent;
+			toSetup["ChannelPercent"]("Text")= percent;
 
 			const SP<UITexture>& checkTexture = toSetup;
 
