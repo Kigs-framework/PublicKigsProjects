@@ -1,0 +1,7 @@
+{
+   "GoogleKey" : "INSERT_YOUR_GOOGLE_KEY_HERE",
+   "ChannelID" : "INSERT_CHANNEL_ID_HERE",
+   "ValidUserCount" : 100,
+   "MaxChannelCount" : 40,
+   "ValidChannelPercent" : 0.02,
+}
