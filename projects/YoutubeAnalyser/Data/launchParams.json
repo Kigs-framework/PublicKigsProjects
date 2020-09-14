@@ -1,7 +1,8 @@
 {
    "GoogleKey" : "INSERT_YOUR_GOOGLE_KEY_HERE",
    "ChannelID" : "INSERT_CHANNEL_ID_HERE",
-   "ValidUserCount" : 100,
-   "MaxChannelCount" : 40,
+   "ValidUserCount" : 200,
+   "MaxChannelCount" : 45,
    "ValidChannelPercent" : 0.02,
+   "MaxUserPerVideo" : 50
 }

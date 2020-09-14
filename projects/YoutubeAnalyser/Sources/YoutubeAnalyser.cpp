@@ -734,8 +734,8 @@ void	YoutubeAnalyser::refreshAllThumbs()
 
 	float dangle = 2.0f * KFLOAT_CONST_PI / 7.0f;
 	float angle = 0.0f;
-	float ray = 0.15f;
-	float dray = 0.01f;
+	float ray = 0.16f;
+	float dray = 0.011f;
 	toShowCount = 0;
 	for (const auto& toPlace : toShow)
 	{
@@ -743,7 +743,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 		if (found != mShowedChannels.end())
 		{
 			const CMSP& toSetup = (*found).second;
-			toSetup("Dock") = v2f(0.5f + ray *cosf(angle), 0.5f + ray * sinf(angle));
+			toSetup("Dock") = v2f(0.53f + ray *cosf(angle), 0.49f + ray * sinf(angle));
 			angle += dangle;
 			dangle = 2.0f * KFLOAT_CONST_PI / (2.0f+50.0f*ray);
 			ray += dray;
@@ -751,7 +751,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 			toSetup["ChannelName"]("Text") = toPlace.first->mName;
 
 			int percent = (int)(100.0f*((float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters));
-			toSetup["ChannelPercent"]("Text")= percent;
+			toSetup["ChannelPercent"]("Text")= std::to_string(percent) + " %";
 
 			const SP<UITexture>& checkTexture = toSetup;
 
