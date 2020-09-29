@@ -14,9 +14,13 @@ public:
 
 protected:
 
+	// Youtube Data API key 
 	std::string						mKey = "";
+
+	// current application state ( 
 	unsigned int					mState = 0;
 	// general application parameters
+	// wanted sample size
 	unsigned int					mSubscribedUserCount = 100;
 	unsigned int					mMaxChannelCount = 16;
 	int								mMaxUserPerVideo = 0;
@@ -66,8 +70,8 @@ protected:
 	void	refreshAllThumbs();
 
 	void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
-
-	WRAP_METHODS(thumbnailReceived);
+	void	switchDisplay();
+	WRAP_METHODS(thumbnailReceived, switchDisplay);
 
 	// utility
 
@@ -128,4 +132,8 @@ protected:
 
 	// if a file is older ( in seconds ) than this limit, then it's considered as not existing ( to recreate )
 	double		mOldFileLimit=0.0;
+
+	
+	// test
+	bool		mShowInfluence=false;
 };

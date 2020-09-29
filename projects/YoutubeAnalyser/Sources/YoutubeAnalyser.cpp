@@ -83,13 +83,14 @@ void	YoutubeAnalyser::ProtectedInit()
 
 	CoreCreateModule(HTTPRequestModule, 0);
 
+	
 	// init google api connection
 	mGoogleConnect = KigsCore::GetInstanceOf("googleConnect", "HTTPConnect");
 	mGoogleConnect->setValue("HostName", "www.googleapis.com");
 	mGoogleConnect->setValue("Type", "HTTPS");
 	mGoogleConnect->setValue("Port", "443");
 	mGoogleConnect->Init();
-
+	
 	// search if current channel is in Cached data
 
 	std::string currentChannelProgress = "Cache/" + mChannelName + "/";
@@ -143,6 +144,13 @@ void	YoutubeAnalyser::ProtectedUpdate()
 	// everything is done
 	if (mState == 50)
 	{
+		// just refresh graphics
+		double dt = GetApplicationTimer()->GetTime() - mLastUpdate;
+		if (dt > 1.0)
+		{
+			mLastUpdate = GetApplicationTimer()->GetTime();
+			refreshAllThumbs();
+		}
 		return;
 	}
 
@@ -677,15 +685,48 @@ void	YoutubeAnalyser::refreshAllThumbs()
 		return;
 	}
 
-	std::sort(toShow.begin(), toShow.end(), [](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
-		{
-			if (a1.first->mSubscribersCount == a2.first->mSubscribersCount)
+	if (mShowInfluence) // normalize according to follower count
+	{
+		std::sort(toShow.begin(), toShow.end(), [this](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
 			{
-				return a1.second > a2.second;
+				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
+				// a1 subscribers %
+				float A1_percent = ((float)a1.first->mSubscribersCount / (float)mySubscribedWriters);
+				// a1 intersection size with analysed channel
+				float A1_a_inter_b = (float)mChannelInfos.mTotalSubscribers * A1_percent;
+				// a1 union size with analysed channel 
+				float A1_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)a1.first->mTotalSubscribers - A1_a_inter_b;
+
+				// a2 subscribers %
+				float A2_percent = ((float)a2.first->mSubscribersCount / (float)mySubscribedWriters);
+				// a2 intersection size with analysed channel
+				float A2_a_inter_b = (float)mChannelInfos.mTotalSubscribers * A2_percent;
+				// a2 union size with analysed channel 
+				float A2_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)a2.first->mTotalSubscribers - A2_a_inter_b;
+
+				float k1 = A1_a_inter_b / A1_a_union_b;
+				float k2 = A2_a_inter_b / A2_a_union_b;
+
+				if (k1 == k2)
+				{
+					return a1.second > a2.second;
+				}
+				return (k1 > k2);
 			}
-			return (a1.first->mSubscribersCount> a2.first->mSubscribersCount);
-		}
-	);
+		);
+	}
+	else
+	{
+		std::sort(toShow.begin(), toShow.end(), [](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
+			{
+				if (a1.first->mSubscribersCount == a2.first->mSubscribersCount)
+				{
+					return a1.second > a2.second;
+				}
+				return (a1.first->mSubscribersCount > a2.first->mSubscribersCount);
+			}
+		);
+	}
 
 	// check for channels already shown / to remove
 
@@ -750,9 +791,24 @@ void	YoutubeAnalyser::refreshAllThumbs()
 			dray *= 0.98f;
 			toSetup["ChannelName"]("Text") = toPlace.first->mName;
 
-			int percent = (int)(100.0f*((float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters));
-			toSetup["ChannelPercent"]("Text")= std::to_string(percent) + " %";
+			if (mShowInfluence) // normalize according to follower count
+			{
+				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
+				// A subscribers %
+				float A_percent = ((float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters);
+				// A intersection size with analysed channel
+				float A_a_inter_b = (float)mChannelInfos.mTotalSubscribers * A_percent;
+				// A union size with analysed channel 
+				float A_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)toPlace.first->mTotalSubscribers - A_a_inter_b;
 
+				float k = 100.0f * A_a_inter_b / A_a_union_b;
+				toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + " SC";
+			}
+			else
+			{
+				int percent = (int)(100.0f * ((float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters));
+				toSetup["ChannelPercent"]("Text") = std::to_string(percent) + " %";
+			}
 			const SP<UITexture>& checkTexture = toSetup;
 
 			if (!checkTexture->GetTexture())
@@ -861,23 +917,41 @@ void		YoutubeAnalyser::SaveStatFile()
 		sprintf(saveBuffer, "Found channels Count,%d\n", mFoundChannels.size());
 		Platform_fwrite(saveBuffer, 1, strlen(saveBuffer), L_File.get());
 
-		std::string header = "Channel Name,Channel ID,Percent\n";
+		std::string header = "Channel Name,Channel ID,Percent,Jaccard\n";
 		Platform_fwrite(header.c_str(), 1, header.length(), L_File.get());
 		
 		for (const auto& p : toSave)
 		{
 			int percent = (int)(100.0f * ((float)p.first->mSubscribersCount / (float)mySubscribedWriters));
-			sprintf(saveBuffer, "\"%s\",%s,%d\n",p.first->mName.ToString().c_str(),p.second.c_str(), percent);
+			// A subscribers %
+			float A_percent = ((float)p.first->mSubscribersCount / (float)mySubscribedWriters);
+			// A intersection size with analysed channel
+			float A_a_inter_b = (float)mChannelInfos.mTotalSubscribers * A_percent;
+			// A union size with analysed channel 
+			float A_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)p.first->mTotalSubscribers - A_a_inter_b;
+
+			int J = (int)(100.0f * A_a_inter_b / A_a_union_b);
+			sprintf(saveBuffer, "\"%s\",%s,%d,%d\n",p.first->mName.ToString().c_str(),p.second.c_str(), percent,J);
 			Platform_fwrite(saveBuffer, 1, strlen(saveBuffer), L_File.get());
 		}
 		
-		header = "\nNot subscribed writers\nChannel Name,Channel ID,Percent\n";
+		header = "\nNot subscribed writers\nChannel Name,Channel ID,Percent,J\n";
 		Platform_fwrite(header.c_str(), 1, header.length(), L_File.get());
 
 		for (const auto& p : toSaveUnsub)
 		{
 			int percent = (int)(100.0f * ((float)p.first->mNotSubscribedSubscribersCount / (float)unsubWriters));
-			sprintf(saveBuffer, "\"%s\",%s,%d\n", p.first->mName.ToString().c_str(), p.second.c_str(), percent);
+			// A subscribers %
+			float A_percent = ((float)p.first->mSubscribersCount / (float)mySubscribedWriters);
+			// A intersection size with analysed channel
+			float A_a_inter_b = (float)mChannelInfos.mTotalSubscribers * A_percent;
+			// A union size with analysed channel 
+			float A_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)p.first->mTotalSubscribers - A_a_inter_b;
+
+			int J = (int)(100.0f * A_a_inter_b / A_a_union_b);
+
+
+			sprintf(saveBuffer, "\"%s\",%s,%d,%d\n", p.first->mName.ToString().c_str(), p.second.c_str(), percent,J);
 			Platform_fwrite(saveBuffer, 1, strlen(saveBuffer), L_File.get());
 		}
 
@@ -1631,4 +1705,10 @@ void		YoutubeAnalyser::LaunchDownloader(const std::string& id, ChannelStruct& ch
 	mDownloaderList.push_back({ CurrentDownloader , {id,&ch} });
 
 	CurrentDownloader->Init();
+}
+
+void	YoutubeAnalyser::switchDisplay()
+{
+	mShowInfluence = !mShowInfluence;
+	printf("switch precent / inspiration\n");
 }
