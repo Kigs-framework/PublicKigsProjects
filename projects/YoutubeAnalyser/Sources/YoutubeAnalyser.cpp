@@ -775,8 +775,8 @@ void	YoutubeAnalyser::refreshAllThumbs()
 
 	float dangle = 2.0f * KFLOAT_CONST_PI / 7.0f;
 	float angle = 0.0f;
-	float ray = 0.16f;
-	float dray = 0.011f;
+	float ray = 0.15f;
+	float dray = 0.0117f;
 	toShowCount = 0;
 	for (const auto& toPlace : toShow)
 	{
@@ -784,13 +784,14 @@ void	YoutubeAnalyser::refreshAllThumbs()
 		if (found != mShowedChannels.end())
 		{
 			const CMSP& toSetup = (*found).second;
-			toSetup("Dock") = v2f(0.53f + ray *cosf(angle), 0.49f + ray * sinf(angle));
+			v2f dock(0.53f + ray * cosf(angle), 0.47f + ray*1.02f * sinf(angle));
+			toSetup("Dock") = dock;
 			angle += dangle;
 			dangle = 2.0f * KFLOAT_CONST_PI / (2.0f+50.0f*ray);
 			ray += dray;
 			dray *= 0.98f;
 			toSetup["ChannelName"]("Text") = toPlace.first->mName;
-
+			float prescale = 1.0f;
 			if (mShowInfluence) // normalize according to follower count
 			{
 				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
@@ -802,13 +803,53 @@ void	YoutubeAnalyser::refreshAllThumbs()
 				float A_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)toPlace.first->mTotalSubscribers - A_a_inter_b;
 
 				float k = 100.0f * A_a_inter_b / A_a_union_b;
-				toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + " SC";
+				toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "sc";
+
+				prescale = 1.5f * k / 100.0f;
+				
 			}
 			else
 			{
 				int percent = (int)(100.0f * ((float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters));
-				toSetup["ChannelPercent"]("Text") = std::to_string(percent) + " %";
+				toSetup["ChannelPercent"]("Text") = std::to_string(percent) + "%";
+
+				prescale = percent / 100.0f;
 			}
+
+			prescale = sqrtf(prescale);
+			if (prescale > 0.8f)
+			{
+				prescale = 0.8f;
+			}
+			
+			// set ChannnelPercent position depending on where the thumb is in the spiral
+
+			if ((dock.x > 0.45f) && (dock.x < 0.61f))
+			{
+				toSetup["ChannelPercent"]("Dock") = v2f(0.5,0.0);
+				toSetup["ChannelPercent"]("Anchor") = v2f(0.5,1.0);
+			}
+			else if(dock.x<=0.45f)
+			{
+				toSetup["ChannelPercent"]("Dock") = v2f(1.0, 0.5);
+				toSetup["ChannelPercent"]("Anchor") = v2f(0.0, 0.5);
+			}
+			else
+			{
+				toSetup["ChannelPercent"]("Dock") = v2f(0.0, 0.5);
+				toSetup["ChannelPercent"]("Anchor") = v2f(1.0, 0.5);
+			}
+
+
+
+			toSetup("PreScaleX") = 1.2f * prescale;
+			toSetup("PreScaleY") = 1.2f * prescale;
+
+			toSetup["ChannelPercent"]("FontSize") = 0.6f* 24.0f / prescale;
+			toSetup["ChannelPercent"]("MaxWidth") = 0.6f * 100.0f / prescale;
+			toSetup["ChannelName"]("FontSize") = 0.6f * 18.0f / prescale;
+			toSetup["ChannelName"]("MaxWidth") = 0.6f * 150.0f / prescale;
+
 			const SP<UITexture>& checkTexture = toSetup;
 
 			if (!checkTexture->GetTexture())
@@ -835,6 +876,13 @@ void	YoutubeAnalyser::refreshAllThumbs()
 		if (somethingChanged == false)
 		{
 			mState = 50; // finished
+
+			// clear unwanted texts when finished
+
+			mMainInterface["ParsedComments"]("Text") = "";
+			mMainInterface["RequestCount"]("Text") = "";
+			mMainInterface["CurrentVideo"]("Text") = "";
+
 			SaveStatFile();
 #ifdef LOG_ALL
 			closeLog();
