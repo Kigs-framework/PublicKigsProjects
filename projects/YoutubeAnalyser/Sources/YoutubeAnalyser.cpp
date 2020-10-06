@@ -81,6 +81,11 @@ void	YoutubeAnalyser::ProtectedInit()
 	SetMemberFromParam(mMaxUserPerVideo, "MaxUserPerVideo");
 	SetMemberFromParam(mUseKeyword, "UseKeyword");
 
+	int oldFileLimitInDays=3*30;
+	SetMemberFromParam(oldFileLimitInDays, "OldFileLimitInDays");
+	
+	mOldFileLimit = 60.0 * 60.0 * 24.0 * (double)oldFileLimitInDays;
+
 	CoreCreateModule(HTTPRequestModule, 0);
 
 	
