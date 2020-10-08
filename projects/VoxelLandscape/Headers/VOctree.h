@@ -3,11 +3,13 @@
 #include "CoreModifiable.h"
 #include "CoreModifiableAttribute.h"
 
+class VOctreeNode;
+
 struct nodeInfo
 {
 	int				level;
 	v3i				coord;
-	unsigned int	contentType;
+	VOctreeNode*	vnode;
 };
 
 class VOctreeNode
@@ -139,7 +141,7 @@ public:
 	void			setVoxelContent(const v3i& coordinate, unsigned int content);
 	unsigned int	getVoxelContent(const v3i& coordinate,unsigned int maxLevel=(unsigned int)-1);
 
-	VOctreeNode* getVoxelAt(const v3i& coordinate, unsigned int& foundDepth, unsigned int maxDepth = (unsigned int)-1);
+	nodeInfo getVoxelAt(const v3i& coordinate, unsigned int maxDepth = (unsigned int)-1);
 	std::vector<nodeInfo>	getVisibleCubeList(const v3i& startPos, const v3f& viewVector);
 
 #ifdef _DEBUG
@@ -151,6 +153,9 @@ public:
 
 
 protected:
+
+	// get 26 neighbours (maximum) at the same depth   
+	std::vector<nodeInfo>	getVoxelNeighbours(const nodeInfo& node);
 
 	
 	// return true if currentNode parent needs to be changed
