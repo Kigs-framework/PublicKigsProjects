@@ -2,6 +2,8 @@
 #include <FilePathManager.h>
 #include <NotificationCenter.h>
 
+extern void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomCenterX, float zoomCenterY, float zoomCoef);
+
 IMPLEMENT_CLASS_INFO(Mandelbrot);
 
 IMPLEMENT_CONSTRUCTOR(Mandelbrot)
@@ -32,38 +34,11 @@ void	Mandelbrot::ProtectedUpdate()
 
 	if (!mBitmap.isNil())
 	{
+		v2f bitmapSize = mBitmap->getValue<v2f>("Size");
 
-		v2f zoomCenter(-0.743643887037151, 0.13182590420533);
-
-		for (int j = 0; j < 800; j++)
-		{
-			float Cy = (j - 400) * (1.0f / mZoomCoef) + zoomCenter.y;
-
-			for (int i = 0; i < 1280; i++)
-			{
-				float Cx = (i - 640) * (1.0f / mZoomCoef) + zoomCenter.x;
-				float Zx = 0.0;
-				float Zy = 0.0;
-				float Zx2 = 0.0;
-				float Zy2 = 0.0;
-				float ER2 = 4.0f;
-
-				int IterationMax = 32;
-				int Iteration = 0;
-				for (Iteration = 0; Iteration < IterationMax && ((Zx2 + Zy2) < ER2); Iteration++)
-				{
-					Zy = 2 * Zx * Zy + Cy;
-					Zx = Zx2 - Zy2 + Cx;
-					Zx2 = Zx * Zx;
-					Zy2 = Zy * Zy;
-				}
-				mBitmap->PutPixel(i,j,{(unsigned char)((Iteration<<4)&255),0,(unsigned char)(((Iteration>>4) & 255)<<4),255 });
-			}
-		}
-
+		DrawMandelbrot(mBitmap->GetPixelBuffer(), (int)bitmapSize.x, (int)bitmapSize.y, -0.743643887037151, 0.13182590420533, mZoomCoef);
 		mZoomCoef += 10.0f;
 
-		
 	}
 }
 
