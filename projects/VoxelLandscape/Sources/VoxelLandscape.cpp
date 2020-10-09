@@ -47,11 +47,11 @@ void	VoxelLandscape::ProtectedInitSequence(const kstl::string& sequence)
 
 #ifdef _DEBUG
 		mVOctree->printAllocatedNodeCount();
-		
 #endif
 
+		printf("Octree max depth = %d\n", mVOctree->getMaxDepth());
 
-		v3i startingNode = getEmptyNode({ 8,8,8 });
+		v3i startingNode = getEmptyNode({ 17,17,17 });
 
 		mVOctree->getVisibleCubeList(startingNode, {1.0f,0.0f,0.0f});
 	}
@@ -67,7 +67,7 @@ void	VoxelLandscape::ProtectedCloseSequence(const kstl::string& sequence)
 v3i		VoxelLandscape::getEmptyNode(const v3i& startingPos,int maxTry)
 {
 	int maxD=mVOctree->getValue<int>("MaxDepth");
-	int maxCoord = (1 << maxD);
+	int maxCoord = (2 << maxD);
 	
 	int dist = 0;
 
@@ -105,7 +105,7 @@ v3i		VoxelLandscape::getEmptyNode(const v3i& startingPos,int maxTry)
 			maxTry--;
 		}
 
-		dist++;
+		dist+=2;
 
 	} while (maxTry);
 
@@ -132,7 +132,7 @@ void	VoxelLandscape::initLandscape()
 		{
 			for (i = 0; i < zonesize; i++)
 			{
-				v3i	coords(i, j, k);
+				v3i	coords(i*2+1, j*2+1, k*2+1);
 
 				float noise = scaled_octave_noise_3d(6.0f, .3f, 0.1f, 0.0f, 127.0f, (float)i, (float)j, (float)k);
 

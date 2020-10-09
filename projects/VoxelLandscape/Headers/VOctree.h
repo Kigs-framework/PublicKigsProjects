@@ -76,6 +76,9 @@ protected:
 		}
 	}
 
+	// return depth of the node
+	unsigned int getDepth();
+
 	// try to set content of the node
 	// only content of leaf node can be set
 	// return true if content was set
@@ -118,7 +121,7 @@ protected:
 	}
 
 
-	VOctreeNode* mChildren[8] = { nullptr };
+	VOctreeNode*	mChildren[8] = { nullptr };
 	unsigned int	mContentType = 0;
 	unsigned int	mVisibilityFlag=0;
 
@@ -127,7 +130,7 @@ protected:
 #endif
 };
 
-
+// Octree minimal subdivision is 2 units wide, so that the center of each cubic node can be defined using v3i 
 
 class VOctree : public CoreModifiable
 {
@@ -151,6 +154,8 @@ public:
 	}
 #endif
 
+	// return max depth in octree
+	unsigned int getMaxDepth();
 
 protected:
 
@@ -161,9 +166,17 @@ protected:
 	// return true if currentNode parent needs to be changed
 	bool	recursiveSetVoxelContent(VOctreeNode* currentNode,const v3i& coordinate, unsigned int content, int currentDepth);
 
+
+	// set coord to real cube center
+	// minimal cube is 2 units wide
+	void	setValidCubeCenter(v3i& pos, unsigned int decal);
+
+
+
+
 	VOctreeNode* mRootNode = nullptr;
 	
-	// default depth max is 8
+	// default depth max is 8 => 256x256x256 cubes = 512 x 512 x 512 units
 	maInt		mMaxDepth = INIT_ATTRIBUTE(MaxDepth, 8);
 
 	unsigned int	mCurrentVisibilityFlag = 0;

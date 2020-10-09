@@ -13,35 +13,66 @@ IMPLEMENT_CONSTRUCTOR(VOctree)
 }
 
 
+// return depth of the node
+unsigned int VOctreeNode::getDepth()
+{
+	if (isLeaf())
+		return 0;
+
+	unsigned int maxD=0;
+	for (auto& n : mChildren)
+	{
+		unsigned int cd = n->getDepth();
+		if (cd > maxD)
+		{
+			maxD = cd;
+		}
+	}
+	return maxD + 1;
+}
+
 void	VOctree::setVoxelContent(const v3i& coordinate, unsigned int content)
 {
-	recursiveSetVoxelContent(mRootNode, coordinate, content, 1);
+	recursiveSetVoxelContent(mRootNode, coordinate, content, 0);
+}
+
+void	VOctree::setValidCubeCenter(v3i& pos, unsigned int decal)
+{
+	// set coord center according to level
+	unsigned int mask = 1 << (decal + 1);
+	mask--;
+	mask ^= 0xFFFFFFFF;
+	unsigned int half = 1 << decal;
+
+	pos.x = (pos.x & mask) + half;
+	pos.y = (pos.y & mask) + half;
+	pos.z = (pos.z & mask) + half;
 }
 
 nodeInfo VOctree::getVoxelAt(const v3i& coordinate, unsigned int maxDepth)
 {
 	nodeInfo result;
 	result.coord = coordinate;
-	result.level = 1;
+	result.level = 0;
 	result.vnode = mRootNode;
-	int currentDecal = mMaxDepth - 1;
+	int currentDecal = mMaxDepth;
 	do
 	{
 		if (result.vnode->isLeaf())
 		{
-			return result;
+			break;
 		}
 #ifdef _DEBUG
-		if (result.level > mMaxDepth)
+		if (result.level >= mMaxDepth)
 		{
 			result.vnode = nullptr;
 			printf("should not occur\n");
-			return result;
+			break;
 		}
 #endif
-		if (result.level > maxDepth)
+		if (result.level >= maxDepth)
 		{
-			return result;
+			break;
 		}
 
 		unsigned int index = ((coordinate.x >> currentDecal) & 1) | (((coordinate.y >> currentDecal) & 1) << 1) | (((coordinate.z >> currentDecal) & 1) << 2);
@@ -51,12 +82,14 @@ nodeInfo VOctree::getVoxelAt(const v3i& coordinate, unsigned int maxDepth)
 
 	} while (1);
 
+	setValidCubeCenter(result.coord, currentDecal);
+	return result;
 }
 
 unsigned int	VOctree::getVoxelContent(const v3i& coordinate, unsigned int maxDepth)
 {
-	int currentDepth = 1;
-	int currentDecal = mMaxDepth - 1;
+	int currentDepth = 0;
+	int currentDecal = mMaxDepth;
 	VOctreeNode* currentNode = mRootNode;
 	do
 	{
@@ -65,13 +98,13 @@ unsigned int	VOctree::getVoxelContent(const v3i& coordinate, unsigned int maxDep
 			return currentNode->getContentType();
 		}
 #ifdef _DEBUG
-		if (currentDepth > mMaxDepth)
+		if (currentDepth >= mMaxDepth)
 		{
 			printf("should not occur\n");
 			return 0;
 		}
 #endif
-		if (currentDepth > maxDepth)
+		if (currentDepth >= maxDepth)
 		{
 			return currentNode->getContentType();
 		}
@@ -108,7 +141,7 @@ bool	VOctree::recursiveSetVoxelContent(VOctreeNode* currentNode, const v3i& coor
 	VOctreeNode* nextNode = currentNode->getChild(index);
 	currentDepth++;
 
-	if (currentDepth > maxDepth)
+	if (currentDepth >= maxDepth)
 	{
 		if (nextNode->getContentType() != content)
 		{
@@ -186,9 +219,9 @@ std::vector<nodeInfo>	VOctree::getVoxelNeighbours(const nodeInfo& node)
 {
 	std::vector<nodeInfo> result;
 
-	const unsigned int maxSize = 1 << mMaxDepth;
+	const unsigned int maxSize = 2 << mMaxDepth;
 
-	int dpos = 1 << (mMaxDepth - node.level);
+	int dpos = 2 << (mMaxDepth - node.level);
 
 	std::set<VOctreeNode*>	alreadyFound;
 
@@ -247,4 +280,10 @@ std::vector<nodeInfo>	VOctree::getVisibleCubeList(const v3i& startPos, const v3f
 	std::vector<nodeInfo>	n= getVoxelNeighbours(current);
 
 	return result;
+}
+
+// return max depth in octree
+unsigned int VOctree::getMaxDepth()
+{
+	return mRootNode->getDepth();
 }
