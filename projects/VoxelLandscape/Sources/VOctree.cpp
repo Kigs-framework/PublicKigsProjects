@@ -20,9 +20,9 @@ unsigned int VOctreeNode::getDepth()
 		return 0;
 
 	unsigned int maxD=0;
-	for (auto& n : mChildren)
+	for (int i=0;i<8;i++)
 	{
-		unsigned int cd = n->getDepth();
+		unsigned int cd =mChildren[i].getDepth();
 		if (cd > maxD)
 		{
 			maxD = cd;
@@ -168,19 +168,20 @@ bool VOctreeNode::refresh()
 
 	std::unordered_map<unsigned int, unsigned int>	countChildrenTypes;
 	unsigned int	leafCount = 0;
-	for (auto& c : mChildren)
+	for (int i=0;i<8;i++)
 	{
-		if (c->isLeaf())
+		auto& c = mChildren[i];
+		if (c.isLeaf())
 		{
 			leafCount++;
 		}
-		if (countChildrenTypes.find(c->mContentType) == countChildrenTypes.end())
+		if (countChildrenTypes.find(c.mContentType) == countChildrenTypes.end())
 		{
-			countChildrenTypes[c->mContentType] = 1;
+			countChildrenTypes[c.mContentType] = 1;
 		}
 		else
 		{
-			countChildrenTypes[c->mContentType]++;
+			countChildrenTypes[c.mContentType]++;
 		}
 	}
 
@@ -218,51 +219,88 @@ bool VOctreeNode::refresh()
 std::vector<nodeInfo>	VOctree::getVoxelNeighbours(const nodeInfo& node)
 {
 	std::vector<nodeInfo> result;
+	result.resize(6);
 
 	const unsigned int maxSize = 2 << mMaxDepth;
 
 	int dpos = 2 << (mMaxDepth - node.level);
 
-	std::set<VOctreeNode*>	alreadyFound;
-
 	v3i	dposv;
-	for (int i = -1; i <= 1; i++)
+	// x
+	dposv = node.coord;
+	dposv.x = node.coord.x - dpos;
+	if (dposv.x >= 0)
 	{
-		dposv.x = node.coord.x + dpos * i;
-		if ((dposv.x >= 0) && (dposv.x < maxSize))
-		{
-			for (int j = -1; j <= 1; j++)
-			{
-				dposv.y = node.coord.y + dpos * j;
-				if ((dposv.y >= 0) && (dposv.y < maxSize))
-				{
-					for (int k = -1; k <= 1; k++)
-					{
-						if (k == 0)
-						{
-							if ((j == 0) && (i == 0))
-							{
-								// skip current node
-								continue;
-							}
-						}
-						dposv.z = node.coord.z + dpos * k;
-						if ((dposv.z >= 0) && (dposv.z < maxSize))
-						{
-							nodeInfo	f = getVoxelAt(dposv, node.level);
-							if (alreadyFound.find(f.vnode) == alreadyFound.end())
-							{
-								alreadyFound.insert(f.vnode);
-								result.push_back(f);
-							}
-						}
-					}
-				}
-			}
-		}
+		result[0]=getVoxelAt(dposv, node.level);
+	}
+
+	dposv = node.coord;
+	dposv.x = node.coord.x + dpos;
+	if (dposv.x < maxSize)
+	{
+		result[1]=getVoxelAt(dposv, node.level);
+	}
+	// y
+	dposv = node.coord;
+	dposv.y = node.coord.y - dpos;
+	if (dposv.y >= 0)
+	{
+		result[2] = getVoxelAt(dposv, node.level);
+	}
+
+	dposv = node.coord;
+	dposv.y = node.coord.y + dpos;
+	if (dposv.y < maxSize)
+	{
+		result[3] = getVoxelAt(dposv, node.level);
+	}
+	// z
+	dposv = node.coord;
+	dposv.z = node.coord.z - dpos;
+	if (dposv.z >= 0)
+	{
+		result[4]=getVoxelAt(dposv, node.level);
+	}
+
+	dposv = node.coord;
+	dposv.z = node.coord.z + dpos;
+	if (dposv.z < maxSize)
+	{
+		result[5]=getVoxelAt(dposv, node.level);
 	}
 
 	return result;
+}
+
+
+void	VOctree::recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList)
+{
+	startPos.vnode->mVisibilityFlag = mCurrentVisibilityFlag;
+	std::vector<nodeInfo>	n = getVoxelNeighbours(startPos);
+	for (auto& neighbour : n)
+	{
+		if (neighbour.vnode->mVisibilityFlag == mCurrentVisibilityFlag) // already treated
+		{
+			continue;
+		}
+
+		if (neighbour.vnode->isLeaf())
+		{
+			if (neighbour.vnode->mContentType == 0)
+			{
+				recurseFloodFill(neighbour, notEmptyList);
+				continue;
+			}
+			else
+			{
+				notEmptyList.push_back(neighbour);
+			}
+		}
+		else
+		{
+
+		}
+	}
 }
 
 std::vector<nodeInfo>	VOctree::getVisibleCubeList(const v3i& startPos, const v3f& viewVector)
@@ -271,13 +309,9 @@ std::vector<nodeInfo>	VOctree::getVisibleCubeList(const v3i& startPos, const v3f
 
 	mCurrentVisibilityFlag++;
 
-
 	nodeInfo current = getVoxelAt(startPos);
 
-	// say this node was treated by this search
-	current.vnode->mVisibilityFlag = mCurrentVisibilityFlag;
-
-	std::vector<nodeInfo>	n= getVoxelNeighbours(current);
+	recurseFloodFill(current, result);
 
 	return result;
 }

@@ -9,7 +9,7 @@ struct nodeInfo
 {
 	int				level;
 	v3i				coord;
-	VOctreeNode*	vnode;
+	VOctreeNode*	vnode=nullptr;
 };
 
 class VOctreeNode
@@ -43,7 +43,7 @@ public:
 	inline bool isLeaf()
 	{
 		// children are all set or all null, so test only one
-		if (mChildren[0])
+		if (mChildren)
 		{
 			return false;
 		}
@@ -66,14 +66,11 @@ protected:
 	void	collapse()
 	{
 		// destroy sons
-		for (auto& n : mChildren)
+		if(mChildren)
 		{
-			if (n)
-			{
-				delete n;
-				n = nullptr;
-			}
+			delete[] mChildren;
 		}
+		mChildren = nullptr;
 	}
 
 	// return depth of the node
@@ -98,9 +95,11 @@ protected:
 	{
 		if (isLeaf())
 		{
-			for (auto& n : mChildren)
+			
+			mChildren = new VOctreeNode[8];
+			for (int i = 0; i < 8; i++)
 			{
-				n = new VOctreeNode(content);
+				mChildren[i].setContentType(content);
 			}
 
 			return true;
@@ -117,11 +116,11 @@ protected:
 	// don't test if index is in [0-7] but we suppose function is only called by VOctree
 	VOctreeNode* getChild(unsigned int index)
 	{
-		return mChildren[index];
+		return &(mChildren[index]);
 	}
 
 
-	VOctreeNode*	mChildren[8] = { nullptr };
+	VOctreeNode*	mChildren =  nullptr ;
 	unsigned int	mContentType = 0;
 	unsigned int	mVisibilityFlag=0;
 
@@ -159,8 +158,10 @@ public:
 
 protected:
 
-	// get 26 neighbours (maximum) at the same depth   
+	// get 6 neighbours (maximum) at the same depth   
 	std::vector<nodeInfo>	getVoxelNeighbours(const nodeInfo& node);
+
+	void	recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList);
 
 	
 	// return true if currentNode parent needs to be changed
@@ -171,13 +172,12 @@ protected:
 	// minimal cube is 2 units wide
 	void	setValidCubeCenter(v3i& pos, unsigned int decal);
 
-
-
-
 	VOctreeNode* mRootNode = nullptr;
 	
 	// default depth max is 8 => 256x256x256 cubes = 512 x 512 x 512 units
 	maInt		mMaxDepth = INIT_ATTRIBUTE(MaxDepth, 8);
 
 	unsigned int	mCurrentVisibilityFlag = 0;
+
+	v3i				mNeightboursDecalVectors[6] = { {-1,0,0},{1,0,0},{0,-1,0},{0,1,0},{0,0,-1},{0,0,1} };
 };
