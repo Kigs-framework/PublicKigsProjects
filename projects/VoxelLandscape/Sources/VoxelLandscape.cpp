@@ -3,6 +3,7 @@
 #include <NotificationCenter.h>
 #include "VOctree.h"
 #include "simplexnoise.h"
+#include "Camera.h"
 
 
 IMPLEMENT_CLASS_INFO(VoxelLandscape);
@@ -51,9 +52,19 @@ void	VoxelLandscape::ProtectedInitSequence(const kstl::string& sequence)
 
 		printf("Octree max depth = %d\n", mVOctree->getMaxDepth());
 
-		v3i startingNode = getEmptyNode({ 17,17,17 });
+		v3i startingPos = getEmptyNode({ 256,256,256 });
+		nodeInfo startingNode =mVOctree->getVoxelAt(startingPos);
 
-		mVOctree->getVisibleCubeList(startingNode, {1.0f,0.0f,0.0f});
+		std::vector<CMSP> cams = CoreModifiable::GetInstancesByName("Node3D", "Camera",true);
+		if (cams.size())
+		{
+			SP<Camera> cam = cams[0];
+			cam->globalMove({ (float)startingPos.x,(float)startingPos.y,(float)startingPos.z });
+		}
+
+		std::vector<nodeInfo> visible=mVOctree->getVisibleCubeList(startingNode, { 0.0f,-1.0f,0.0f }, { (float)startingPos.x,(float)startingPos.y,(float)startingPos.z });
+
+		printf("visible cube found = %d\n", visible.size());
 	}
 }
 void	VoxelLandscape::ProtectedCloseSequence(const kstl::string& sequence)
@@ -95,12 +106,15 @@ v3i		VoxelLandscape::getEmptyNode(const v3i& startingPos,int maxTry)
 			boundPos(testedPos.x, maxCoord);
 			boundPos(testedPos.y, maxCoord);
 			boundPos(testedPos.z, maxCoord);
+			nodeInfo tst = mVOctree->getVoxelAt(testedPos);
 
-			if (mVOctree->getVoxelContent(testedPos)==0)
+			if (tst.vnode)
 			{
-				return testedPos;
+				if (tst.vnode->getContentType() == 0)
+				{
+					return tst.coord;
+				}
 			}
-
 
 			maxTry--;
 		}
@@ -116,7 +130,7 @@ v3i		VoxelLandscape::getEmptyNode(const v3i& startingPos,int maxTry)
 void	VoxelLandscape::initLandscape()
 {
 
-	const int depth = 4;
+	const int depth = 8;
 
 	mVOctree = KigsCore::GetInstanceOf("mVOctree", "VOctree");
 	mVOctree->setValue("MaxDepth", depth);
@@ -124,25 +138,27 @@ void	VoxelLandscape::initLandscape()
 
 	const int zonesize = 1 << depth;
 
-
-	int i, j, k;
-	for (k = 0; k < zonesize; k++)
+	int i, j,k;
+	
+	for (j = 0; j < zonesize; j++)
 	{
-		for (j = 0; j < zonesize; j++)
+		printf("noise filling line %d/%d \n", j, zonesize);
+		for (i = 0; i < zonesize; i++)
 		{
-			for (i = 0; i < zonesize; i++)
+
+			int noise =(int) scaled_octave_noise_3d(6.0f, 0.2f, 0.001f, 0.0f, 255.0f, (float)i, (float)j, 0.0f);
+
+			/*for (k = 0; k < noise; k++)
 			{
-				v3i	coords(i*2+1, j*2+1, k*2+1);
-
-				float noise = scaled_octave_noise_3d(6.0f, .3f, 0.1f, 0.0f, 127.0f, (float)i, (float)j, (float)k);
-
-				if (noise > 90.0f)
-				{
-					mVOctree->setVoxelContent(coords, 1);
-				}
+				v3i	coords(i * 2 + 1, j * 2 + 1, k * 2 + 1);
+				mVOctree->setVoxelContent(coords, 1);
+			}*/
+			{
+				v3i	coords(i * 2 + 1, j * 2 + 1, noise * 2 + 1);
+				mVOctree->setVoxelContent(coords, 1);
 			}
+
 		}
 	}
-
 	
 }

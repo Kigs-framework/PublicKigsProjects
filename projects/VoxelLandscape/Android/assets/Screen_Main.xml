@@ -41,4 +41,26 @@
 			</Inst>
 		</Inst>
 	</Inst>
+	<Inst N="myScene" T="Scene3D">
+		<Inst N="Light" T="Node3D">
+			<Attr T="array" N="LocalMatrix" V="{0.145546,0.916476,0.372676,-0.555358,-0.236060,0.797404,0.818776,-0.323027,0.474615,9.366245,-4.244546,5.443862}" Dyn="yes"/>
+			<Inst N="Light" T="Light">
+				<Attr N="SpecularColor" V="{0.336828,0.577147,1.000000}"/>
+				<Attr N="DiffuseColor" V="{0.336828,0.577147,1.000000}"/>
+				<Attr N="SpotCutOff" V="0.128282"/>
+				<Attr N="LightType" V="SPOT"/>
+			</Inst>
+		</Inst>
+		<Inst N="Camera" T="Node3D">
+			<Attr T="array" N="LocalMatrix" V="{1.0,0.0,0.000000,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0}" Dyn="yes"/>
+			<Inst N="Camera" T="Camera">
+				<Attr N="VerticalFOV" V="26.991467"/>
+				<Attr N="FarPlane" V="1000.0"/>
+				<Attr N="UpVector" V="{0.000000,0.000000,1.000000}"/>
+				<Attr N="ViewVector" V="{0.000000,1.000000,0.000000}"/>
+				<Attr N="RenderingScreen" V="RenderingScreen:theRenderingScreen"/>
+				<Attr T="array" N="LocalMatrix" V="{0.000000,0.000000,-1.000000,-1.000000,0.000000,0.000000,0.000000,1.000000,0.000000,0.000000,0.000000,0.000000}" Dyn="yes"/>
+			</Inst>
+		</Inst>
+	</Inst>
 </Inst>

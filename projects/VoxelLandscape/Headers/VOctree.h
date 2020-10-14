@@ -144,7 +144,7 @@ public:
 	unsigned int	getVoxelContent(const v3i& coordinate,unsigned int maxLevel=(unsigned int)-1);
 
 	nodeInfo getVoxelAt(const v3i& coordinate, unsigned int maxDepth = (unsigned int)-1);
-	std::vector<nodeInfo>	getVisibleCubeList(const v3i& startPos, const v3f& viewVector);
+	std::vector<nodeInfo>	getVisibleCubeList(const nodeInfo& startPos, const v3f& viewVector,const v3f& viewPos);
 
 #ifdef _DEBUG
 	void	printAllocatedNodeCount()
@@ -158,10 +158,17 @@ public:
 
 protected:
 
-	// get 6 neighbours (maximum) at the same depth   
-	std::vector<nodeInfo>	getVoxelNeighbours(const nodeInfo& node);
+	// get neighbour in the given direction ( as an index in mNeightboursDecalVectors)   
+	nodeInfo	getVoxelNeighbour(const nodeInfo& node,int dir);
+
+	// get 4 children on the voxel side given by dir
+	std::vector<nodeInfo> getVoxelSideChildren(const nodeInfo& node, int dir);
+
+	void	recurseVoxelSideChildren(const nodeInfo& node, int dir, std::vector<nodeInfo>& childlist);
 
 	void	recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList);
+
+	void	recurseOrientedFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList,const v3f& viewVector, const v3f& viewPos);
 
 	
 	// return true if currentNode parent needs to be changed
@@ -179,5 +186,6 @@ protected:
 
 	unsigned int	mCurrentVisibilityFlag = 0;
 
-	v3i				mNeightboursDecalVectors[6] = { {-1,0,0},{1,0,0},{0,-1,0},{0,1,0},{0,0,-1},{0,0,1} };
+	const v3i				mNeightboursDecalVectors[6] = { {-1,0,0},{1,0,0},{0,-1,0},{0,1,0},{0,0,-1},{0,0,1} };
+	const int				mInvDir[6] = {1,0,3,2,5,4};
 };
