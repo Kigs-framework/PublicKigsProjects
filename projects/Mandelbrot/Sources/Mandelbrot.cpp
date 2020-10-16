@@ -37,7 +37,7 @@ void	Mandelbrot::ProtectedUpdate()
 		v2f bitmapSize = mBitmap->getValue<v2f>("Size");
 
 		DrawMandelbrot(mBitmap->GetPixelBuffer(), (int)bitmapSize.x, (int)bitmapSize.y, -0.743643887037151, 0.13182590420533, mZoomCoef);
-		mZoomCoef += 10.0f;
+		mZoomCoef *= 1.01;
 
 	}
 }
