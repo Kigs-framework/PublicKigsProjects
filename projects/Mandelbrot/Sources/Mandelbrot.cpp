@@ -54,12 +54,14 @@ void	Mandelbrot::ProtectedUpdate()
 		}
 
 		mBitmapDisplay->setValue("RotationAngle", mRotationAngle);
-		mRotationAngle += 0.01*fabsf(1.1f+sinf(totalTime));
+		mRotationAngle += 0.01*(0.8f+sinf(totalTime));
 	}
 }
 
 void	Mandelbrot::ProtectedClose()
 {
+	mBitmap = nullptr;
+	mBitmapDisplay = nullptr;
 	DataDrivenBaseApplication::ProtectedClose();
 }
 
