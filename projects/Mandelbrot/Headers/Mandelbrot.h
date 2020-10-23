@@ -2,6 +2,7 @@
 
 #include <DataDrivenBaseApplication.h>
 #include "KigsBitmap.h"
+#include "UI/UIItem.h"
 
 class Mandelbrot : public DataDrivenBaseApplication
 {
@@ -19,6 +20,10 @@ protected:
 	void	ProtectedCloseSequence(const kstl::string& sequence) override;
 
 	SP<KigsBitmap>	mBitmap;
+	SP<UIItem>		mBitmapDisplay;
 
 	float			mZoomCoef;
+
+	double			mStartTime = -1.0;
+	double			mRotationAngle = 0.0f;
 };

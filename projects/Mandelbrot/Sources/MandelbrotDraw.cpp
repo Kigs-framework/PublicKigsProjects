@@ -42,17 +42,17 @@ inline void colorFromIteration(RGBA* currentColor,int Iteration)
 
 inline int iterationLoop(float Cx, float Cy)
 {
-	float Zx = 0.0;
-	float Zy = 0.0;
-	float Zx2 = 0.0;
-	float Zy2 = 0.0;
-	float ER2 = 4.0f;
+	float Zx = Cx;
+	float Zy = Cy;
+	float Zx2 = Zx * Zx;
+	float Zy2 = Zy * Zy;
+	const float ER2 = 4.0f;
 
 
 	int Iteration = 0;
 	for (Iteration = 0; Iteration < IterationMax && ((Zx2 + Zy2) < ER2); Iteration++)
 	{
-		Zy = 2 * Zx * Zy + Cy;
+		Zy = 2.0f * Zx * Zy + Cy;
 		Zx = Zx2 - Zy2 + Cx;
 		Zx2 = Zx * Zx;
 		Zy2 = Zy * Zy;
@@ -61,14 +61,40 @@ inline int iterationLoop(float Cx, float Cy)
 	return Iteration;
 }
 
+void	drawRectangle(unsigned char* pixelsdata, int sizeX, int sizeY, int startX, int startY, int RectSizeX,int RectSizeY, float startCx, float startCy, float Dx, float Dy)
+{
+	// draw square border 
+	RGBA* rgbaPixels = (RGBA*)pixelsdata;
+	int Iteration = 0;
+	// first draw horizontal borders
+	RGBA currentColor;
+	for (int j = 0; j < RectSizeY; j++)
+	{
+		float Cy = startCy + j * Dy;
+		int index = getIndex(startX, j + startY, sizeX, sizeY);
+
+		for (int i = 0; i < RectSizeX; i++)
+		{
+			float Cx = startCx + i * Dx;
+
+			Iteration = iterationLoop(Cx, Cy);
+			colorFromIteration(&currentColor, Iteration);	
+			rgbaPixels[index] = currentColor;
+			index++;
+		}
+	}
+
+}
+
 void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int startX,int startY, int SquareSize,float startCx,float startCy,float Dx,float Dy)
 {
 	// draw square border 
 	RGBA* rgbaPixels = (RGBA*)pixelsdata;
 
-	int needRecurse = 0;
+	int checkRecurse1 = 0;
+	int checkRecurse2 = 0;
 
-	int prevIteration = -1;
+	int Iteration = 0;
 	// first draw horizontal borders
 	RGBA currentColor;
 	for (int j = 0; j < SquareSize; j+= SquareSize-1)
@@ -79,18 +105,10 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 		{
 			float Cx = startCx + i * Dx;
 
-			int Iteration = iterationLoop(Cx, Cy);
-			if (prevIteration == -1)
-			{
-				prevIteration = Iteration;
-				colorFromIteration(&currentColor, Iteration);
-			}
-			else if(Iteration != prevIteration)
-			{
-				needRecurse = 1;
-				prevIteration = Iteration;
-				colorFromIteration(&currentColor, Iteration);
-			}
+			Iteration = iterationLoop(Cx, Cy);
+			checkRecurse1 |= Iteration;
+			checkRecurse2 += Iteration;
+			colorFromIteration(&currentColor, Iteration);
 			int index = getIndex(i+startX, j+startY, sizeX, sizeY);
 			rgbaPixels[index] = currentColor;
 		}
@@ -105,33 +123,42 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 		{
 			float Cy = startCy + j * Dy;
 
-			int Iteration = iterationLoop(Cx, Cy);
-			if (Iteration != prevIteration)
-			{
-				needRecurse = 1;
-				prevIteration = Iteration;
-				colorFromIteration(&currentColor, Iteration);
-			}
+			Iteration = iterationLoop(Cx, Cy);
+			checkRecurse1 |= Iteration;
+			checkRecurse2 += Iteration;
+			colorFromIteration(&currentColor, Iteration);
 			int index = getIndex(i + startX, j + startY, sizeX, sizeY);
 			rgbaPixels[index] = currentColor;
 			
 		}
 	}
 
-	if (needRecurse)
+	int countIteration = 4 * (SquareSize-1);
+
+	if ((checkRecurse1 == Iteration) && (checkRecurse2 == (Iteration* countIteration)))// fill square
+	{
+		for (int i = 1; i < SquareSize - 1; i++)
+		{
+			int index = getIndex(1 + startX, i + startY, sizeX, sizeY);
+			for (int j = 1; j < SquareSize - 1; j++)
+			{
+				rgbaPixels[index] = currentColor;
+				index++;
+			}
+		}
+		
+	}
+	else  // need recurse
 	{
 		if (SquareSize == 3)
 		{
-			float Cy = startCy+Dx;
-			float Cx = startCx+Dy;
+			float Cy = startCy + Dx;
+			float Cx = startCx + Dy;
 
 			int Iteration = iterationLoop(Cx, Cy);
-			int index = getIndex(startX+1, startY+1, sizeX, sizeY);
-			if (index != -1)
-			{
-				colorFromIteration(&currentColor, Iteration);
-				rgbaPixels[index] = currentColor;
-			}
+			int index = getIndex(startX + 1, startY + 1, sizeX, sizeY);
+			colorFromIteration(&currentColor, Iteration);
+			rgbaPixels[index] = currentColor;
 		}
 		else
 		{
@@ -140,20 +167,6 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 			drawRecursiveSquare(pixelsdata, sizeX, sizeY, startX + 1 + subSize, startY + 1, subSize, startCx + Dx * (1.0f + subSize), startCy + Dy * (1.0f), Dx, Dy);
 			drawRecursiveSquare(pixelsdata, sizeX, sizeY, startX + 1, startY + 1 + subSize, subSize, startCx + Dx * (1.0f), startCy + Dy * (1.0f + subSize), Dx, Dy);
 			drawRecursiveSquare(pixelsdata, sizeX, sizeY, startX + 1 + subSize, startY + 1 + subSize, subSize, startCx + Dx * (1.0f + subSize), startCy + Dy * (1.0f + subSize), Dx, Dy);
-		}
-	}
-	else // fill square
-	{
-		colorFromIteration(&currentColor, prevIteration);
-
-		for (int i = 1; i < SquareSize - 1; i++)
-		{
-			for (int j = 1; j < SquareSize - 1; j++)
-			{
-
-				int index = getIndex(i + startX, j + startY, sizeX, sizeY);
-				rgbaPixels[index] = currentColor;
-			}
 		}
 	}
 }
@@ -172,6 +185,7 @@ void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomC
 		IterationMax = 255;
 	}
 
+	#pragma omp parallel for
 	for (int j = 0; j < sizeY-78; j+=78)
 	{
 		float Cy = (j - sizeY/2) * oneOnZoomCoef + zoomCenterY;
@@ -179,7 +193,25 @@ void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomC
 		for (int i = 0; i < sizeX-78; i+=78)
 		{
 			float Cx = (i - sizeX/2) * oneOnZoomCoef + zoomCenterX;
+
 			drawRecursiveSquare(pixelsdata, sizeX, sizeY, i, j, 78, Cx, Cy, oneOnZoomCoef, oneOnZoomCoef);
 		}
 	}
+
+	int testX = sizeX / 78;
+	int rectStartX = testX * 78;
+	int rectSizeX = sizeX - rectStartX;
+	int testY = sizeY / 78;
+	int rectStartY = testY * 78;
+	int rectSizeY = sizeY - rectStartY;
+
+	float Cx = (rectStartX - sizeX / 2) * oneOnZoomCoef + zoomCenterX;
+	float Cy = (0 - sizeY / 2) * oneOnZoomCoef + zoomCenterY;
+
+	drawRectangle(pixelsdata, sizeX, sizeY, rectStartX, 0, rectSizeX, sizeY, Cx, Cy, oneOnZoomCoef, oneOnZoomCoef);
+
+	Cx = (0 - sizeX / 2) * oneOnZoomCoef + zoomCenterX;
+	Cy = (rectStartY - sizeY / 2)* oneOnZoomCoef + zoomCenterY;
+
+	drawRectangle(pixelsdata, sizeX, sizeY, 0, rectStartY, rectStartX, rectSizeY, Cx, Cy, oneOnZoomCoef, oneOnZoomCoef);
 }

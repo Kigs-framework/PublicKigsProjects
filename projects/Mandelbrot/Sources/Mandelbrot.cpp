@@ -30,15 +30,31 @@ void	Mandelbrot::ProtectedInit()
 
 void	Mandelbrot::ProtectedUpdate()
 {
+
+	static int count_frame = 0;
 	DataDrivenBaseApplication::ProtectedUpdate();
 
 	if (!mBitmap.isNil())
 	{
+		if (mStartTime < 0.0)
+		{
+			mStartTime = DataDrivenBaseApplication::GetApplicationTimer()->GetTime();
+		}
 		v2f bitmapSize = mBitmap->getValue<v2f>("Size");
 
 		DrawMandelbrot(mBitmap->GetPixelBuffer(), (int)bitmapSize.x, (int)bitmapSize.y, -0.743643887037151, 0.13182590420533, mZoomCoef);
 		mZoomCoef *= 1.01;
+		count_frame++;
+		double totalTime = DataDrivenBaseApplication::GetApplicationTimer()->GetTime() - mStartTime;
+		if (count_frame == 100)
+		{
+			
+			printf("time per frame = %f\n", (float)totalTime/100.0f);
+			count_frame = 0;
+		}
 
+		mBitmapDisplay->setValue("RotationAngle", mRotationAngle);
+		mRotationAngle += 0.01*fabsf(1.1f+sinf(totalTime));
 	}
 }
 
@@ -52,6 +68,9 @@ void	Mandelbrot::ProtectedInitSequence(const kstl::string& sequence)
 	if (sequence == "sequencemain")
 	{
 		mBitmap = GetFirstInstanceByName("KigsBitmap", "mandelbrot");
+		mBitmapDisplay = GetFirstInstanceByName("UITexture", "uitexture");
+		mBitmapDisplay->setValue("PreScaleX", 1.4f);
+		mBitmapDisplay->setValue("PreScaleY", 1.4f);
 	}
 }
 void	Mandelbrot::ProtectedCloseSequence(const kstl::string& sequence)
