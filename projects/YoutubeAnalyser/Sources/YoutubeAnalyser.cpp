@@ -1268,7 +1268,13 @@ DEFINE_METHOD(YoutubeAnalyser, getChannelStats)
 				current->mName = infos["title"];
 				current->mThumb.mURL = infos["thumbnails"]["default"]["url"];
 			}
-			current->mTotalSubscribers = json["items"][0]["statistics"]["subscriberCount"];
+			current->mTotalSubscribers = 0;
+			CoreItemSP subscount = json["items"][0]["statistics"]["subscriberCount"];
+			if (!subscount.isNil())
+			{
+				current->mTotalSubscribers = subscount;
+			}
+			
 			SaveChannelStruct(id, *current);
 		}
 		else // data unavailable, save "empty" file
