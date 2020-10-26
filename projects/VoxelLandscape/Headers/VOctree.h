@@ -2,6 +2,7 @@
 
 #include "CoreModifiable.h"
 #include "CoreModifiableAttribute.h"
+#include "Camera.h"
 
 class VOctreeNode;
 
@@ -144,7 +145,7 @@ public:
 	unsigned int	getVoxelContent(const v3i& coordinate,unsigned int maxLevel=(unsigned int)-1);
 
 	nodeInfo getVoxelAt(const v3i& coordinate, unsigned int maxDepth = (unsigned int)-1);
-	std::vector<nodeInfo>	getVisibleCubeList(const nodeInfo& startPos, const v3f& viewVector,const v3f& viewPos);
+	std::vector<nodeInfo>	getVisibleCubeList(const nodeInfo& startPos, Camera& camera);
 
 #ifdef _DEBUG
 	void	printAllocatedNodeCount()
@@ -161,15 +162,79 @@ protected:
 	// get neighbour in the given direction ( as an index in mNeightboursDecalVectors)   
 	nodeInfo	getVoxelNeighbour(const nodeInfo& node,int dir);
 
-	// get 4 children on the voxel side given by dir
-	std::vector<nodeInfo> getVoxelSideChildren(const nodeInfo& node, int dir);
+	// utility class to avoid passing the same parameters to the recursive method
+	// and mutualise some computation 
+	class recurseVoxelSideChildren
+	{
+	public:
 
-	void	recurseVoxelSideChildren(const nodeInfo& node, int dir, std::vector<nodeInfo>& childlist);
+		recurseVoxelSideChildren()
+		{
+
+		}
+
+		recurseVoxelSideChildren(int dir,VOctree& octree, std::vector<nodeInfo>* child)
+		{
+			reset(dir, octree,child);
+		}
+		~recurseVoxelSideChildren() {}
+
+		void run(const nodeInfo& node);
+
+		void	reset(int dir, VOctree& octree,std::vector<nodeInfo>* child)
+		{
+			mMaxDepth = octree.mMaxDepth;
+			mChildList = child;
+			mDir = dir;
+			mMaskTest = 1 << (mDir / 2);
+			mMaskResult = (dir & 1) * mMaskTest;
+		}
+
+	private:
+		unsigned int mMaskTest;
+		unsigned int mMaskResult;
+		int			 mMaxDepth;
+
+		int							mDir;
+		std::vector<nodeInfo>*		mChildList;
+	};
 
 	void	recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList);
 
-	void	recurseOrientedFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList,const v3f& viewVector, const v3f& viewPos);
+	// utility class to avoid passing the same parameters to the recursive method
+	// and mutualise some computation 
+	class recurseOrientedFloodFill
+	{
+	public:
+		recurseOrientedFloodFill(VOctree& octree,std::vector<nodeInfo>* notEmptyList, const v3f& viewVector, const v3f& viewPos, const float fieldOfView) :
+			mOctree(octree)
+			, mNotEmptyList(notEmptyList)
+			, mViewVector(viewVector)
+			, mViewPos(viewPos)
+			, mSinFieldOfView(sinf(fieldOfView))
+		{
+		}
+		~recurseOrientedFloodFill() {}
 
+		void run(const nodeInfo& node);
+
+		void	reset(int dir)
+		{
+			
+		}
+	private:
+		v3f		mViewVector;
+		v3f		mViewPos;
+		float	mSinFieldOfView;
+
+		VOctree& mOctree;
+
+		std::vector<nodeInfo>*		mNotEmptyList;
+		std::vector< nodeInfo>		mChildToTreat;
+		recurseVoxelSideChildren	mSideChildrenGrabber;
+
+
+	};
 	
 	// return true if currentNode parent needs to be changed
 	bool	recursiveSetVoxelContent(VOctreeNode* currentNode,const v3i& coordinate, unsigned int content, int currentDepth);

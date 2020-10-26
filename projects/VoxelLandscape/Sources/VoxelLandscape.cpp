@@ -56,13 +56,14 @@ void	VoxelLandscape::ProtectedInitSequence(const kstl::string& sequence)
 		nodeInfo startingNode =mVOctree->getVoxelAt(startingPos);
 
 		std::vector<CMSP> cams = CoreModifiable::GetInstancesByName("Node3D", "Camera",true);
+		SP<Camera> cam = nullptr;
 		if (cams.size())
 		{
-			SP<Camera> cam = cams[0];
+			cam = cams[0];
 			cam->globalMove({ (float)startingPos.x,(float)startingPos.y,(float)startingPos.z });
 		}
 
-		std::vector<nodeInfo> visible=mVOctree->getVisibleCubeList(startingNode, { 0.0f,-1.0f,0.0f }, { (float)startingPos.x,(float)startingPos.y,(float)startingPos.z });
+		std::vector<nodeInfo> visible=mVOctree->getVisibleCubeList(startingNode, *cam.get());
 
 		printf("visible cube found = %d\n", visible.size());
 	}

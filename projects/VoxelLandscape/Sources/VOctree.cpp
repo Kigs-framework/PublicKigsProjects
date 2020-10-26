@@ -1,5 +1,5 @@
 #include "VOctree.h"
-
+#include "CullingObject.h"
 
 #ifdef _DEBUG
 unsigned int	VOctreeNode::mCurrentAllocatedNodeCount = 0;
@@ -257,140 +257,116 @@ nodeInfo	VOctree::getVoxelNeighbour(const nodeInfo& node,int dir)
 		
 }
 
-void	VOctree::recurseVoxelSideChildren(const nodeInfo& node, int dir, std::vector<nodeInfo>& childlist)
+void	VOctree::recurseVoxelSideChildren::run(const nodeInfo& node)
 {
-	unsigned int maskTest = 1 << (dir / 2);
-	unsigned int maskResult = (dir & 1) * maskTest;
 
 	int dpos = 1 << (mMaxDepth - (node.level + 1));
 
 	// check all sons
 	for (int c = 0; c < 8; c++)
 	{
-		v3i childCoord = node.coord;
-		childCoord.x += (((c & 1) << 1) - 1) * dpos;
-		childCoord.y += ((c & 2) - 1) * dpos;
-		childCoord.z += (((c & 4) >> 1) - 1) * dpos;
-
-		if ((c & maskTest) == maskResult)
+		if ((c & mMaskTest) == mMaskResult)
 		{
 			nodeInfo toAdd;
 			toAdd.vnode = &(node.vnode->mChildren[c]);
 			toAdd.level = node.level + 1;
-			toAdd.coord = childCoord;
+
+			// add block so childCoord is not pushed for recursion
+			{
+				v3i childCoord = node.coord;
+				childCoord.x += (((c & 1) << 1) - 1) * dpos;
+				childCoord.y += ((c & 2) - 1) * dpos;
+				childCoord.z += (((c & 4) >> 1) - 1) * dpos;
+
+				toAdd.coord = childCoord;
+			}
 
 			if (toAdd.vnode->isLeaf())
 			{
-				childlist.push_back(toAdd);
+				(*mChildList).push_back(toAdd);
 			}
 			else
 			{
-				recurseVoxelSideChildren(toAdd, dir, childlist);
+				run(toAdd);
 			}
 		}
 	}
 
 }
 
-
-// get 4 children on the voxel side given by dir
-std::vector<nodeInfo> VOctree::getVoxelSideChildren(const nodeInfo& node, int dir)
-{
-	std::vector<nodeInfo> result;
-	result.reserve(4);
-
-	unsigned int maskTest = 1<<(dir/2);
-	unsigned int maskResult = (dir & 1)*maskTest;
-
-	int dpos = 1 << (mMaxDepth - (node.level+1));
-
-	// check all sons
-	for (int c=0;c<8;c++)
-	{
-		if ((c & maskTest) == maskResult)
-		{
-			v3i childCoord = node.coord;
-			childCoord.x += (((c & 1) << 1) - 1) * dpos;
-			childCoord.y += ((c & 2) - 1) * dpos;
-			childCoord.z += (((c & 4) >> 1) - 1) * dpos;
-
-			nodeInfo toAdd;
-			toAdd.vnode = &(node.vnode->mChildren[c]);
-			toAdd.level = node.level + 1;
-			toAdd.coord = childCoord; 
-			result.push_back(toAdd);
-		}
-	}
-
-	return result;
-}
-
-void	VOctree::recurseOrientedFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList, const v3f& viewVector, const v3f& viewPos)
+void	VOctree::recurseOrientedFloodFill::run(const nodeInfo& startPos)
 {
 	// set current node as "treated"
-	startPos.vnode->mVisibilityFlag = mCurrentVisibilityFlag;
+	startPos.vnode->mVisibilityFlag = mOctree.mCurrentVisibilityFlag;
 
 	v3f centralVPos(startPos.coord.x, startPos.coord.y, startPos.coord.z);
-
+	std::vector< nodeInfo> child;
 	// for each adjacent node
 	for (int dir = 0; dir < 6; dir++)
 	{
 		// get adjacent node
-		nodeInfo	n = getVoxelNeighbour(startPos, dir);
+		nodeInfo	n = mOctree.getVoxelNeighbour(startPos, dir);
 
 		// test node is in front of viewer
-		v3f	dirV(n.coord.x, n.coord.y,n.coord.z);
-		dirV -= viewPos;
+		v3f	dirV(n.coord.x, n.coord.y, n.coord.z);
+		dirV -= mViewPos;
 
-		if (Dot(viewVector, dirV) > 0)
+		if (Dot(mViewVector, dirV) > 0)
 		{
 			// test that flood fill don't go back
-			dirV.Set(n.coord.x, n.coord.y, n.coord.z);
-			dirV -= centralVPos;
-			if (Dot(viewVector, dirV) < 0)
 			{
-				continue;
+				dirV.Set(n.coord.x, n.coord.y, n.coord.z);
+				dirV -= centralVPos;
+				dirV.Normalize();
+				if (Dot(mViewVector, dirV) < -mSinFieldOfView)
+				{
+					continue;
+				}
 			}
 
 			if (n.vnode == nullptr) // TODO => outside of this octree -> should check other octrees
 			{
 				continue;
 			}
-			if (n.vnode->mVisibilityFlag == mCurrentVisibilityFlag) // already treated continue
+			if (n.vnode->mVisibilityFlag == mOctree.mCurrentVisibilityFlag) // already treated continue
 			{
 				continue;
 			}
 
-			std::vector< nodeInfo> child;
+			child.clear();
 			if (n.vnode->isLeaf()) // if this node is a leaf, then this is the only one to treat
 			{
 				child.push_back(n);
 			}
 			else // else get all sons on the correct side of n
 			{
-				recurseVoxelSideChildren(n, mInvDir[dir], child);
+				mSideChildrenGrabber.reset(mOctree.mInvDir[dir], mOctree, &child);
+				mSideChildrenGrabber.run(n);
 			}
 
 			// for all the found nodes, check if they need to be added to visible list or to be flood fill
 			for (auto& c : child)
 			{
-				if (c.vnode->mVisibilityFlag != mCurrentVisibilityFlag)
+				if (c.vnode->mVisibilityFlag != mOctree.mCurrentVisibilityFlag)
 				{
 					if (c.vnode->mContentType == 0) // node is empty, recurse flood fill
 					{
-						recurseOrientedFloodFill(c, notEmptyList,viewVector, viewPos);
+						// recursion is here
+						run(c);
 						continue;
 					}
 					else // add this node to visibility list
 					{
-						c.vnode->mVisibilityFlag = mCurrentVisibilityFlag;
-						notEmptyList.push_back(c);
+						c.vnode->mVisibilityFlag = mOctree.mCurrentVisibilityFlag;
+						(*mNotEmptyList).push_back(c);
 					}
 				}
 			}
 		}
 	}
 }
+
+
 
 void	VOctree::recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList)
 {
@@ -419,7 +395,8 @@ void	VOctree::recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& 
 		}
 		else // else get all sons on the correct side of n
 		{
-			recurseVoxelSideChildren(n, mInvDir[dir],child);
+			recurseVoxelSideChildren r(mInvDir[dir], *this, &child);
+			r.run(n);
 		}
 
 		// for all the found nodes, check if they need to be added to visible list or to be flood fill
@@ -442,13 +419,23 @@ void	VOctree::recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& 
 	}
 }
 
-std::vector<nodeInfo>	VOctree::getVisibleCubeList(const nodeInfo& startPos, const v3f& viewVector, const v3f& viewPos)
+std::vector<nodeInfo>	VOctree::getVisibleCubeList(const nodeInfo& startPos, Camera& cam)
 {
 	std::vector<nodeInfo> result;
 
 	mCurrentVisibilityFlag++;
 
-	recurseOrientedFloodFill(startPos, result,viewVector,viewPos);
+	/*CullingObject c;
+	cam.InitCullingObject(&c);
+	*/
+
+	v3f viewPos=cam.GetGlobalPosition();
+	v3f viewVector = cam.GetGlobalViewVector();
+
+	viewVector.Normalize();
+
+	recurseOrientedFloodFill t(*this,&result,viewVector,viewPos,PI*0.25f);
+	t.run(startPos);
 
 	return result;
 }
