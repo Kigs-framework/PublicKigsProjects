@@ -109,9 +109,9 @@ v3i		VoxelLandscape::getEmptyNode(const v3i& startingPos,int maxTry)
 			boundPos(testedPos.z, maxCoord);
 			nodeInfo tst = mVOctree->getVoxelAt(testedPos);
 
-			if (tst.vnode)
+			if (tst.node)
 			{
-				if (tst.vnode->getContentType() == 0)
+				if (tst.getNode<VOctreeNode>()->getContentType().getContent() == 0)
 				{
 					return tst.coord;
 				}

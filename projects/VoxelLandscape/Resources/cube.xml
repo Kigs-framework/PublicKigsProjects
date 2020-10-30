@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Inst N="Scene_RootNode" T="Node3D">
+	<Inst N="Camera" T="Node3D">
+		<Attr T="array" N="LocalMatrix" V="{0.685921,0.727676,0.000000,-0.324014,0.305421,0.895396,0.651558,-0.614170,0.445271,7.358891,-6.925791,4.958309}" Dyn="yes"/>
+		<Inst N="Camera-camera" T="Camera">
+			<Attr N="VerticalFOV" V="22.273731"/>
+			<Attr N="FarPlane" V="100.000000"/>
+			<Attr N="UpVector" V="{0.000000,1.000000,0.000000}"/>
+			<Attr N="ViewVector" V="{0.000000,0.000000,-1.000000}"/>
+			<Attr N="RenderingScreen" V="RenderingScreen:theRenderingScreen"/>
+			<Attr N="AspectRatio" V="1.777778"/>
+			<Attr T="array" N="LocalMatrix" V="{0.000000,0.000000,-1.000000,-1.000000,0.000000,0.000000,0.000000,1.000000,0.000000,0.000000,0.000000,0.000000}" Dyn="yes"/>
+		</Inst>
+	</Inst>
+	<Inst N="Light" T="Node3D">
+		<Attr T="array" N="LocalMatrix" V="{-0.290865,0.955171,-0.055189,-0.771101,-0.199883,0.604525,0.566393,0.218391,0.794672,4.076245,1.005454,5.903862}" Dyn="yes"/>
+		<Inst N="Light-light" T="Light">
+			<Attr N="LinAttenuation" V="0.000000"/>
+			<Attr N="QuadAttenuation" V="0.001111"/>
+		</Inst>
+	</Inst>
+	<Inst N="Cube" T="Node3D">
+		<Inst N="Cube-mesh" T="ModernMesh">
+			<Attr N="RenderPassMask" V="2"/>
+			<Attr T="bool" N="IsCreatedFromExport" V="true" Dyn="yes"/>
+			<Inst N="group0" T="ModernMeshItemGroup">
+				<Attr N="TriangleBuffer" V="aaaaabaaacaaaaaaacaaadaaaeaaafaaagaaaeaaagaaahaaaiaaajaaakaaaiaaakaaalaaamaaanaaaoaaamaaaoaaapaabaaabbaabcaabaaabcaabdaabeaabfaabgaabeaabgaabhaa"/>
+				<Attr N="VertexBufferArray" V="hilohplpaaaaiadpaaaaiadpaahpaaaaaaaacadpabaaeadpaaaaiadpaaaaiadpaaaaiadpaahpaaaaaaaacadpaaaaaadpaaaaiadpaaaaiadphilohplpaahpaaaaabaamadoaaaaaadphilohplpaaaaiadphilohplpaahpaaaaabaamadoabaaeadpaaaaiadpaaaaiadpaaaaiadphpaaaaaaaaaacadpaaaaaadpaaaaiadphilohplpaaaaiadphpaaaaaaaaaacadpaaaaiadoaaaaiadphilohplphilohplphpaaaaaaabaamadoaaaaiadoaaaaiadpaaaaiadphilohplphpaaaaaaabaamadoaaaaaadpaaaaiadpaaaaiadphilohplpaaaaibaaabaamadoaaaaaadpaaaaiadphilohplphilohplpaaaaibaaabaamadoaaaaiadohilohplphilohplphilohplpaaaaibaaaaaaaadoaaaaiadohilohplpaaaaiadphilohplpaaaaibaaaaaaaadoaaaaaadphilohplphilohplpaaaaiadpibaaaaaaaaaacadpaaaaiadphilohplpaaaaiadpaaaaiadpibaaaaaaaaaacadpabaaeadphilohplpaaaaiadphilohplpibaaaaaaabaamadoabaaeadphilohplphilohplphilohplpibaaaaaaabaamadoaaaaiadpaaaaiadphilohplpaaaaiadpaaibaaaaaaaacadpaaaaiadohilohplphilohplpaaaaiadpaaibaaaaaaaacadpaaaaaaaahilohplphilohplphilohplpaaibaaaaabaamadoaaaaaaaaaaaaiadphilohplphilohplpaaibaaaaabaamadoaaaaiadohilohplpaaaaiadpaaaaiadpaaaahpaaabaagadpaaaaaadphilohplphilohplpaaaaiadpaaaahpaaabaagadpaaaaiadoaaaaiadphilohplpaaaaiadpaaaahpaaaaaacadpaaaaiadoaaaaiadpaaaaiadpaaaaiadpaaaahpaaaaaacadpaaaaaadp"/>
+				<Attr N="TexCoordsScale" V="1.000000"/>
+				<Attr T="coreitem" N="VertexDescription" Dyn="yes">
+<![CDATA[{"TexCoordsScale":1.000000,
+"TriangleCount":12,
+"VertexArrayMask":11,
+"VertexCount":24,
+"VertexSize":24,
+"normals":[4,12,2,3],
+"texCoords":[8,16,8,2],
+"vertices":[12,0,1,3]}]]>
+				</Attr>
+				<Inst N="Material-material" T="Material">
+					<Attr N="DiffuseColor" V="{1.000000,1.000000,1.000000,1.000000}"/>
+					<Attr N="SpecularColor" V="{0.000000,0.000000,0.000000,1.000000}"/>
+					<Attr N="Shininess" V="1.000000"/>
+					<Inst N="Material-materialMatStage1" T="MaterialStage">
+						<Inst N="Logo.png" T="Texture">
+							<Attr N="Width" V="512"/>
+							<Attr N="HasMipmap" V="true"/>
+							<Attr N="TransparencyType" V="0"/>
+							<Attr N="Height" V="512"/>
+							<Attr N="FileName" V="Logo.png"/>
+							<Attr N="ForcePow2" V="true"/>
+						</Inst>
+					</Inst>
+				</Inst>
+			</Inst>
+		</Inst>
+	</Inst>
+</Inst>

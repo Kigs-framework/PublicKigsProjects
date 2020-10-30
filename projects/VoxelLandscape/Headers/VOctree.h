@@ -3,132 +3,78 @@
 #include "CoreModifiable.h"
 #include "CoreModifiableAttribute.h"
 #include "Camera.h"
+#include "OctreeBase.h"
 
-class VOctreeNode;
 
-struct nodeInfo
-{
-	int				level;
-	v3i				coord;
-	VOctreeNode*	vnode=nullptr;
-};
-
-class VOctreeNode
+class VoxelOctreeContent 
 {
 public:
+	VoxelOctreeContent(){}
+	~VoxelOctreeContent() {}
 
-	friend class VOctree;
-
-	VOctreeNode()
+	void	setContent(unsigned int c)
 	{
-#ifdef _DEBUG
-		mCurrentAllocatedNodeCount++;
-#endif
-	}
-	VOctreeNode(unsigned int content) : mContentType(content)
-	{
-#ifdef _DEBUG
-		mCurrentAllocatedNodeCount++;
-#endif
+		mContent = c;
 	}
 
-	~VOctreeNode()
+	unsigned int	getContent()
 	{
-#ifdef _DEBUG
-		mCurrentAllocatedNodeCount--;
-#endif
-		// destroy sons
-		collapse();
+		return mContent;
 	}
 
-	inline bool isLeaf()
+	operator unsigned int() const
 	{
-		// children are all set or all null, so test only one
-		if (mChildren)
-		{
-			return false;
-		}
+		return mContent;
+	}
+
+	void	setVisibilityFlag(unsigned int f)
+	{
+		mVisibilityFlag = f;
+	}
+	unsigned int	getVisibilityFlag() const
+	{
+		return mVisibilityFlag;
+	}
+
+	static VoxelOctreeContent canCollapse(OctreeNode<VoxelOctreeContent>* children,bool& doCollapse);
+
+	bool	canOnlyBeSetOnLeaf() const
+	{
 		return true;
 	}
 
-	// return content type of the node
-	unsigned int getContentType()
-	{
-		return mContentType;
-	}
-
-
-
 protected:
+	unsigned int	mContent;
+	unsigned int	mVisibilityFlag;
 
-	// destroy sons
-	// methods don't test if collapse is valid or not
-	// collapse children with different content is a bad idea
-	void	collapse()
-	{
-		// destroy sons
-		if(mChildren)
-		{
-			delete[] mChildren;
-		}
-		mChildren = nullptr;
-	}
+private:
 
-	// return depth of the node
-	unsigned int getDepth();
-
-	// try to set content of the node
-	// only content of leaf node can be set
-	// return true if content was set
-	bool	setContentType(unsigned int content)
-	{
-		if (isLeaf())
-		{
-			mContentType = content;
-			return true;
-		}
-		return false;
-	}
-
-	// try to split node ( create 8 children )
-	// only leaf nodes can be splitted 
-	bool split(unsigned int content)
-	{
-		if (isLeaf())
-		{
-			
-			mChildren = new VOctreeNode[8];
-			for (int i = 0; i < 8; i++)
-			{
-				mChildren[i].setContentType(content);
-			}
-
-			return true;
-		}
-		return false;
-	}
-
-	// recompute mContentType according to sons content type
-	// if all childs have same contentType collapse node
-	// return true if mContentType was changed 
-	bool refresh();
-
-	// return child at given index
-	// don't test if index is in [0-7] but we suppose function is only called by VOctree
-	VOctreeNode* getChild(unsigned int index)
-	{
-		return &(mChildren[index]);
-	}
-
-
-	VOctreeNode*	mChildren =  nullptr ;
-	unsigned int	mContentType = 0;
-	unsigned int	mVisibilityFlag=0;
-
-#ifdef _DEBUG
-	static unsigned int	mCurrentAllocatedNodeCount;
-#endif
 };
+class VOctreeNode : public OctreeNode<VoxelOctreeContent>
+{
+public:
+	VOctreeNode() : OctreeNode<VoxelOctreeContent>()
+	{
+
+	}
+
+	VOctreeNode(unsigned int c) : OctreeNode<VoxelOctreeContent>()
+	{
+		mContentType.setContent(c);
+	}
+
+	void	setContent(unsigned int c)
+	{
+		mContentType.setContent(c);
+	}
+
+private:
+
+};
+
+
+
+typedef	nodeInfo	VNodeInfo;
 
 // Octree minimal subdivision is 2 units wide, so that the center of each cubic node can be defined using v3i 
 
@@ -139,18 +85,17 @@ public:
 	DECLARE_CONSTRUCTOR(VOctree);
 
 	
-
 	// change content type of a voxel given it's coordinates in Octree reference
 	void			setVoxelContent(const v3i& coordinate, unsigned int content);
 	unsigned int	getVoxelContent(const v3i& coordinate,unsigned int maxLevel=(unsigned int)-1);
 
-	nodeInfo getVoxelAt(const v3i& coordinate, unsigned int maxDepth = (unsigned int)-1);
-	std::vector<nodeInfo>	getVisibleCubeList(const nodeInfo& startPos, Camera& camera);
+	VNodeInfo getVoxelAt(const v3i& coordinate, unsigned int maxDepth = (unsigned int)-1);
+	std::vector<VNodeInfo>	getVisibleCubeList(VNodeInfo& startPos, Camera& camera);
 
 #ifdef _DEBUG
 	void	printAllocatedNodeCount()
 	{
-		printf("allocated nodes : %d\n", VOctreeNode::mCurrentAllocatedNodeCount);
+		printf("allocated nodes : %d\n", VOctreeNode::getCurrentAllocatedNodeCount());
 	}
 #endif
 
@@ -160,7 +105,7 @@ public:
 protected:
 
 	// get neighbour in the given direction ( as an index in mNeightboursDecalVectors)   
-	nodeInfo	getVoxelNeighbour(const nodeInfo& node,int dir);
+	VNodeInfo	getVoxelNeighbour(const VNodeInfo& node,int dir);
 
 	// utility class to avoid passing the same parameters to the recursive method
 	// and mutualise some computation 
@@ -173,15 +118,15 @@ protected:
 
 		}
 
-		recurseVoxelSideChildren(int dir,VOctree& octree, std::vector<nodeInfo>* child)
+		recurseVoxelSideChildren(int dir,VOctree& octree, std::vector<VNodeInfo>* child)
 		{
 			reset(dir, octree,child);
 		}
 		~recurseVoxelSideChildren() {}
 
-		void run(const nodeInfo& node);
+		void run(const VNodeInfo& node);
 
-		void	reset(int dir, VOctree& octree,std::vector<nodeInfo>* child)
+		void	reset(int dir, VOctree& octree,std::vector<VNodeInfo>* child)
 		{
 			mMaxDepth = octree.mMaxDepth;
 			mChildList = child;
@@ -196,17 +141,17 @@ protected:
 		int			 mMaxDepth;
 
 		int							mDir;
-		std::vector<nodeInfo>*		mChildList;
+		std::vector<VNodeInfo>*		mChildList;
 	};
 
-	void	recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList);
+	void	recurseFloodFill(const VNodeInfo& startPos, std::vector<VNodeInfo>& notEmptyList);
 
 	// utility class to avoid passing the same parameters to the recursive method
 	// and mutualise some computation 
 	class recurseOrientedFloodFill
 	{
 	public:
-		recurseOrientedFloodFill(VOctree& octree,std::vector<nodeInfo>* notEmptyList, const v3f& viewVector, const v3f& viewPos, const float fieldOfView) :
+		recurseOrientedFloodFill(VOctree& octree,std::vector<VNodeInfo>* notEmptyList, const v3f& viewVector, const v3f& viewPos, const float fieldOfView) :
 			mOctree(octree)
 			, mNotEmptyList(notEmptyList)
 			, mViewVector(viewVector)
@@ -216,7 +161,7 @@ protected:
 		}
 		~recurseOrientedFloodFill() {}
 
-		void run(const nodeInfo& node);
+		void run(VNodeInfo& node);
 
 		void	reset(int dir)
 		{
@@ -229,8 +174,8 @@ protected:
 
 		VOctree& mOctree;
 
-		std::vector<nodeInfo>*		mNotEmptyList;
-		std::vector< nodeInfo>		mChildToTreat;
+		std::vector<VNodeInfo>*		mNotEmptyList;
+		std::vector< VNodeInfo>		mChildToTreat;
 		recurseVoxelSideChildren	mSideChildrenGrabber;
 
 

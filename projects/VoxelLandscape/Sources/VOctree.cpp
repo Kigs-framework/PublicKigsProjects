@@ -1,9 +1,7 @@
 #include "VOctree.h"
 #include "CullingObject.h"
 
-#ifdef _DEBUG
-unsigned int	VOctreeNode::mCurrentAllocatedNodeCount = 0;
-#endif
+
 
 IMPLEMENT_CLASS_INFO(VOctree);
 
@@ -12,24 +10,56 @@ IMPLEMENT_CONSTRUCTOR(VOctree)
 	mRootNode = new VOctreeNode(0);
 }
 
-
-// return depth of the node
-unsigned int VOctreeNode::getDepth()
+VoxelOctreeContent VoxelOctreeContent::canCollapse(OctreeNode<VoxelOctreeContent>* children, bool& doCollapse)
 {
-	if (isLeaf())
-		return 0;
+	VoxelOctreeContent result;
+	result.mContent = 0;
+	result.mVisibilityFlag = 0;
 
-	unsigned int maxD=0;
-	for (int i=0;i<8;i++)
+	doCollapse = false;
+	
+	std::unordered_map<unsigned int, unsigned int>	countChildrenTypes;
+	unsigned int	leafCount = 0;
+	for (int i = 0; i < 8; i++)
 	{
-		unsigned int cd =mChildren[i].getDepth();
-		if (cd > maxD)
+		auto& c = children[i];
+		if (c.isLeaf())
 		{
-			maxD = cd;
+			leafCount++;
+		}
+		unsigned int ctype = c.getContentType().getContent();
+		if (countChildrenTypes.find(ctype) == countChildrenTypes.end())
+		{
+			countChildrenTypes[ctype] = 1;
+		}
+		else
+		{
+			countChildrenTypes[ctype]++;
 		}
 	}
-	return maxD + 1;
+
+	unsigned int	highestCount = 0;
+	unsigned int	bestFound = -1;
+
+	for (const auto& i : countChildrenTypes)
+	{
+		if (i.second > highestCount)
+		{
+			highestCount = i.second;
+			bestFound = i.first;
+		}
+	}
+
+	// all children have the same type and are leaf ? => collapse children
+	if ((highestCount == 8) && (leafCount == 8))
+	{
+		result.mContent = bestFound;
+		doCollapse = true;
+	}
+
+	return result;
 }
+
 
 void	VOctree::setVoxelContent(const v3i& coordinate, unsigned int content)
 {
@@ -49,23 +79,23 @@ void	VOctree::setValidCubeCenter(v3i& pos, unsigned int decal)
 	pos.z = (pos.z & mask) + half;
 }
 
-nodeInfo VOctree::getVoxelAt(const v3i& coordinate, unsigned int maxDepth)
+VNodeInfo VOctree::getVoxelAt(const v3i& coordinate, unsigned int maxDepth)
 {
-	nodeInfo result;
+	VNodeInfo result;
 	result.coord = coordinate;
 	result.level = 0;
-	result.vnode = mRootNode;
+	result.node = mRootNode;
 	int currentDecal = mMaxDepth;
 	do
 	{
-		if (result.vnode->isLeaf())
+		if (result.getNode<VOctreeNode>()->isLeaf())
 		{
 			break;
 		}
 #ifdef _DEBUG
 		if (result.level >= mMaxDepth)
 		{
-			result.vnode = nullptr;
+			result.node = nullptr;
 			printf("should not occur\n");
 			break;
 		}
@@ -76,7 +106,7 @@ nodeInfo VOctree::getVoxelAt(const v3i& coordinate, unsigned int maxDepth)
 		}
 
 		unsigned int index = ((coordinate.x >> currentDecal) & 1) | (((coordinate.y >> currentDecal) & 1) << 1) | (((coordinate.z >> currentDecal) & 1) << 2);
-		result.vnode = result.vnode->getChild(index);
+		result.node = static_cast<VOctreeNode*>(result.getNode<VOctreeNode>()->getChild(index));
 		result.level++;
 		currentDecal--;
 
@@ -110,7 +140,7 @@ unsigned int	VOctree::getVoxelContent(const v3i& coordinate, unsigned int maxDep
 		}
 
 		unsigned int index = ((coordinate.x >> currentDecal) & 1) | (((coordinate.y >> currentDecal) & 1) << 1) | (((coordinate.z >> currentDecal) & 1) << 2);
-		currentNode = currentNode->getChild(index);
+		currentNode = static_cast<VOctreeNode*>(currentNode->getChild(index));
 		currentDepth++;
 		currentDecal--;
 
@@ -138,14 +168,14 @@ bool	VOctree::recursiveSetVoxelContent(VOctreeNode* currentNode, const v3i& coor
 	int currentDecal = maxDepth - currentDepth;
 	unsigned int index = ((coordinate.x >> currentDecal) & 1) | (((coordinate.y >> currentDecal) & 1) << 1) | (((coordinate.z >> currentDecal) & 1) << 2);
 
-	VOctreeNode* nextNode = currentNode->getChild(index);
+	VOctreeNode* nextNode = static_cast<VOctreeNode*>(currentNode->getChild(index));
 	currentDepth++;
 
 	if (currentDepth >= maxDepth)
 	{
 		if (nextNode->getContentType() != content)
 		{
-			nextNode->setContentType(content);
+			nextNode->setContent(content);
 			return currentNode->refresh();
 		}
 	}
@@ -159,67 +189,10 @@ bool	VOctree::recursiveSetVoxelContent(VOctreeNode* currentNode, const v3i& coor
 }
 
 
-bool VOctreeNode::refresh()
+VNodeInfo	VOctree::getVoxelNeighbour(const VNodeInfo& node,int dir)
 {
-	if (isLeaf())
-	{
-		return false;
-	}
-
-	std::unordered_map<unsigned int, unsigned int>	countChildrenTypes;
-	unsigned int	leafCount = 0;
-	for (int i=0;i<8;i++)
-	{
-		auto& c = mChildren[i];
-		if (c.isLeaf())
-		{
-			leafCount++;
-		}
-		if (countChildrenTypes.find(c.mContentType) == countChildrenTypes.end())
-		{
-			countChildrenTypes[c.mContentType] = 1;
-		}
-		else
-		{
-			countChildrenTypes[c.mContentType]++;
-		}
-	}
-
-	unsigned int	highestCount = 0;
-	unsigned int	bestFound = -1;
-	
-	for (const auto& i : countChildrenTypes)
-	{
-		if (i.second > highestCount)
-		{
-			highestCount = i.second;
-			bestFound = i.first;
-		}
-	}
-
-	// all children have the same type and are leaf ? => collapse children
-	if ((highestCount == 8) && (leafCount==8))
-	{
-		mContentType = bestFound;
-
-		collapse();
-		// need to refresh parent
-		return true;
-	}
-
-	if (bestFound == mContentType)
-	{
-		return false;
-	}
-
-	mContentType = bestFound;
-	return true;
-}
-
-nodeInfo	VOctree::getVoxelNeighbour(const nodeInfo& node,int dir)
-{
-	nodeInfo result;
-	result.vnode = nullptr;
+	VNodeInfo result;
+	result.node = nullptr;
 
 	const unsigned int maxSize = 2 << mMaxDepth;
 
@@ -257,7 +230,7 @@ nodeInfo	VOctree::getVoxelNeighbour(const nodeInfo& node,int dir)
 		
 }
 
-void	VOctree::recurseVoxelSideChildren::run(const nodeInfo& node)
+void	VOctree::recurseVoxelSideChildren::run(const VNodeInfo& node)
 {
 
 	int dpos = 1 << (mMaxDepth - (node.level + 1));
@@ -267,8 +240,8 @@ void	VOctree::recurseVoxelSideChildren::run(const nodeInfo& node)
 	{
 		if ((c & mMaskTest) == mMaskResult)
 		{
-			nodeInfo toAdd;
-			toAdd.vnode = &(node.vnode->mChildren[c]);
+			VNodeInfo toAdd;
+			toAdd.node = static_cast<VOctreeNode*>(node.getNode<VOctreeNode>()->getChild(c));
 			toAdd.level = node.level + 1;
 
 			// add block so childCoord is not pushed for recursion
@@ -281,7 +254,7 @@ void	VOctree::recurseVoxelSideChildren::run(const nodeInfo& node)
 				toAdd.coord = childCoord;
 			}
 
-			if (toAdd.vnode->isLeaf())
+			if (toAdd.getNode<VOctreeNode>()->isLeaf())
 			{
 				(*mChildList).push_back(toAdd);
 			}
@@ -294,18 +267,18 @@ void	VOctree::recurseVoxelSideChildren::run(const nodeInfo& node)
 
 }
 
-void	VOctree::recurseOrientedFloodFill::run(const nodeInfo& startPos)
+void	VOctree::recurseOrientedFloodFill::run(VNodeInfo& startPos)
 {
 	// set current node as "treated"
-	startPos.vnode->mVisibilityFlag = mOctree.mCurrentVisibilityFlag;
+	startPos.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mOctree.mCurrentVisibilityFlag);
 
 	v3f centralVPos(startPos.coord.x, startPos.coord.y, startPos.coord.z);
-	std::vector< nodeInfo> child;
+	std::vector< VNodeInfo> child;
 	// for each adjacent node
 	for (int dir = 0; dir < 6; dir++)
 	{
 		// get adjacent node
-		nodeInfo	n = mOctree.getVoxelNeighbour(startPos, dir);
+		VNodeInfo	n = mOctree.getVoxelNeighbour(startPos, dir);
 
 		// test node is in front of viewer
 		v3f	dirV(n.coord.x, n.coord.y, n.coord.z);
@@ -324,17 +297,17 @@ void	VOctree::recurseOrientedFloodFill::run(const nodeInfo& startPos)
 				}
 			}
 
-			if (n.vnode == nullptr) // TODO => outside of this octree -> should check other octrees
+			if (n.node == nullptr) // TODO => outside of this octree -> should check other octrees
 			{
 				continue;
 			}
-			if (n.vnode->mVisibilityFlag == mOctree.mCurrentVisibilityFlag) // already treated continue
+			if (n.getNode<VOctreeNode>()->getContentType().getVisibilityFlag() == mOctree.mCurrentVisibilityFlag) // already treated continue
 			{
 				continue;
 			}
 
 			child.clear();
-			if (n.vnode->isLeaf()) // if this node is a leaf, then this is the only one to treat
+			if (n.getNode<VOctreeNode>()->isLeaf()) // if this node is a leaf, then this is the only one to treat
 			{
 				child.push_back(n);
 			}
@@ -347,9 +320,9 @@ void	VOctree::recurseOrientedFloodFill::run(const nodeInfo& startPos)
 			// for all the found nodes, check if they need to be added to visible list or to be flood fill
 			for (auto& c : child)
 			{
-				if (c.vnode->mVisibilityFlag != mOctree.mCurrentVisibilityFlag)
+				if (c.getNode<VOctreeNode>()->getContentType().getVisibilityFlag() != mOctree.mCurrentVisibilityFlag)
 				{
-					if (c.vnode->mContentType == 0) // node is empty, recurse flood fill
+					if (c.getNode<VOctreeNode>()->getContentType().getContent() == 0) // node is empty, recurse flood fill
 					{
 						// recursion is here
 						run(c);
@@ -357,7 +330,7 @@ void	VOctree::recurseOrientedFloodFill::run(const nodeInfo& startPos)
 					}
 					else // add this node to visibility list
 					{
-						c.vnode->mVisibilityFlag = mOctree.mCurrentVisibilityFlag;
+						c.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mOctree.mCurrentVisibilityFlag);
 						(*mNotEmptyList).push_back(c);
 					}
 				}
@@ -368,28 +341,28 @@ void	VOctree::recurseOrientedFloodFill::run(const nodeInfo& startPos)
 
 
 
-void	VOctree::recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList)
+void	VOctree::recurseFloodFill(const VNodeInfo& startPos, std::vector<VNodeInfo>& notEmptyList)
 {
 	// set current node as "treated"
-	startPos.vnode->mVisibilityFlag = mCurrentVisibilityFlag;
+	startPos.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mCurrentVisibilityFlag);
 
 	// for each adjacent node
 	for(int dir=0;dir<6;dir++)
 	{
 		// get adjacent node
-		nodeInfo	n = getVoxelNeighbour(startPos,dir);
+		VNodeInfo	n = getVoxelNeighbour(startPos,dir);
 
-		if (n.vnode == nullptr) // TODO => outside of this octree -> should check other octrees
+		if (n.node == nullptr) // TODO => outside of this octree -> should check other octrees
 		{
 			continue; 
 		}
-		if (n.vnode->mVisibilityFlag == mCurrentVisibilityFlag) // already treated continue
+		if (n.getNode<VOctreeNode>()->getContentType().getVisibilityFlag() == mCurrentVisibilityFlag) // already treated continue
 		{
 			continue;
 		}
 
-		std::vector< nodeInfo> child;
-		if (n.vnode->isLeaf()) // if this node is a leaf, then this is the only one to treat
+		std::vector< VNodeInfo> child;
+		if (n.getNode<VOctreeNode>()->isLeaf()) // if this node is a leaf, then this is the only one to treat
 		{
 			child.push_back(n);
 		}
@@ -402,16 +375,16 @@ void	VOctree::recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& 
 		// for all the found nodes, check if they need to be added to visible list or to be flood fill
 		for (auto& c : child)
 		{
-			if (c.vnode->mVisibilityFlag != mCurrentVisibilityFlag)
+			if (c.getNode<VOctreeNode>()->getContentType().getVisibilityFlag() != mCurrentVisibilityFlag)
 			{
-				if (c.vnode->mContentType == 0) // node is empty, recurse flood fill
+				if (c.getNode<VOctreeNode>()->getContentType().getContent() == 0) // node is empty, recurse flood fill
 				{
 					recurseFloodFill(c, notEmptyList);
 					continue;
 				}
 				else // add this node to visibility list
 				{
-					c.vnode->mVisibilityFlag = mCurrentVisibilityFlag;
+					c.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mCurrentVisibilityFlag);
 					notEmptyList.push_back(c);
 				}
 			}
@@ -419,9 +392,9 @@ void	VOctree::recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& 
 	}
 }
 
-std::vector<nodeInfo>	VOctree::getVisibleCubeList(const nodeInfo& startPos, Camera& cam)
+std::vector<VNodeInfo>	VOctree::getVisibleCubeList(VNodeInfo& startPos, Camera& cam)
 {
-	std::vector<nodeInfo> result;
+	std::vector<VNodeInfo> result;
 
 	mCurrentVisibilityFlag++;
 
