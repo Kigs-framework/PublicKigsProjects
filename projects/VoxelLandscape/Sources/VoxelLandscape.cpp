@@ -139,7 +139,7 @@ void	VoxelLandscape::initLandscape()
 
 	const int zonesize = 1 << depth;
 
-	int i, j,k;
+	int i, j;
 	
 	for (j = 0; j < zonesize; j++)
 	{

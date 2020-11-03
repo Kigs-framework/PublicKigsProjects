@@ -10,7 +10,7 @@ IMPLEMENT_CONSTRUCTOR(VOctree)
 	mRootNode = new VOctreeNode(0);
 }
 
-VoxelOctreeContent VoxelOctreeContent::canCollapse(OctreeNode<VoxelOctreeContent>* children, bool& doCollapse)
+VoxelOctreeContent VoxelOctreeContent::canCollapse(OctreeNodeBase** children, bool& doCollapse)
 {
 	VoxelOctreeContent result;
 	result.mContent = 0;
@@ -22,7 +22,7 @@ VoxelOctreeContent VoxelOctreeContent::canCollapse(OctreeNode<VoxelOctreeContent
 	unsigned int	leafCount = 0;
 	for (int i = 0; i < 8; i++)
 	{
-		auto& c = children[i];
+		VOctreeNode& c = *(static_cast<VOctreeNode*>(children[i]));
 		if (c.isLeaf())
 		{
 			leafCount++;
@@ -63,64 +63,16 @@ VoxelOctreeContent VoxelOctreeContent::canCollapse(OctreeNode<VoxelOctreeContent
 
 void	VOctree::setVoxelContent(const v3i& coordinate, unsigned int content)
 {
-	recursiveSetVoxelContent(mRootNode, coordinate, content, 0);
+	recursiveSetVoxelContent(static_cast<VOctreeNode*>(mRootNode), coordinate, content, 0);
 }
 
-void	VOctree::setValidCubeCenter(v3i& pos, unsigned int decal)
-{
-	// set coord center according to level
-	unsigned int mask = 1 << (decal + 1);
-	mask--;
-	mask ^= 0xFFFFFFFF;
-	unsigned int half = 1 << decal;
 
-	pos.x = (pos.x & mask) + half;
-	pos.y = (pos.y & mask) + half;
-	pos.z = (pos.z & mask) + half;
-}
-
-VNodeInfo VOctree::getVoxelAt(const v3i& coordinate, unsigned int maxDepth)
-{
-	VNodeInfo result;
-	result.coord = coordinate;
-	result.level = 0;
-	result.node = mRootNode;
-	int currentDecal = mMaxDepth;
-	do
-	{
-		if (result.getNode<VOctreeNode>()->isLeaf())
-		{
-			break;
-		}
-#ifdef _DEBUG
-		if (result.level >= mMaxDepth)
-		{
-			result.node = nullptr;
-			printf("should not occur\n");
-			break;
-		}
-#endif
-		if (result.level >= maxDepth)
-		{
-			break;
-		}
-
-		unsigned int index = ((coordinate.x >> currentDecal) & 1) | (((coordinate.y >> currentDecal) & 1) << 1) | (((coordinate.z >> currentDecal) & 1) << 2);
-		result.node = static_cast<VOctreeNode*>(result.getNode<VOctreeNode>()->getChild(index));
-		result.level++;
-		currentDecal--;
-
-	} while (1);
-
-	setValidCubeCenter(result.coord, currentDecal);
-	return result;
-}
 
 unsigned int	VOctree::getVoxelContent(const v3i& coordinate, unsigned int maxDepth)
 {
 	int currentDepth = 0;
 	int currentDecal = mMaxDepth;
-	VOctreeNode* currentNode = mRootNode;
+	VOctreeNode* currentNode = static_cast<VOctreeNode*>(mRootNode);
 	do
 	{
 		if (currentNode->isLeaf())
@@ -189,96 +141,22 @@ bool	VOctree::recursiveSetVoxelContent(VOctreeNode* currentNode, const v3i& coor
 }
 
 
-VNodeInfo	VOctree::getVoxelNeighbour(const VNodeInfo& node,int dir)
-{
-	VNodeInfo result;
-	result.node = nullptr;
 
-	const unsigned int maxSize = 2 << mMaxDepth;
 
-	int dpos = 2 << (mMaxDepth - node.level);
 
-	v3i	dposv(node.coord);
 
-	dposv += mNeightboursDecalVectors[dir]*dpos;
-	
-	if (dir < 2)
-	{
-		if ((dposv.x >= 0)&& (dposv.x < maxSize))
-		{
-			return getVoxelAt(dposv, node.level);
-		}
-		return result;
-	}
-	else if (dir < 4)
-	{
-		if ((dposv.y >= 0) && (dposv.y < maxSize))
-		{
-			return getVoxelAt(dposv, node.level);
-		}
-		return result;
-	}
-	else
-	{
-		if ((dposv.z >= 0) && (dposv.z < maxSize))
-		{
-			return getVoxelAt(dposv, node.level);
-		}
-		
-	}
-	return result;
-		
-}
-
-void	VOctree::recurseVoxelSideChildren::run(const VNodeInfo& node)
-{
-
-	int dpos = 1 << (mMaxDepth - (node.level + 1));
-
-	// check all sons
-	for (int c = 0; c < 8; c++)
-	{
-		if ((c & mMaskTest) == mMaskResult)
-		{
-			VNodeInfo toAdd;
-			toAdd.node = static_cast<VOctreeNode*>(node.getNode<VOctreeNode>()->getChild(c));
-			toAdd.level = node.level + 1;
-
-			// add block so childCoord is not pushed for recursion
-			{
-				v3i childCoord = node.coord;
-				childCoord.x += (((c & 1) << 1) - 1) * dpos;
-				childCoord.y += ((c & 2) - 1) * dpos;
-				childCoord.z += (((c & 4) >> 1) - 1) * dpos;
-
-				toAdd.coord = childCoord;
-			}
-
-			if (toAdd.getNode<VOctreeNode>()->isLeaf())
-			{
-				(*mChildList).push_back(toAdd);
-			}
-			else
-			{
-				run(toAdd);
-			}
-		}
-	}
-
-}
-
-void	VOctree::recurseOrientedFloodFill::run(VNodeInfo& startPos)
+void	VOctree::recurseOrientedFloodFill::run(nodeInfo& startPos)
 {
 	// set current node as "treated"
 	startPos.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mOctree.mCurrentVisibilityFlag);
 
 	v3f centralVPos(startPos.coord.x, startPos.coord.y, startPos.coord.z);
-	std::vector< VNodeInfo> child;
+	std::vector< nodeInfo> child;
 	// for each adjacent node
 	for (int dir = 0; dir < 6; dir++)
 	{
 		// get adjacent node
-		VNodeInfo	n = mOctree.getVoxelNeighbour(startPos, dir);
+		nodeInfo	n = mOctree.getVoxelNeighbour(startPos, dir);
 
 		// test node is in front of viewer
 		v3f	dirV(n.coord.x, n.coord.y, n.coord.z);
@@ -341,7 +219,7 @@ void	VOctree::recurseOrientedFloodFill::run(VNodeInfo& startPos)
 
 
 
-void	VOctree::recurseFloodFill(const VNodeInfo& startPos, std::vector<VNodeInfo>& notEmptyList)
+void	VOctree::recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList)
 {
 	// set current node as "treated"
 	startPos.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mCurrentVisibilityFlag);
@@ -350,7 +228,7 @@ void	VOctree::recurseFloodFill(const VNodeInfo& startPos, std::vector<VNodeInfo>
 	for(int dir=0;dir<6;dir++)
 	{
 		// get adjacent node
-		VNodeInfo	n = getVoxelNeighbour(startPos,dir);
+		nodeInfo	n = getVoxelNeighbour(startPos,dir);
 
 		if (n.node == nullptr) // TODO => outside of this octree -> should check other octrees
 		{
@@ -361,7 +239,7 @@ void	VOctree::recurseFloodFill(const VNodeInfo& startPos, std::vector<VNodeInfo>
 			continue;
 		}
 
-		std::vector< VNodeInfo> child;
+		std::vector< nodeInfo> child;
 		if (n.getNode<VOctreeNode>()->isLeaf()) // if this node is a leaf, then this is the only one to treat
 		{
 			child.push_back(n);
@@ -392,9 +270,9 @@ void	VOctree::recurseFloodFill(const VNodeInfo& startPos, std::vector<VNodeInfo>
 	}
 }
 
-std::vector<VNodeInfo>	VOctree::getVisibleCubeList(VNodeInfo& startPos, Camera& cam)
+std::vector<nodeInfo>	VOctree::getVisibleCubeList(nodeInfo& startPos, Camera& cam)
 {
-	std::vector<VNodeInfo> result;
+	std::vector<nodeInfo> result;
 
 	mCurrentVisibilityFlag++;
 
@@ -414,7 +292,3 @@ std::vector<VNodeInfo>	VOctree::getVisibleCubeList(VNodeInfo& startPos, Camera& 
 }
 
 // return max depth in octree
-unsigned int VOctree::getMaxDepth()
-{
-	return mRootNode->getDepth();
-}

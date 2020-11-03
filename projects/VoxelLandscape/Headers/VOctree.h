@@ -36,7 +36,7 @@ public:
 		return mVisibilityFlag;
 	}
 
-	static VoxelOctreeContent canCollapse(OctreeNode<VoxelOctreeContent>* children,bool& doCollapse);
+	static VoxelOctreeContent canCollapse(OctreeNodeBase** children,bool& doCollapse);
 
 	bool	canOnlyBeSetOnLeaf() const
 	{
@@ -50,6 +50,8 @@ protected:
 private:
 
 };
+
+
 class VOctreeNode : public OctreeNode<VoxelOctreeContent>
 {
 public:
@@ -73,15 +75,12 @@ private:
 };
 
 
-
-typedef	nodeInfo	VNodeInfo;
-
 // Octree minimal subdivision is 2 units wide, so that the center of each cubic node can be defined using v3i 
 
-class VOctree : public CoreModifiable
+class VOctree : public OctreeBase<CoreModifiable>
 {
 public:
-	DECLARE_CLASS_INFO(VOctree, CoreModifiable, Core);
+	DECLARE_CLASS_INFO(VOctree, OctreeBase<CoreModifiable>, Core);
 	DECLARE_CONSTRUCTOR(VOctree);
 
 	
@@ -89,69 +88,19 @@ public:
 	void			setVoxelContent(const v3i& coordinate, unsigned int content);
 	unsigned int	getVoxelContent(const v3i& coordinate,unsigned int maxLevel=(unsigned int)-1);
 
-	VNodeInfo getVoxelAt(const v3i& coordinate, unsigned int maxDepth = (unsigned int)-1);
-	std::vector<VNodeInfo>	getVisibleCubeList(VNodeInfo& startPos, Camera& camera);
-
-#ifdef _DEBUG
-	void	printAllocatedNodeCount()
-	{
-		printf("allocated nodes : %d\n", VOctreeNode::getCurrentAllocatedNodeCount());
-	}
-#endif
-
-	// return max depth in octree
-	unsigned int getMaxDepth();
+	
+	std::vector<nodeInfo>	getVisibleCubeList(nodeInfo& startPos, Camera& camera);
 
 protected:
 
-	// get neighbour in the given direction ( as an index in mNeightboursDecalVectors)   
-	VNodeInfo	getVoxelNeighbour(const VNodeInfo& node,int dir);
-
-	// utility class to avoid passing the same parameters to the recursive method
-	// and mutualise some computation 
-	class recurseVoxelSideChildren
-	{
-	public:
-
-		recurseVoxelSideChildren()
-		{
-
-		}
-
-		recurseVoxelSideChildren(int dir,VOctree& octree, std::vector<VNodeInfo>* child)
-		{
-			reset(dir, octree,child);
-		}
-		~recurseVoxelSideChildren() {}
-
-		void run(const VNodeInfo& node);
-
-		void	reset(int dir, VOctree& octree,std::vector<VNodeInfo>* child)
-		{
-			mMaxDepth = octree.mMaxDepth;
-			mChildList = child;
-			mDir = dir;
-			mMaskTest = 1 << (mDir / 2);
-			mMaskResult = (dir & 1) * mMaskTest;
-		}
-
-	private:
-		unsigned int mMaskTest;
-		unsigned int mMaskResult;
-		int			 mMaxDepth;
-
-		int							mDir;
-		std::vector<VNodeInfo>*		mChildList;
-	};
-
-	void	recurseFloodFill(const VNodeInfo& startPos, std::vector<VNodeInfo>& notEmptyList);
+	void	recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList);
 
 	// utility class to avoid passing the same parameters to the recursive method
 	// and mutualise some computation 
 	class recurseOrientedFloodFill
 	{
 	public:
-		recurseOrientedFloodFill(VOctree& octree,std::vector<VNodeInfo>* notEmptyList, const v3f& viewVector, const v3f& viewPos, const float fieldOfView) :
+		recurseOrientedFloodFill(VOctree& octree,std::vector<nodeInfo>* notEmptyList, const v3f& viewVector, const v3f& viewPos, const float fieldOfView) :
 			mOctree(octree)
 			, mNotEmptyList(notEmptyList)
 			, mViewVector(viewVector)
@@ -161,7 +110,7 @@ protected:
 		}
 		~recurseOrientedFloodFill() {}
 
-		void run(VNodeInfo& node);
+		void run(nodeInfo& node);
 
 		void	reset(int dir)
 		{
@@ -174,8 +123,8 @@ protected:
 
 		VOctree& mOctree;
 
-		std::vector<VNodeInfo>*		mNotEmptyList;
-		std::vector< VNodeInfo>		mChildToTreat;
+		std::vector<nodeInfo>*		mNotEmptyList;
+		std::vector< nodeInfo>		mChildToTreat;
 		recurseVoxelSideChildren	mSideChildrenGrabber;
 
 
@@ -184,18 +133,7 @@ protected:
 	// return true if currentNode parent needs to be changed
 	bool	recursiveSetVoxelContent(VOctreeNode* currentNode,const v3i& coordinate, unsigned int content, int currentDepth);
 
-
-	// set coord to real cube center
-	// minimal cube is 2 units wide
-	void	setValidCubeCenter(v3i& pos, unsigned int decal);
-
-	VOctreeNode* mRootNode = nullptr;
-	
-	// default depth max is 8 => 256x256x256 cubes = 512 x 512 x 512 units
-	maInt		mMaxDepth = INIT_ATTRIBUTE(MaxDepth, 8);
-
 	unsigned int	mCurrentVisibilityFlag = 0;
 
-	const v3i				mNeightboursDecalVectors[6] = { {-1,0,0},{1,0,0},{0,-1,0},{0,1,0},{0,0,-1},{0,0,1} };
-	const int				mInvDir[6] = {1,0,3,2,5,4};
+
 };
