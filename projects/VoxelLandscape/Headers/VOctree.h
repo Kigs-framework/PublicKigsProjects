@@ -27,15 +27,6 @@ public:
 		return mContent;
 	}
 
-	void	setVisibilityFlag(unsigned int f)
-	{
-		mVisibilityFlag = f;
-	}
-	unsigned int	getVisibilityFlag() const
-	{
-		return mVisibilityFlag;
-	}
-
 	static VoxelOctreeContent canCollapse(OctreeNodeBase** children,bool& doCollapse);
 
 	bool	canOnlyBeSetOnLeaf() const
@@ -43,9 +34,13 @@ public:
 		return true;
 	}
 
+	bool	isEmpty() const
+	{
+		return (mContent == 0);
+	}
+
 protected:
 	unsigned int	mContent;
-	unsigned int	mVisibilityFlag;
 
 private:
 
@@ -93,7 +88,6 @@ public:
 
 protected:
 
-	void	recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList);
 
 	// utility class to avoid passing the same parameters to the recursive method
 	// and mutualise some computation 
@@ -132,8 +126,5 @@ protected:
 	
 	// return true if currentNode parent needs to be changed
 	bool	recursiveSetVoxelContent(VOctreeNode* currentNode,const v3i& coordinate, unsigned int content, int currentDepth);
-
-	unsigned int	mCurrentVisibilityFlag = 0;
-
 
 };

@@ -14,7 +14,6 @@ VoxelOctreeContent VoxelOctreeContent::canCollapse(OctreeNodeBase** children, bo
 {
 	VoxelOctreeContent result;
 	result.mContent = 0;
-	result.mVisibilityFlag = 0;
 
 	doCollapse = false;
 	
@@ -148,7 +147,7 @@ bool	VOctree::recursiveSetVoxelContent(VOctreeNode* currentNode, const v3i& coor
 void	VOctree::recurseOrientedFloodFill::run(nodeInfo& startPos)
 {
 	// set current node as "treated"
-	startPos.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mOctree.mCurrentVisibilityFlag);
+	startPos.getNode<VOctreeNode>()->setBrowsingFlag(mOctree.mCurrentBrowsingFlag);
 
 	v3f centralVPos(startPos.coord.x, startPos.coord.y, startPos.coord.z);
 	std::vector< nodeInfo> child;
@@ -179,7 +178,7 @@ void	VOctree::recurseOrientedFloodFill::run(nodeInfo& startPos)
 			{
 				continue;
 			}
-			if (n.getNode<VOctreeNode>()->getContentType().getVisibilityFlag() == mOctree.mCurrentVisibilityFlag) // already treated continue
+			if (n.getNode<VOctreeNode>()->getBrowsingFlag() == mOctree.mCurrentBrowsingFlag) // already treated continue
 			{
 				continue;
 			}
@@ -198,7 +197,7 @@ void	VOctree::recurseOrientedFloodFill::run(nodeInfo& startPos)
 			// for all the found nodes, check if they need to be added to visible list or to be flood fill
 			for (auto& c : child)
 			{
-				if (c.getNode<VOctreeNode>()->getContentType().getVisibilityFlag() != mOctree.mCurrentVisibilityFlag)
+				if (c.getNode<VOctreeNode>()->getBrowsingFlag() != mOctree.mCurrentBrowsingFlag)
 				{
 					if (c.getNode<VOctreeNode>()->getContentType().getContent() == 0) // node is empty, recurse flood fill
 					{
@@ -208,7 +207,7 @@ void	VOctree::recurseOrientedFloodFill::run(nodeInfo& startPos)
 					}
 					else // add this node to visibility list
 					{
-						c.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mOctree.mCurrentVisibilityFlag);
+						c.getNode<VOctreeNode>()->setBrowsingFlag(mOctree.mCurrentBrowsingFlag);
 						(*mNotEmptyList).push_back(c);
 					}
 				}
@@ -219,62 +218,12 @@ void	VOctree::recurseOrientedFloodFill::run(nodeInfo& startPos)
 
 
 
-void	VOctree::recurseFloodFill(const nodeInfo& startPos, std::vector<nodeInfo>& notEmptyList)
-{
-	// set current node as "treated"
-	startPos.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mCurrentVisibilityFlag);
-
-	// for each adjacent node
-	for(int dir=0;dir<6;dir++)
-	{
-		// get adjacent node
-		nodeInfo	n = getVoxelNeighbour(startPos,dir);
-
-		if (n.node == nullptr) // TODO => outside of this octree -> should check other octrees
-		{
-			continue; 
-		}
-		if (n.getNode<VOctreeNode>()->getContentType().getVisibilityFlag() == mCurrentVisibilityFlag) // already treated continue
-		{
-			continue;
-		}
-
-		std::vector< nodeInfo> child;
-		if (n.getNode<VOctreeNode>()->isLeaf()) // if this node is a leaf, then this is the only one to treat
-		{
-			child.push_back(n);
-		}
-		else // else get all sons on the correct side of n
-		{
-			recurseVoxelSideChildren r(mInvDir[dir], *this, &child);
-			r.run(n);
-		}
-
-		// for all the found nodes, check if they need to be added to visible list or to be flood fill
-		for (auto& c : child)
-		{
-			if (c.getNode<VOctreeNode>()->getContentType().getVisibilityFlag() != mCurrentVisibilityFlag)
-			{
-				if (c.getNode<VOctreeNode>()->getContentType().getContent() == 0) // node is empty, recurse flood fill
-				{
-					recurseFloodFill(c, notEmptyList);
-					continue;
-				}
-				else // add this node to visibility list
-				{
-					c.getNode<VOctreeNode>()->getContentType().setVisibilityFlag(mCurrentVisibilityFlag);
-					notEmptyList.push_back(c);
-				}
-			}
-		}
-	}
-}
 
 std::vector<nodeInfo>	VOctree::getVisibleCubeList(nodeInfo& startPos, Camera& cam)
 {
 	std::vector<nodeInfo> result;
 
-	mCurrentVisibilityFlag++;
+	mCurrentBrowsingFlag++;
 
 	/*CullingObject c;
 	cam.InitCullingObject(&c);
@@ -291,4 +240,3 @@ std::vector<nodeInfo>	VOctree::getVisibleCubeList(nodeInfo& startPos, Camera& ca
 	return result;
 }
 
-// return max depth in octree

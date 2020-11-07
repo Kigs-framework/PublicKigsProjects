@@ -808,6 +808,10 @@ void	YoutubeAnalyser::refreshAllThumbs()
 				float A_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)toPlace.first->mTotalSubscribers - A_a_inter_b;
 
 				float k = 100.0f * A_a_inter_b / A_a_union_b;
+				if (k > 100.0f) // avoid Jaccard index greater than 100
+				{
+					k = 100.0f;
+				}
 				toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "sc";
 
 				prescale = 1.5f * k / 100.0f;
