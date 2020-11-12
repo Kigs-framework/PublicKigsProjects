@@ -79,7 +79,7 @@ void	TwitterAnalyser::ProtectedInit()
 		mAnswer->AddHeader(mTwitterBear);
 		mAnswer->Init();
 		myRequestCount++;
-		RequestLaunched(0.1);
+		RequestLaunched(0.5);
 	}
 	else // load current user
 	{
@@ -100,22 +100,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 {
 	DataDrivenBaseApplication::ProtectedUpdate();
 
-	// get user detail
-	if ((mState>0) && (mState<4) && !mWaitQuota && mUserDetailRequest.size() && !mIsWaitingUserDetail)
-	{
-		if (CanLaunchRequest())
-		{
-			std::string url = "1.1/users/show.json?user_id=" + GetIDString(mUserDetailRequest.back());
-			mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
-			mAnswer->AddHeader(mTwitterBear);
-			mAnswer->Init();
-			myRequestCount++;
-			mUserDetailRequest.pop_back();
-			mIsWaitingUserDetail = true;
-			RequestLaunched(0.1);
-		}
-	}
-	else if (mWaitQuota)
+	if (mWaitQuota)
 	{
 		double dt = GetApplicationTimer()->GetTime() - mStartWaitQuota;
 		// 2 minutes
@@ -129,7 +114,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 		}
 		
 	}
-	else if(!mIsWaitingUserDetail)
+	else 
 	{
 
 		switch (mState)
@@ -258,7 +243,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					mAnswer->Init();
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
-					RequestLaunched(0.1);
+					RequestLaunched(0.5);
 				}
 			}
 			else
@@ -578,8 +563,6 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			// get followers
 			mState = 1;
 		}
-
-		mIsWaitingUserDetail = false;
 	}
 
 	return true;
@@ -829,7 +812,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 	{
 		if (c.first != mUserID)
 		{
-			if (c.second.first > 1)
+			if (c.second.first > 3)
 			{
 				float percent = (float)c.second.first / (float)mTreatedFollowers;
 				if (percent > wantedpercent)
@@ -1042,18 +1025,13 @@ void	TwitterAnalyser::refreshAllThumbs()
 					{
 						checkTexture->addItem(toPlace.second.mThumb.mTexture);
 					}
-				}
-			}
-			else
-			{
-				if (!LoadUserStruct(toS.second, toPlace.second, true))
-				{
-					if ((!mIsWaitingUserDetail) && (mUserDetailRequest.size() == 0))
+					else
 					{
-						mUserDetailRequest.push_back(toS.second);
+						LoadUserStruct(toS.second, toPlace.second, true);
 					}
 				}
 			}
+			
 		}
 		toShowCount++;
 		if (toShowCount >= mMaxUserCount)

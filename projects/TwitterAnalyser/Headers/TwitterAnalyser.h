@@ -94,9 +94,6 @@ protected:
 	std::vector<u64>		LoadIDVectorFile(const std::string& filename);
 	void					SaveIDVectorFile(const std::vector<u64>& v, const std::string& filename);
 
-	std::vector<u64>		mUserDetailRequest;
-	bool					mIsWaitingUserDetail=false;
-
 	bool		LoadThumbnail(u64 id, UserStruct& ch);
 	void		refreshAllThumbs();
 
