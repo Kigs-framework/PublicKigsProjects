@@ -79,6 +79,7 @@ void	TwitterAnalyser::ProtectedInit()
 		mAnswer->AddHeader(mTwitterBear);
 		mAnswer->Init();
 		myRequestCount++;
+		RequestLaunched(0.1);
 	}
 	else // load current user
 	{
@@ -102,24 +103,29 @@ void	TwitterAnalyser::ProtectedUpdate()
 	// get user detail
 	if ((mState>0) && (mState<4) && !mWaitQuota && mUserDetailRequest.size() && !mIsWaitingUserDetail)
 	{
-		std::string url = "1.1/users/show.json?user_id=" + GetIDString(mUserDetailRequest.back());
-		mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
-		mAnswer->AddHeader(mTwitterBear);
-		mAnswer->Init();
-		myRequestCount++;
-		mUserDetailRequest.pop_back();
-		mIsWaitingUserDetail = true;
+		if (CanLaunchRequest())
+		{
+			std::string url = "1.1/users/show.json?user_id=" + GetIDString(mUserDetailRequest.back());
+			mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
+			mAnswer->AddHeader(mTwitterBear);
+			mAnswer->Init();
+			myRequestCount++;
+			mUserDetailRequest.pop_back();
+			mIsWaitingUserDetail = true;
+			RequestLaunched(0.1);
+		}
 	}
 	else if (mWaitQuota)
 	{
 		double dt = GetApplicationTimer()->GetTime() - mStartWaitQuota;
-		// 15 minutes
-		if (dt > (15.0 * 60.0))
+		// 2 minutes
+		if (dt > (2.0 * 60.0))
 		{
 			mWaitQuota = false;
 			mAnswer->GetRef(); 
 			KigsCore::addAsyncRequest(mAnswer.get());
 			mAnswer->Init();
+			RequestLaunched(60.0);
 		}
 		
 	}
@@ -144,6 +150,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 			if (mTreatedFollowers == mFollowers.size())
 			{
+				
 				// check that we reached the end of followers
 				if (mTreatedFollowers && mFollowersNextCursor == "-1")
 				{
@@ -151,14 +158,17 @@ void	TwitterAnalyser::ProtectedUpdate()
 					mState = 10;
 					break;
 				}
-
-				// need to ask more data
-				std::string url = "1.1/followers/ids.json?cursor=" + mFollowersNextCursor + "&screen_name=" + mUserName + "&count=5000";
-				mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowers", this);
-				mAnswer->AddHeader(mTwitterBear);
-				mAnswer->Init();
-				myRequestCount++;
-				mState = 0;
+				if (CanLaunchRequest())
+				{
+					// need to ask more data
+					std::string url = "1.1/followers/ids.json?cursor=" + mFollowersNextCursor + "&screen_name=" + mUserName + "&count=5000";
+					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowers", this);
+					mAnswer->AddHeader(mTwitterBear);
+					mAnswer->Init();
+					myRequestCount++;
+					mState = 0;
+					RequestLaunched(60.0);
+				}
 			}
 			else
 			{
@@ -169,6 +179,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 		}
 		case 2: // treat one follower
 		{
+			
 			// search for an available next-cursor for current following
 			u64 currentFollowerID = mFollowers[mTreatedFollowers];
 			std::string stringID = GetIDString(currentFollowerID);
@@ -197,13 +208,18 @@ void	TwitterAnalyser::ProtectedUpdate()
 			}
 			else
 			{
-				std::string url = "1.1/friends/ids.json?cursor=" + nextCursor + "&user_id=" + stringID + "&count=5000";
-				mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowing", this);
-				mAnswer->AddDynamicAttribute<maULong, u64>("UserID", currentFollowerID);
-				mAnswer->AddHeader(mTwitterBear);
-				mAnswer->Init();
-				myRequestCount++;
-				mState = 0;
+				if (CanLaunchRequest())
+				{
+
+					std::string url = "1.1/friends/ids.json?cursor=" + nextCursor + "&user_id=" + stringID + "&count=5000";
+					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowing", this);
+					mAnswer->AddDynamicAttribute<maULong, u64>("UserID", currentFollowerID);
+					mAnswer->AddHeader(mTwitterBear);
+					mAnswer->Init();
+					myRequestCount++;
+					mState = 0;
+					RequestLaunched(60.0);
+				}
 			}
 
 			break;
@@ -212,6 +228,13 @@ void	TwitterAnalyser::ProtectedUpdate()
 		{
 			UpdateStatistics();
 			mCurrentFollowing.clear();
+
+			if (mUserDetailsAsked.size())
+			{
+				mState = 4;
+				break;
+			}
+
 			mTreatedFollowers++;
 			if (mTreatedFollowers == mFollowers.size())
 			{
@@ -220,6 +243,35 @@ void	TwitterAnalyser::ProtectedUpdate()
 			}
 
 			mState = 2;
+
+			break;
+		}
+		case 4: // update users details
+		{
+			if (mUserDetailsAsked.size())
+			{
+				if (CanLaunchRequest())
+				{
+					std::string url = "1.1/users/show.json?user_id=" + GetIDString(mUserDetailsAsked.back());
+					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
+					mAnswer->AddHeader(mTwitterBear);
+					mAnswer->Init();
+					myRequestCount++;
+					mUserDetailsAsked.pop_back();
+					RequestLaunched(0.1);
+				}
+			}
+			else
+			{
+				mTreatedFollowers++;
+				if (mTreatedFollowers == mFollowers.size())
+				{
+					mState = 1;
+					break;
+				}
+
+				mState = 2;
+			}
 
 			break;
 		}
@@ -533,6 +585,18 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 	return true;
 }
 
+void ReplaceStr(std::string& str,
+	const std::string& oldStr,
+	const std::string& newStr)
+{
+	std::string::size_type pos = 0u;
+	while ((pos = str.find(oldStr, pos)) != std::string::npos) 
+	{
+		str.replace(pos, oldStr.length(), newStr);
+		pos += newStr.length();
+	}
+}
+
 void		TwitterAnalyser::LaunchDownloader(u64 id, UserStruct& ch)
 {
 	// first, check that downloader for the same thumb is not already launched
@@ -550,8 +614,11 @@ void		TwitterAnalyser::LaunchDownloader(u64 id, UserStruct& ch)
 		return;
 	}
 
+	std::string biggerThumb = ch.mThumb.mURL;
+	ReplaceStr(biggerThumb, "_normal", "_bigger");
+
 	CMSP CurrentDownloader = KigsCore::GetInstanceOf("downloader", "ResourceDownloader");
-	CurrentDownloader->setValue("URL", ch.mThumb.mURL);
+	CurrentDownloader->setValue("URL", biggerThumb);
 	KigsCore::Connect(CurrentDownloader.get(), "onDownloadDone", this, "thumbnailReceived");
 
 	mDownloaderList.push_back({ CurrentDownloader , {id,&ch} });
@@ -780,22 +847,26 @@ void	TwitterAnalyser::refreshAllThumbs()
 
 	if (mShowInfluence) // normalize according to follower count
 	{
-	/*	std::sort(toShow.begin(), toShow.end(), [this](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
+		std::sort(toShow.begin(), toShow.end(), [this](const std::pair<unsigned int, u64>& a1, const std::pair<unsigned int, u64>& a2)
 			{
+
+				auto&  a1User = mFollowersFollowingCount[a1.second];
+				auto&  a2User = mFollowersFollowingCount[a2.second];
+
 				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
 				// a1 subscribers %
-				float A1_percent = ((float)a1.first->mSubscribersCount / (float)mySubscribedWriters);
+				float A1_percent = ((float)a1.first / (float)mTreatedFollowers);
 				// a1 intersection size with analysed channel
-				float A1_a_inter_b = (float)mChannelInfos.mTotalSubscribers * A1_percent;
+				float A1_a_inter_b = (float)mCurrentUser.mFollowersCount * A1_percent;
 				// a1 union size with analysed channel 
-				float A1_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)a1.first->mTotalSubscribers - A1_a_inter_b;
+				float A1_a_union_b = (float)mCurrentUser.mFollowersCount + (float)a1User.second.mFollowersCount - A1_a_inter_b;
 
 				// a2 subscribers %
-				float A2_percent = ((float)a2.first->mSubscribersCount / (float)mySubscribedWriters);
+				float A2_percent = ((float)a2.first / (float)mTreatedFollowers);
 				// a2 intersection size with analysed channel
-				float A2_a_inter_b = (float)mChannelInfos.mTotalSubscribers * A2_percent;
+				float A2_a_inter_b = (float)mCurrentUser.mFollowersCount * A2_percent;
 				// a2 union size with analysed channel 
-				float A2_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)a2.first->mTotalSubscribers - A2_a_inter_b;
+				float A2_a_union_b = (float)mCurrentUser.mFollowersCount + (float)a2User.second.mFollowersCount - A2_a_inter_b;
 
 				float k1 = A1_a_inter_b / A1_a_union_b;
 				float k2 = A2_a_inter_b / A2_a_union_b;
@@ -806,7 +877,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 				}
 				return (k1 > k2);
 			}
-		);*/
+		);
 	}
 	else
 	{
@@ -896,13 +967,13 @@ void	TwitterAnalyser::refreshAllThumbs()
 			float prescale = 1.0f;
 			if (mShowInfluence) // normalize according to follower count
 			{
-				/*// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
+				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
 				// A subscribers %
-				float A_percent = ((float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters);
+				float A_percent = ((float)toPlace.first / (float)mTreatedFollowers);
 				// A intersection size with analysed channel
-				float A_a_inter_b = (float)mChannelInfos.mTotalSubscribers * A_percent;
+				float A_a_inter_b = (float)toPlace.second.mFollowersCount * A_percent;
 				// A union size with analysed channel 
-				float A_a_union_b = (float)mChannelInfos.mTotalSubscribers + (float)toPlace.first->mTotalSubscribers - A_a_inter_b;
+				float A_a_union_b = (float)mCurrentUser.mFollowersCount + (float)toPlace.second.mFollowersCount - A_a_inter_b;
 
 				float k = 100.0f * A_a_inter_b / A_a_union_b;
 				if (k > 100.0f) // avoid Jaccard index greater than 100
@@ -911,21 +982,25 @@ void	TwitterAnalyser::refreshAllThumbs()
 				}
 				toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "sc";
 
-				prescale = 1.5f * k / 100.0f;*/
+				prescale = 1.5f * k / 100.0f;
 
+				if (prescale < 0.1f)
+				{
+					prescale = 0.1f;
+				}
 			}
 			else
 			{
 				int percent = (int)(100.0f * ((float)toPlace.first / (float)mTreatedFollowers));
 				toSetup["ChannelPercent"]("Text") = std::to_string(percent) + "%";
 
-				prescale = 2.0f*percent / 100.0f;
+				prescale = percent / 100.0f;
 			}
 
 			prescale = sqrtf(prescale);
-			if (prescale > 1.6f)
+			if (prescale > 0.8f)
 			{
-				prescale = 1.6f;
+				prescale = 0.8f;
 			}
 
 			// set ChannnelPercent position depending on where the thumb is in the spiral
@@ -1083,12 +1158,20 @@ void					TwitterAnalyser::SaveIDVectorFile(const std::vector<u64>& v, const std:
 
 void		TwitterAnalyser::UpdateStatistics()
 {
+	mUserDetailsAsked.clear();
 	for (auto f : mCurrentFollowing)
 	{
 		auto alreadyfound=mFollowersFollowingCount.find(f);
 		if (alreadyfound != mFollowersFollowingCount.end())
 		{
 			(*alreadyfound).second.first++;
+			if ((*alreadyfound).second.first == 3)
+			{
+				if (!LoadUserStruct(f, (*alreadyfound).second.second, false))
+				{
+					mUserDetailsAsked.push_back(f);
+				}
+			}
 		}
 		else
 		{

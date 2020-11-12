@@ -115,6 +115,28 @@ protected:
 	std::string	mFollowersNextCursor = "-1";
 
 	unsigned int									myRequestCount = 0;
-
 	double		mStartWaitQuota=0.0;
+
+	// manage wait time between requests
+
+	void	RequestLaunched(double toWait)
+	{
+		mNextRequestDelay = toWait;
+		mLastRequestTime = GetApplicationTimer()->GetTime();
+	}
+
+	bool	CanLaunchRequest()
+	{
+		double dt = GetApplicationTimer()->GetTime() - mLastRequestTime;
+		if (dt > mNextRequestDelay)
+		{
+			return true;
+		}
+		return false;
+	}
+
+	double		mNextRequestDelay = 0.0;
+	double		mLastRequestTime = 0.0;
+
+	std::vector<u64>			mUserDetailsAsked;
 };
