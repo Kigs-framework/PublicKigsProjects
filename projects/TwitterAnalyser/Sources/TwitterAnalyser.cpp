@@ -79,7 +79,7 @@ void	TwitterAnalyser::ProtectedInit()
 		mAnswer->AddHeader(mTwitterBear);
 		mAnswer->Init();
 		myRequestCount++;
-		RequestLaunched(0.5);
+		RequestLaunched(1.0);
 	}
 	else // load current user
 	{
@@ -243,7 +243,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					mAnswer->Init();
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
-					RequestLaunched(0.5);
+					RequestLaunched(1.0);
 				}
 			}
 			else
@@ -281,7 +281,16 @@ void	TwitterAnalyser::ProtectedUpdate()
 			mMainInterface["FoundFollowings"]("Text") = textBuffer;
 			sprintf(textBuffer, "Twitter API requests : %d", myRequestCount);
 			mMainInterface["RequestCount"]("Text") = textBuffer;
-			
+
+			double requestWait = mNextRequestDelay - (mLastUpdate - mLastRequestTime);
+			if (requestWait < 0.0)
+			{
+				requestWait = 0.0;
+			}
+
+			sprintf(textBuffer, "Next request in : %f", requestWait);
+			mMainInterface["RequestWait"]("Text") = textBuffer;
+
 			// check if Channel texture was loaded
 
 			if (mCurrentUser.mThumb.mTexture && mMainInterface["thumbnail"])
@@ -508,6 +517,17 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 			// this user is not available, go to next one
 			u64 currentID = sender->getValue<u64>("UserID");
 			SaveFollowingFile(currentID);
+
+			std::string stringID = GetIDString(currentID);
+			std::string filename = "Cache/Users/" + GetUserFolderFromID(currentID) + "/" + stringID + "_nc.json";
+
+			CoreItemSP currentP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
+
+			std::string nextStr = "-1";
+			currentP->set("next-cursor", nextStr);
+
+			SaveJSon(filename, currentP);
+
 			mState = 3;
 		}
 	}
@@ -954,7 +974,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 				// A subscribers %
 				float A_percent = ((float)toPlace.first / (float)mTreatedFollowers);
 				// A intersection size with analysed channel
-				float A_a_inter_b = (float)toPlace.second.mFollowersCount * A_percent;
+				float A_a_inter_b = (float)mCurrentUser.mFollowersCount * A_percent;
 				// A union size with analysed channel 
 				float A_a_union_b = (float)mCurrentUser.mFollowersCount + (float)toPlace.second.mFollowersCount - A_a_inter_b;
 
@@ -1004,15 +1024,16 @@ void	TwitterAnalyser::refreshAllThumbs()
 				toSetup["ChannelPercent"]("Anchor") = v2f(1.0, 0.5);
 			}
 
+			toSetup("PreScaleX") = 1.44f * prescale;
+			toSetup("PreScaleY") = 1.44f * prescale;
 
-
-			toSetup("PreScaleX") = 1.2f * prescale;
-			toSetup("PreScaleY") = 1.2f * prescale;
+			toSetup["ChannelName"]("PreScaleX") = 1.0f / (1.44f * prescale);
+			toSetup["ChannelName"]("PreScaleY") = 1.0f / (1.44f * prescale);
 
 			toSetup["ChannelPercent"]("FontSize") = 0.6f * 24.0f / prescale;
 			toSetup["ChannelPercent"]("MaxWidth") = 0.6f * 100.0f / prescale;
-			toSetup["ChannelName"]("FontSize") = 0.6f * 18.0f / prescale;
-			toSetup["ChannelName"]("MaxWidth") = 0.6f * 150.0f / prescale;
+			toSetup["ChannelName"]("FontSize") = 20.0f ;
+			toSetup["ChannelName"]("MaxWidth") = 160.0f ;
 
 			const SP<UITexture>& checkTexture = toSetup;
 
