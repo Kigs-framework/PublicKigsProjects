@@ -37,7 +37,17 @@ protected:
 	CoreItemSP	LoadJSon(const std::string& fname, bool utf16 = false);
 	void		SaveJSon(const std::string& fname,const CoreItemSP& json, bool utf16 = false);
 
-	std::string mTwitterBear;
+	std::vector<std::string>	mTwitterBear;
+	unsigned int				mCurrentBearer = 0;
+	unsigned int				NextBearer()
+	{
+		mCurrentBearer = (mCurrentBearer + (unsigned int)1) % mTwitterBear.size();
+		return mCurrentBearer;
+	}
+	unsigned int				CurrentBearer()
+	{
+		return mCurrentBearer;
+	}
 	std::string mUserName;
 
 	unsigned int mUserPanelSize;
@@ -74,7 +84,20 @@ protected:
 
 	// list of followers
 	std::vector<u64>												mFollowers;
-	unsigned int													mTreatedFollowers = 0;
+	unsigned int													mTreatedFollowerIndex = 0;
+	unsigned int													mTreatedFollowerCount = 0;
+	unsigned int													mCurrentStartingFollowerList = 0;
+	void	NextTreatedFollower()
+	{
+		mTreatedFollowerIndex += mFollowers.size() / 7;
+		if (mTreatedFollowerIndex >= mFollowers.size())
+		{
+			mCurrentStartingFollowerList++;
+			mTreatedFollowerIndex = mCurrentStartingFollowerList;
+		}
+		mTreatedFollowerCount++;
+	}
+
 
 	// manage following for one user
 	std::vector<u64>												mCurrentFollowing;
@@ -118,7 +141,7 @@ protected:
 
 	void	RequestLaunched(double toWait)
 	{
-		mNextRequestDelay = toWait;
+		mNextRequestDelay = toWait/ mTwitterBear.size();
 		mLastRequestTime = GetApplicationTimer()->GetTime();
 	}
 

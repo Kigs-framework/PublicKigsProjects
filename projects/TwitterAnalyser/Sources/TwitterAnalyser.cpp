@@ -34,9 +34,24 @@ void	TwitterAnalyser::ProtectedInit()
 	CoreItemSP initP = L_JsonParser.Get_JsonDictionary("launchParams.json");
 
 	// retreive parameters
-	mTwitterBear = "authorization: Bearer " + (std::string)initP["TwitterBear"];
-	mUserName = initP["UserName"];
+	CoreItemSP foundBear;
+	int bearIndex = 0;
+	do
+	{
+		char	BearName[64];
+		++bearIndex;
+		sprintf(BearName, "TwitterBear%d", bearIndex);
 
+		foundBear = initP[(std::string)BearName];
+
+		if (!foundBear.isNil())
+		{
+			mTwitterBear.push_back("authorization: Bearer " + (std::string)foundBear);
+			
+		}
+	} while (!foundBear.isNil());
+
+	mUserName = initP["UserName"];
 	auto SetMemberFromParam = [&](auto& x, const char* id) {
 		if (!initP[id].isNil()) x = initP[id];
 	};
@@ -76,7 +91,7 @@ void	TwitterAnalyser::ProtectedInit()
 
 		std::string url = "1.1/users/show.json?screen_name=" + mUserName;
 		mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
-		mAnswer->AddHeader(mTwitterBear);
+		mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 		mAnswer->Init();
 		myRequestCount++;
 		RequestLaunched(1.0);
@@ -85,7 +100,6 @@ void	TwitterAnalyser::ProtectedInit()
 	{
 		mUserID = currentP["id"];
 		LoadUserStruct(mUserID, mCurrentUser, true);
-		mFollowersNextCursor = currentP["next-cursor"];
 		// get followers
 		mState = 1;
 		
@@ -129,35 +143,29 @@ void	TwitterAnalyser::ProtectedUpdate()
 				// try to load followers file
 				if (LoadFollowersFile())
 				{
+					mState = 2;
 					break;
 				}
 			}
-
-			if (mTreatedFollowers == mFollowers.size())
+		}
+		case 11:
+		{
+			mState = 11;
+			// check that we reached the end of followers
+			if ((mFollowers.size() == 0) || (mFollowersNextCursor != "-1"))
 			{
-				
-				// check that we reached the end of followers
-				if (mTreatedFollowers && mFollowersNextCursor == "-1")
-				{
-					// done
-					mState = 10;
-					break;
-				}
+
 				if (CanLaunchRequest())
 				{
 					// need to ask more data
 					std::string url = "1.1/followers/ids.json?cursor=" + mFollowersNextCursor + "&screen_name=" + mUserName + "&count=5000";
 					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowers", this);
-					mAnswer->AddHeader(mTwitterBear);
+					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 					mAnswer->Init();
 					myRequestCount++;
 					mState = 0;
 					RequestLaunched(60.0);
 				}
-			}
-			else
-			{
-				mState = 2;
 			}
 
 			break;
@@ -166,7 +174,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 		{
 			
 			// search for an available next-cursor for current following
-			u64 currentFollowerID = mFollowers[mTreatedFollowers];
+			u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
 			std::string stringID = GetIDString(currentFollowerID);
 			std::string filename = "Cache/Users/" + GetUserFolderFromID(currentFollowerID) + "/" + stringID + "_nc.json";
 			CoreItemSP currentNextCursor = LoadJSon(filename);
@@ -199,7 +207,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					std::string url = "1.1/friends/ids.json?cursor=" + nextCursor + "&user_id=" + stringID + "&count=5000";
 					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowing", this);
 					mAnswer->AddDynamicAttribute<maULong, u64>("UserID", currentFollowerID);
-					mAnswer->AddHeader(mTwitterBear);
+					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 					mAnswer->Init();
 					myRequestCount++;
 					mState = 0;
@@ -220,10 +228,10 @@ void	TwitterAnalyser::ProtectedUpdate()
 				break;
 			}
 
-			mTreatedFollowers++;
-			if (mTreatedFollowers == mFollowers.size())
+			NextTreatedFollower();
+			if ( (mTreatedFollowerCount == mFollowers.size()) || (mTreatedFollowerCount == mUserPanelSize))
 			{
-				mState = 1;
+				mState = 10;
 				break;
 			}
 
@@ -239,7 +247,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 				{
 					std::string url = "1.1/users/show.json?user_id=" + GetIDString(mUserDetailsAsked.back());
 					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
-					mAnswer->AddHeader(mTwitterBear);
+					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 					mAnswer->Init();
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
@@ -248,10 +256,10 @@ void	TwitterAnalyser::ProtectedUpdate()
 			}
 			else
 			{
-				mTreatedFollowers++;
-				if (mTreatedFollowers == mFollowers.size())
+				NextTreatedFollower();
+				if ((mTreatedFollowerCount == mFollowers.size()) || (mTreatedFollowerCount == mUserPanelSize))
 				{
-					mState = 1;
+					mState = 10;
 					break;
 				}
 
@@ -275,21 +283,30 @@ void	TwitterAnalyser::ProtectedUpdate()
 		if (mMainInterface)
 		{
 			char textBuffer[256];
-			sprintf(textBuffer, "Treated Users : %d", mTreatedFollowers);
+			sprintf(textBuffer, "Treated Users : %d", mTreatedFollowerCount);
 			mMainInterface["TreatedFollowers"]("Text") = textBuffer;
 			sprintf(textBuffer, "Found followings : %d", mFollowersFollowingCount.size());
 			mMainInterface["FoundFollowings"]("Text") = textBuffer;
 			sprintf(textBuffer, "Twitter API requests : %d", myRequestCount);
-			mMainInterface["RequestCount"]("Text") = textBuffer;
 
-			double requestWait = mNextRequestDelay - (mLastUpdate - mLastRequestTime);
-			if (requestWait < 0.0)
+			if (mState != 10)
 			{
-				requestWait = 0.0;
-			}
+				mMainInterface["RequestCount"]("Text") = textBuffer;
 
-			sprintf(textBuffer, "Next request in : %f", requestWait);
-			mMainInterface["RequestWait"]("Text") = textBuffer;
+				double requestWait = mNextRequestDelay - (mLastUpdate - mLastRequestTime);
+				if (requestWait < 0.0)
+				{
+					requestWait = 0.0;
+				}
+
+				sprintf(textBuffer, "Next request in : %f", requestWait);
+				mMainInterface["RequestWait"]("Text") = textBuffer;
+			}
+			else
+			{
+				mMainInterface["RequestCount"]("Text") = "";
+				mMainInterface["RequestWait"]("Text") = "";
+			}
 
 			// check if Channel texture was loaded
 
@@ -455,22 +472,21 @@ DEFINE_METHOD(TwitterAnalyser, getFollowers)
 			mFollowers.push_back(id);
 		}
 
-		SaveFollowersFile();
-
-		std::string filename = "Cache/UserName/";
-		filename += mUserName + ".json";
-		CoreItemSP currentP = LoadJSon(filename);
-
 		std::string nextStr = json["next_cursor_str"];
 		if (nextStr == "0")
 		{
 			nextStr = "-1";
 		}
 
-		currentP["next-cursor"] = nextStr;
-
-		SaveJSon(filename, currentP);
-
+		// do it again
+		if ((mFollowers.size() < 10000)&&(nextStr!="-1"))
+		{
+			mState = 11;
+			mFollowersNextCursor = nextStr;
+			return true;
+		}
+		mFollowersNextCursor = "-1";
+		SaveFollowersFile();
 		mState = 2;
 	}
 
@@ -573,8 +589,6 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			CoreItemSP idP = CoreItemSP::getCoreItemOfType<CoreValue<u64>>();
 			idP = mUserID;
 			initP->set("id", idP);
-			initP->set("next-cursor", CoreItemSP::getCoreValue(mFollowersNextCursor));
-
 			std::string filename = "Cache/UserName/";
 			filename += mUserName + ".json";
 
@@ -819,7 +833,7 @@ bool		TwitterAnalyser::LoadThumbnail(u64 id, UserStruct& ch)
 
 void	TwitterAnalyser::refreshAllThumbs()
 {
-	if (mTreatedFollowers < 10)
+	if (mTreatedFollowerCount < 10)
 		return;
 
 	bool somethingChanged = false;
@@ -834,7 +848,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 		{
 			if (c.second.first > 3)
 			{
-				float percent = (float)c.second.first / (float)mTreatedFollowers;
+				float percent = (float)c.second.first / (float)mTreatedFollowerCount;
 				if (percent > wantedpercent)
 				{
 					toShow.push_back({ c.second.first,c.first });
@@ -858,14 +872,14 @@ void	TwitterAnalyser::refreshAllThumbs()
 
 				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
 				// a1 subscribers %
-				float A1_percent = ((float)a1.first / (float)mTreatedFollowers);
+				float A1_percent = ((float)a1.first / (float)mTreatedFollowerCount);
 				// a1 intersection size with analysed channel
 				float A1_a_inter_b = (float)mCurrentUser.mFollowersCount * A1_percent;
 				// a1 union size with analysed channel 
 				float A1_a_union_b = (float)mCurrentUser.mFollowersCount + (float)a1User.second.mFollowersCount - A1_a_inter_b;
 
 				// a2 subscribers %
-				float A2_percent = ((float)a2.first / (float)mTreatedFollowers);
+				float A2_percent = ((float)a2.first / (float)mTreatedFollowerCount);
 				// a2 intersection size with analysed channel
 				float A2_a_inter_b = (float)mCurrentUser.mFollowersCount * A2_percent;
 				// a2 union size with analysed channel 
@@ -972,7 +986,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 			{
 				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
 				// A subscribers %
-				float A_percent = ((float)toPlace.first / (float)mTreatedFollowers);
+				float A_percent = ((float)toPlace.first / (float)mTreatedFollowerCount);
 				// A intersection size with analysed channel
 				float A_a_inter_b = (float)mCurrentUser.mFollowersCount * A_percent;
 				// A union size with analysed channel 
@@ -994,7 +1008,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 			}
 			else
 			{
-				int percent = (int)(100.0f * ((float)toPlace.first / (float)mTreatedFollowers));
+				int percent = (int)(100.0f * ((float)toPlace.first / (float)mTreatedFollowerCount));
 				toSetup["ChannelPercent"]("Text") = std::to_string(percent) + "%";
 
 				prescale = percent / 100.0f;
@@ -1059,24 +1073,6 @@ void	TwitterAnalyser::refreshAllThumbs()
 			break;
 	}
 
-	/*if (mySubscribedWriters >= mSubscribedUserCount)
-	{
-		if (somethingChanged == false)
-		{
-			mState = 50; // finished
-
-			// clear unwanted texts when finished
-
-			mMainInterface["ParsedComments"]("Text") = "";
-			mMainInterface["RequestCount"]("Text") = "";
-			mMainInterface["CurrentVideo"]("Text") = "";
-
-			SaveStatFile();
-#ifdef LOG_ALL
-			closeLog();
-#endif
-		}
-	}*/
 }
 
 bool		TwitterAnalyser::LoadFollowingFile(u64 id)
