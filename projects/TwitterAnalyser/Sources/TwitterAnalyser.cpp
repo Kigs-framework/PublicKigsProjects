@@ -7,6 +7,7 @@
 #include "TinyImage.h"
 #include "JPEGClass.h"
 #include "PNGClass.h"
+#include "GIFClass.h"
 #include "TextureFileManager.h"
 #include "UI/UITexture.h"
 
@@ -14,7 +15,7 @@ IMPLEMENT_CLASS_INFO(TwitterAnalyser);
 
 IMPLEMENT_CONSTRUCTOR(TwitterAnalyser)
 {
-
+	
 }
 
 void	TwitterAnalyser::ProtectedInit()
@@ -93,6 +94,7 @@ void	TwitterAnalyser::ProtectedInit()
 		std::string url = "1.1/users/show.json?screen_name=" + mUserName;
 		mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 		mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+		mAnswer->AddDynamicAttribute<maBool, bool>("RequestThumb", true);
 		mAnswer->Init();
 		myRequestCount++;
 		RequestLaunched(1.1);
@@ -615,9 +617,14 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		pUser->mThumb.mURL = CleanURL(json["profile_image_url_https"]);
 
 		SaveUserStruct(currentID, *pUser);
-		if (!LoadThumbnail(currentID, *pUser))
+		bool requestThumb;
+		if (sender->getValue("RequestThumb", requestThumb))
 		{
-			LaunchDownloader(currentID, *pUser);
+			if(requestThumb)
+			if (!LoadThumbnail(currentID, *pUser))
+			{
+				LaunchDownloader(currentID, *pUser);
+			}
 		}
 		if (json["screen_name"] == mUserName)
 		{
@@ -718,12 +725,16 @@ void	TwitterAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 			{
 				img = new PNGClass(data);
 			}
+			else if (ext == ".gif")
+			{
+				img = new GIFClass(data);
+			}
 			else
 			{
 				img = new JPEGClass(data);
 				ext = ".jpg";
 			}
-			if (img)
+			if (img->IsOK())
 			{
 				UserStruct* toFill = p.second.second;
 
@@ -744,6 +755,10 @@ void	TwitterAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 
 				SmartPointer<TinyImage>	imgsp = OwningRawPtrToSmartPtr(img);
 				toFill->mThumb.mTexture->CreateFromImage(imgsp);
+			}
+			else
+			{
+				delete img;
 			}
 		}
 		else
@@ -856,6 +871,18 @@ bool		TwitterAnalyser::LoadThumbnail(u64 id, UserStruct& ch)
 	filename = "Cache/Thumbs/";
 	filename += GetIDString(id);
 	filename += ".png";
+	fullfilenamehandle = pathManager->FindFullName(filename);
+
+	if (fullfilenamehandle->mStatus & FileHandle::Exist)
+	{
+		auto& textureManager = KigsCore::Singleton<TextureFileManager>();
+		ch.mThumb.mTexture = textureManager->GetTexture(filename);
+		return true;
+	}
+
+	filename = "Cache/Thumbs/";
+	filename += GetIDString(id);
+	filename += ".gif";
 	fullfilenamehandle = pathManager->FindFullName(filename);
 
 	if (fullfilenamehandle->mStatus & FileHandle::Exist)
