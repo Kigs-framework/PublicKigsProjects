@@ -59,6 +59,7 @@ void	TwitterAnalyser::ProtectedInit()
 	SetMemberFromParam(mUserPanelSize, "UserPanelSize");
 	SetMemberFromParam(mMaxUserCount, "MaxUserCount");
 	SetMemberFromParam(mValidUserPercent, "ValidUserPercent");
+	SetMemberFromParam(mWantedTotalPanelSize, "WantedTotalPanelSize");
 
 	int oldFileLimitInDays = 3 * 30;
 	SetMemberFromParam(oldFileLimitInDays, "OldFileLimitInDays");
@@ -94,12 +95,23 @@ void	TwitterAnalyser::ProtectedInit()
 		mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 		mAnswer->Init();
 		myRequestCount++;
-		RequestLaunched(1.0);
+		RequestLaunched(1.1);
 	}
 	else // load current user
 	{
 		mUserID = currentP["id"];
 		LoadUserStruct(mUserID, mCurrentUser, true);
+
+		// look if needs more followers
+		std::string filename = "Cache/UserName/";
+		filename += mUserName + ".json";
+		CoreItemSP currentUserJson = LoadJSon(filename);
+
+		if (!currentUserJson["next-cursor"].isNil())
+		{
+			mFollowersNextCursor = currentUserJson["next-cursor"];
+		}
+
 		// get followers
 		mState = 1;
 		
@@ -124,7 +136,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			mAnswer->GetRef(); 
 			KigsCore::addAsyncRequest(mAnswer.get());
 			mAnswer->Init();
-			RequestLaunched(60.0);
+			RequestLaunched(60.5);
 		}
 		
 	}
@@ -141,7 +153,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			if (mFollowers.size() == 0)
 			{
 				// try to load followers file
-				if (LoadFollowersFile())
+				if (LoadFollowersFile() && (mFollowersNextCursor == "-1"))
 				{
 					mState = 2;
 					break;
@@ -164,7 +176,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					mAnswer->Init();
 					myRequestCount++;
 					mState = 0;
-					RequestLaunched(60.0);
+					RequestLaunched(60.5);
 				}
 			}
 
@@ -211,7 +223,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					mAnswer->Init();
 					myRequestCount++;
 					mState = 0;
-					RequestLaunched(60.0);
+					RequestLaunched(60.5);
 				}
 			}
 
@@ -219,16 +231,26 @@ void	TwitterAnalyser::ProtectedUpdate()
 		}
 		case 3: // update statistics
 		{
-			UpdateStatistics();
+			bool validFollower = false;
+			// if only one followning, just skip ( probably 
+			if (mCurrentFollowing.size() > 1)
+			{
+				validFollower = true;
+				UpdateStatistics();
+			}
 			mCurrentFollowing.clear();
 
-			if (mUserDetailsAsked.size())
+			if (mUserDetailsAsked.size()) // can only go there when validFollower is true
 			{
 				mState = 4;
 				break;
 			}
 
 			NextTreatedFollower();
+			if (!validFollower)// decrement mTreatedFollowerCount if not valide follower
+			{
+				mTreatedFollowerCount--;
+			}
 			if ( (mTreatedFollowerCount == mFollowers.size()) || (mTreatedFollowerCount == mUserPanelSize))
 			{
 				mState = 10;
@@ -251,7 +273,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					mAnswer->Init();
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
-					RequestLaunched(1.0);
+					RequestLaunched(1.1);
 				}
 			}
 			else
@@ -293,13 +315,21 @@ void	TwitterAnalyser::ProtectedUpdate()
 			{
 				mMainInterface["RequestCount"]("Text") = textBuffer;
 
-				double requestWait = mNextRequestDelay - (mLastUpdate - mLastRequestTime);
-				if (requestWait < 0.0)
+				if (mWaitQuota)
 				{
-					requestWait = 0.0;
+					sprintf(textBuffer, "Wait quota count: %d", mWaitQuotaCount);
+				}
+				else
+				{
+					double requestWait = mNextRequestDelay - (mLastUpdate - mLastRequestTime);
+					if (requestWait < 0.0)
+					{
+						requestWait = 0.0;
+					}
+					sprintf(textBuffer, "Next request in : %f", requestWait);
 				}
 
-				sprintf(textBuffer, "Next request in : %f", requestWait);
+				
 				mMainInterface["RequestWait"]("Text") = textBuffer;
 			}
 			else
@@ -386,6 +416,7 @@ CoreItemSP	TwitterAnalyser::RetrieveJSON(CoreModifiable* sender)
 					if (code == 88)
 					{
 						mWaitQuota = true;
+						mWaitQuotaCount++;
 						mStartWaitQuota = GetApplicationTimer()->GetTime();
 					}
 				}
@@ -479,15 +510,22 @@ DEFINE_METHOD(TwitterAnalyser, getFollowers)
 		}
 
 		// do it again
-		if ((mFollowers.size() < 10000)&&(nextStr!="-1"))
+		if ((mFollowers.size() < mWantedTotalPanelSize)&&(nextStr!="-1"))
 		{
 			mState = 11;
 			mFollowersNextCursor = nextStr;
-			return true;
 		}
-		mFollowersNextCursor = "-1";
+		else
+		{
+			mState = 2;
+			mFollowersNextCursor = "-1";
+		}
 		SaveFollowersFile();
-		mState = 2;
+		std::string filename = "Cache/UserName/";
+		filename += mUserName + ".json";
+		CoreItemSP currentUserJson = LoadJSon(filename);
+		currentUserJson->set("next-cursor", mFollowersNextCursor);
+		SaveJSon(filename, currentUserJson);
 	}
 
 	return true;
@@ -591,7 +629,6 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			initP->set("id", idP);
 			std::string filename = "Cache/UserName/";
 			filename += mUserName + ".json";
-
 			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
 
 			// get followers

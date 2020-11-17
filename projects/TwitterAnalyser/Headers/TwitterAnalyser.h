@@ -51,6 +51,7 @@ protected:
 	std::string mUserName;
 
 	unsigned int mUserPanelSize;
+	unsigned int mWantedTotalPanelSize=100000;
 	unsigned int mMaxUserCount;
 	float		 mValidUserPercent;
 
@@ -131,6 +132,7 @@ protected:
 	double		mLastUpdate;
 	bool		mShowInfluence = false;
 	bool		mWaitQuota = false;
+	unsigned int	mWaitQuotaCount = 0;
 
 	std::string	mFollowersNextCursor = "-1";
 
