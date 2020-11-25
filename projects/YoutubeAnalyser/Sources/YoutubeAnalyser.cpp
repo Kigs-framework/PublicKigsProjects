@@ -694,6 +694,18 @@ void	YoutubeAnalyser::refreshAllThumbs()
 	{
 		std::sort(toShow.begin(), toShow.end(), [this](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
 			{
+				if (a1.first->mTotalSubscribers == 0)
+				{
+					if (a2.first->mTotalSubscribers == 0)
+					{
+						return a1.second > a2.second;
+					}
+					return false;
+				}
+				else if (a2.first->mTotalSubscribers == 0)
+				{
+					return true;
+				}
 				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
 				// a1 subscribers %
 				float A1_percent = ((float)a1.first->mSubscribersCount / (float)mySubscribedWriters);
@@ -799,6 +811,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 			float prescale = 1.0f;
 			if (mShowInfluence) // normalize according to follower count
 			{
+				
 				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
 				// A subscribers %
 				float A_percent = ((float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters);
@@ -811,6 +824,10 @@ void	YoutubeAnalyser::refreshAllThumbs()
 				if (k > 100.0f) // avoid Jaccard index greater than 100
 				{
 					k = 100.0f;
+				}
+				if (toPlace.first->mTotalSubscribers == 0)
+				{
+					k = 0.0f;
 				}
 				toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "sc";
 
