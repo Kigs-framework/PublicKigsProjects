@@ -1,3 +1,4 @@
+#include <windows.h>
 #include <inttypes.h>
 #include <TwitterAnalyser.h>
 #include <FilePathManager.h>
@@ -18,6 +19,21 @@ IMPLEMENT_CONSTRUCTOR(TwitterAnalyser)
 	
 }
 
+int getCreationYear(const std::string& created_date)
+{
+	char Day[6];
+	char Mon[6];
+
+	int	day_date;
+	int	hours,minutes,seconds;
+	int delta;
+	int	year=0;
+
+	sscanf(created_date.c_str(), "%s %s %d %d:%d:%d +%d %d", Day, Mon, &day_date, &hours, &minutes, &seconds,&delta ,&year);
+
+	return year;
+}
+
 void	TwitterAnalyser::ProtectedInit()
 {
 	// Base modules have been created at this point
@@ -26,6 +42,10 @@ void	TwitterAnalyser::ProtectedInit()
 	SetUpdateSleepTime(1);
 
 	mCurrentTime = time(0);
+
+	SYSTEMTIME	retrieveYear;
+	GetSystemTime(&retrieveYear);
+	mCurrentYear = retrieveYear.wYear;
 
 	// here don't use files olders than three months.
 	mOldFileLimit = 60.0 * 60.0 * 24.0 * 30.0 * 3.0;
@@ -157,7 +177,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 				// try to load followers file
 				if (LoadFollowersFile() && (mFollowersNextCursor == "-1"))
 				{
-					mState = 2;
+					mState = 22;
 					break;
 				}
 			}
@@ -184,6 +204,37 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 			break;
 		}
+		case 22: // check fake
+		{
+			u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
+			UserStruct	tmpuser;
+			if (!LoadUserStruct(currentFollowerID, tmpuser, false))
+			{
+				mUserDetailsAsked.push_back(currentFollowerID);
+				mState = 44;	// ask for user detail and come back here
+			}
+			else // check if follower seems fake
+			{
+				int creationYear = getCreationYear(tmpuser.UTCTime);
+				int deltaYear = 1+(mCurrentYear - creationYear);
+
+				if ((tmpuser.mFollowersCount < 4) && (tmpuser.mFollowingCount < 30) && ((tmpuser.mStatuses_count/deltaYear)<3) ) // this is FAKE NEEEWWWWSS !
+				{
+					mFakeFollowerCount++;
+					NextTreatedFollower();
+					if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
+					{
+						mState = 10;
+						break;
+					}
+				}
+				else
+				{
+					mState = 2; // this follower is OK, treat it
+				}
+			}
+		}
+		break;
 		case 2: // treat one follower
 		{
 			
@@ -233,11 +284,11 @@ void	TwitterAnalyser::ProtectedUpdate()
 		}
 		case 3: // update statistics
 		{
-			bool validFollower = false;
 			// if only one followning, just skip ( probably 
 			if (mCurrentFollowing.size() > 1)
 			{
-				validFollower = true;
+				u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
+				mValidFollowerCount++;
 				UpdateStatistics();
 			}
 			mCurrentFollowing.clear();
@@ -247,22 +298,20 @@ void	TwitterAnalyser::ProtectedUpdate()
 				mState = 4;
 				break;
 			}
-
 			NextTreatedFollower();
-			if (!validFollower)// decrement mTreatedFollowerCount if not valide follower
-			{
-				mTreatedFollowerCount--;
-			}
-			if ( (mTreatedFollowerCount == mFollowers.size()) || (mTreatedFollowerCount == mUserPanelSize))
+			if ( (mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
 			{
 				mState = 10;
 				break;
 			}
 
-			mState = 2;
+			mState = 22;
 
 			break;
 		}
+		case 444: // wait for 
+			break;
+		case 44:
 		case 4: // update users details
 		{
 			if (mUserDetailsAsked.size())
@@ -276,18 +325,22 @@ void	TwitterAnalyser::ProtectedUpdate()
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
 					RequestLaunched(1.1);
+					if(mState==44) // if state is 
+						mState = 444;
 				}
 			}
 			else
 			{
-				NextTreatedFollower();
-				if ((mTreatedFollowerCount == mFollowers.size()) || (mTreatedFollowerCount == mUserPanelSize))
+				if (mState == 4) // update statistics was already done, just go to next
 				{
-					mState = 10;
-					break;
+					NextTreatedFollower(); 
+					if ((mValidFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
+					{
+						mState = 10;
+						break;
+					}
 				}
-
-				mState = 2;
+				mState = 22;
 			}
 
 			break;
@@ -307,14 +360,16 @@ void	TwitterAnalyser::ProtectedUpdate()
 		if (mMainInterface)
 		{
 			char textBuffer[256];
-			sprintf(textBuffer, "Treated Users : %d", mTreatedFollowerCount);
+			sprintf(textBuffer, "Treated Users : %d", mValidFollowerCount);
 			mMainInterface["TreatedFollowers"]("Text") = textBuffer;
 			sprintf(textBuffer, "Found followings : %d", mFollowersFollowingCount.size());
 			mMainInterface["FoundFollowings"]("Text") = textBuffer;
-			sprintf(textBuffer, "Twitter API requests : %d", myRequestCount);
+			sprintf(textBuffer, "Fake Followers found : %d", mFakeFollowerCount);
+			mMainInterface["FakeFollowers"]("Text") = textBuffer;
 
 			if (mState != 10)
 			{
+				sprintf(textBuffer, "Twitter API requests : %d", myRequestCount);
 				mMainInterface["RequestCount"]("Text") = textBuffer;
 
 				if (mWaitQuota)
@@ -519,7 +574,7 @@ DEFINE_METHOD(TwitterAnalyser, getFollowers)
 		}
 		else
 		{
-			mState = 2;
+			mState = 22;
 			mFollowersNextCursor = "-1";
 		}
 		SaveFollowersFile();
@@ -600,13 +655,20 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 	{
 		u64 currentID= json["id"];
 
-		UserStruct* pUser = &mCurrentUser;
+		UserStruct	tmp;
+		UserStruct* pUser = &tmp;
+
 
 		if (json["screen_name"] == mUserName)
 		{
 			mUserID = json["id"];
+			pUser = &mCurrentUser;
 		}
-		else
+		else if(mState==4)
+		{
+			pUser = &mFollowersFollowingCount[currentID].second;
+		}
+		else if(mFollowersFollowingCount.find(currentID) != mFollowersFollowingCount.end())
 		{
 			pUser = &mFollowersFollowingCount[currentID].second;
 		}
@@ -614,6 +676,8 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		pUser->mName = json["screen_name"];
 		pUser->mFollowersCount = json["followers_count"];
 		pUser->mFollowingCount = json["friends_count"];
+		pUser->mStatuses_count = json["statuses_count"];
+		pUser->UTCTime = json["created_at"];
 		pUser->mThumb.mURL = CleanURL(json["profile_image_url_https"]);
 
 		SaveUserStruct(currentID, *pUser);
@@ -640,6 +704,10 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 
 			// get followers
 			mState = 1;
+		}
+		if (mState == 444)
+		{
+			mState = 44;
 		}
 	}
 
@@ -815,7 +883,8 @@ bool		TwitterAnalyser::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
 	ch.mName = initP["Name"];
 	ch.mFollowersCount = initP["FollowersCount"];
 	ch.mFollowingCount = initP["FollowingCount"];
-
+	ch.mStatuses_count = initP["StatusesCount"];
+	ch.UTCTime = initP["CreatedAt"];
 	if (!initP["ImgURL"].isNil())
 	{
 		ch.mThumb.mURL = initP["ImgURL"];
@@ -840,6 +909,9 @@ void		TwitterAnalyser::SaveUserStruct(u64 id, UserStruct& ch)
 	initP->set("Name", CoreItemSP::getCoreValue(ch.mName));
 	initP->set("FollowersCount", CoreItemSP::getCoreValue((int)ch.mFollowersCount));
 	initP->set("FollowingCount", CoreItemSP::getCoreValue((int)ch.mFollowingCount));
+	initP->set("StatusesCount", CoreItemSP::getCoreValue((int)ch.mStatuses_count));
+	initP->set("CreatedAt", CoreItemSP::getCoreValue((std::string)ch.UTCTime));
+
 	if (ch.mThumb.mURL != "")
 	{
 		initP->set("ImgURL", CoreItemSP::getCoreValue((usString)ch.mThumb.mURL));
@@ -897,7 +969,7 @@ bool		TwitterAnalyser::LoadThumbnail(u64 id, UserStruct& ch)
 
 void	TwitterAnalyser::refreshAllThumbs()
 {
-	if (mTreatedFollowerCount < 10)
+	if (mValidFollowerCount < 10)
 		return;
 
 	bool somethingChanged = false;
@@ -912,7 +984,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 		{
 			if (c.second.first > 3)
 			{
-				float percent = (float)c.second.first / (float)mTreatedFollowerCount;
+				float percent = (float)c.second.first / (float)mValidFollowerCount;
 				if (percent > wantedpercent)
 				{
 					toShow.push_back({ c.second.first,c.first });
@@ -936,14 +1008,14 @@ void	TwitterAnalyser::refreshAllThumbs()
 
 				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
 				// a1 subscribers %
-				float A1_percent = ((float)a1.first / (float)mTreatedFollowerCount);
+				float A1_percent = ((float)a1.first / (float)mValidFollowerCount);
 				// a1 intersection size with analysed channel
 				float A1_a_inter_b = (float)mCurrentUser.mFollowersCount * A1_percent;
 				// a1 union size with analysed channel 
 				float A1_a_union_b = (float)mCurrentUser.mFollowersCount + (float)a1User.second.mFollowersCount - A1_a_inter_b;
 
 				// a2 subscribers %
-				float A2_percent = ((float)a2.first / (float)mTreatedFollowerCount);
+				float A2_percent = ((float)a2.first / (float)mValidFollowerCount);
 				// a2 intersection size with analysed channel
 				float A2_a_inter_b = (float)mCurrentUser.mFollowersCount * A2_percent;
 				// a2 union size with analysed channel 
@@ -1045,12 +1117,13 @@ void	TwitterAnalyser::refreshAllThumbs()
 			{
 				toSetup["ChannelName"]("Text") = toPlace.second.mName;
 			}
+			
 			float prescale = 1.0f;
 			if (mShowInfluence) // normalize according to follower count
 			{
 				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
 				// A subscribers %
-				float A_percent = ((float)toPlace.first / (float)mTreatedFollowerCount);
+				float A_percent = ((float)toPlace.first / (float)mValidFollowerCount);
 				// A intersection size with analysed channel
 				float A_a_inter_b = (float)mCurrentUser.mFollowersCount * A_percent;
 				// A union size with analysed channel 
@@ -1072,7 +1145,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 			}
 			else
 			{
-				int percent = (int)(100.0f * ((float)toPlace.first / (float)mTreatedFollowerCount));
+				int percent = (int)(100.0f * ((float)toPlace.first / (float)mValidFollowerCount));
 				toSetup["ChannelPercent"]("Text") = std::to_string(percent) + "%";
 
 				prescale = percent / 100.0f;
@@ -1217,6 +1290,7 @@ void					TwitterAnalyser::SaveIDVectorFile(const std::vector<u64>& v, const std:
 
 void		TwitterAnalyser::UpdateStatistics()
 {
+
 	mUserDetailsAsked.clear();
 	for (auto f : mCurrentFollowing)
 	{

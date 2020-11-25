@@ -71,6 +71,8 @@ protected:
 		usString					mName="";
 		unsigned int				mFollowersCount = 0;
 		unsigned int				mFollowingCount = 0;
+		unsigned int				mStatuses_count = 0;
+		std::string					UTCTime = "";
 		ThumbnailStruct				mThumb;
 	};
 
@@ -87,6 +89,8 @@ protected:
 	std::vector<u64>												mFollowers;
 	unsigned int													mTreatedFollowerIndex = 0;
 	unsigned int													mTreatedFollowerCount = 0;
+	unsigned int													mValidFollowerCount = 0;
+	unsigned int													mFakeFollowerCount = 0;
 	unsigned int													mCurrentStartingFollowerList = 0;
 	void	NextTreatedFollower()
 	{
@@ -161,4 +165,7 @@ protected:
 	double		mLastRequestTime = 0.0;
 
 	std::vector<u64>			mUserDetailsAsked;
+
+	int							mCurrentYear=0;
+
 };
