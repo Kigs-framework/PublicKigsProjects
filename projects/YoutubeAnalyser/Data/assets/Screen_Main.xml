@@ -140,6 +140,9 @@
 					<Attr N="FontSize" V="20"/>
 					<Attr N="MaxWidth" V="200"/>		
 				</Inst>
+				<Inst N="shape" T="UIShapeDisc">
+					<Attr N="SliceCount" V="32"/>
+				</Inst>
 			</Inst>
 			<Inst N="switchV" T="UIText">
 				<Attr N="Priority" V="11"/>

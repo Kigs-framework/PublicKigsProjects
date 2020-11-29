@@ -46,12 +46,66 @@ protected:
 		ThumbnailStruct				mThumb;
 	};
 
+	class PerChannelUserMap
+	{
+	public:
+		PerChannelUserMap():m(nullptr),mSubscribedCount(0)
+		{
+			
+		}
+
+		PerChannelUserMap(int SSize)
+		{
+			m = new unsigned char[SSize];
+			memset(m, 0, SSize * sizeof(unsigned char));
+		}
+		PerChannelUserMap(const PerChannelUserMap& other)
+		{
+			m = other.m;
+			mSubscribedCount = other.mSubscribedCount;
+		}
+
+		PerChannelUserMap& operator=(const PerChannelUserMap& other)
+		{
+			m = other.m;
+			mSubscribedCount = other.mSubscribedCount;
+			return *this;
+		}
+
+		~PerChannelUserMap()
+		{
+			delete[] m;
+		}
+
+		void	SetSubscriber(int index)
+		{
+			m[index] = 1;
+			mSubscribedCount++;
+		}
+
+		unsigned char*	m=nullptr;
+		unsigned int	mSubscribedCount=0;
+	private:
+
+	};
+
 	class UserStruct 
 	{
 	public:
 		// list of Channel IDs
 		std::vector<std::string>	mPublicChannels;
 		bool						mHasSubscribed=false;
+		bool	isSubscriberOf(const std::string& chan) const
+		{
+			for (auto& c : mPublicChannels)
+			{
+				if (c == chan)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
 	};
 
 
@@ -68,6 +122,8 @@ protected:
 	COREMODIFIABLE_METHODS(getChannelID, getVideoList, getCommentList, getUserSubscribtion, getChannelStats);
 
 	void	refreshAllThumbs();
+
+	void	prepareCloudGraphData();
 
 	void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
 	void	switchDisplay();
@@ -105,7 +161,12 @@ protected:
 	unsigned int									myParsedComments = 0;
 	unsigned int									myRequestCount = 0;
 
+	//all treated users
 	std::unordered_map<std::string, UserStruct>		mFoundUsers;
+
+	//list of subscribed users
+	std::vector<std::string>						mSubscriberList;
+	std::unordered_map<std::string, PerChannelUserMap>	mChannelSubscriberMap;
 
 	std::unordered_map<std::string, ChannelStruct*>	mFoundChannels;
 

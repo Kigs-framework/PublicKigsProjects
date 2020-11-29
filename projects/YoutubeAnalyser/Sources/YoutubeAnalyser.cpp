@@ -464,6 +464,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 					else
 					{
 						mySubscribedWriters++;
+						
 						mCurrentVideoUserFound++;
 						for (const auto& c : mCurrentUser.mPublicChannels)
 						{
@@ -493,7 +494,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 								(*found).second->mSubscribersCount++;
 							}
 						}
-
+						mSubscriberList.push_back(mCurrentProcessedUser);
 						mFoundUsers[mCurrentProcessedUser] = mCurrentUser;
 
 					}
@@ -899,10 +900,9 @@ void	YoutubeAnalyser::refreshAllThumbs()
 
 	if (mySubscribedWriters >= mSubscribedUserCount)
 	{
-		if (somethingChanged == false)
+		if( (somethingChanged == false) && (mState !=50) )
 		{
 			mState = 50; // finished
-
 			// clear unwanted texts when finished
 
 			mMainInterface["ParsedComments"]("Text") = "";
@@ -913,7 +913,30 @@ void	YoutubeAnalyser::refreshAllThumbs()
 #ifdef LOG_ALL
 			closeLog();
 #endif
+
+			prepareCloudGraphData();
 		}
+	}
+}
+
+void	YoutubeAnalyser::prepareCloudGraphData()
+{
+
+	// for each showed channel
+	for (auto& c : mShowedChannels)
+	{
+		PerChannelUserMap	toAdd(mSubscriberList.size());
+		int sindex = 0;
+		int subcount = 0;
+		for (auto& s : mSubscriberList)
+		{
+			if (mFoundUsers[s].isSubscriberOf(c.first))
+			{
+				toAdd.SetSubscriber(sindex);
+			}
+			++sindex;
+		}
+		mChannelSubscriberMap[c.first] = toAdd;
 	}
 }
 
@@ -1063,6 +1086,7 @@ void	YoutubeAnalyser::ProtectedCloseSequence(const kstl::string& sequence)
 		mShowedChannels.clear();
 		mChannelInfos.mThumb.mTexture = nullptr;
 		mDownloaderList.clear();
+
 
 #ifdef LOG_ALL
 		closeLog();
@@ -1721,7 +1745,7 @@ DEFINE_METHOD(YoutubeAnalyser, getUserSubscribtion)
 				mCurrentUser.mPublicChannels.push_back(c.first);
 
 			}
-
+			mSubscriberList.push_back(mCurrentProcessedUser);
 			mFoundUsers[mCurrentProcessedUser] = mCurrentUser;
 
 		}

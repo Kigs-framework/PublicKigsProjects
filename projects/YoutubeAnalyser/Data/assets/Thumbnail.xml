@@ -27,4 +27,7 @@
 			<Attr N="FontSize" V="30"/>
 			<Attr N="MaxWidth" V="200"/>		
 	</Inst>
+	<Inst N="shape" T="UIShapeDisc">
+		<Attr N="SliceCount" V="32"/>
+	</Inst>
 </Inst>
