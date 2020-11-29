@@ -34,10 +34,134 @@
 			<Inst N="background" T="UIPanel">
 				<Attr N="SizeY" V="800"/>
 				<Attr N="SizeX" V="1280"/>
-				<Attr N="Priority" V="50"/>
+				<Attr N="Priority" V="0"/>
 				<Attr N="Anchor" V="{0.500000,0.500000}"/>
 				<Attr N="Dock" V="{0.500000,0.500000}"/>
-				<Attr N="Color" V="{0.0, 0.2, 0.4, 1.0}"/>
+				<Attr N="Color" V="{0.874, 1.0, 0.8, 1.0}"/>
+			</Inst>
+			<Inst N="TreatedFollowers" T="UIText">
+				<Attr N="Priority" V="10"/>
+				<Attr N="Text" V="Test"/>
+				<Attr N="Dock" V="{0.02,0.025}"/>
+				<Attr N="Anchor" V="{0.0,0.5}"/>
+				<Attr N="SizeX" V="-1"/>
+				<Attr N="SizeY" V="-1"/>
+				<Attr N="Font" V="Calibri.ttf"/>
+				<Attr N="FontSize" V="16"/>
+				<Attr N="MaxWidth" V="200"/>	
+				<Attr N="TextAlignment" V="0"/>			
+				<Attr N="Color" V="{0.1, 0.2, 0.2, 1.0}"/>				
+			</Inst>
+			<Inst N="FoundFollowings" T="UIText">
+				<Attr N="Priority" V="10"/>
+				<Attr N="Text" V="Test"/>
+				<Attr N="Dock" V="{0.02,0.05}"/>
+				<Attr N="Anchor" V="{0.0,0.5}"/>
+				<Attr N="SizeX" V="-1"/>
+				<Attr N="SizeY" V="-1"/>
+				<Attr N="Font" V="Calibri.ttf"/>
+				<Attr N="FontSize" V="16"/>
+				<Attr N="MaxWidth" V="300"/>		
+				<Attr N="TextAlignment" V="0"/>
+				<Attr N="Color" V="{0.1, 0.2, 0.2, 1.0}"/>
+			</Inst>
+			<Inst N="FakeFollowers" T="UIText">
+				<Attr N="Priority" V="10"/>
+				<Attr N="Text" V="Test"/>
+				<Attr N="Dock" V="{0.02,0.075}"/>
+				<Attr N="Anchor" V="{0.0,0.5}"/>
+				<Attr N="SizeX" V="-1"/>
+				<Attr N="SizeY" V="-1"/>
+				<Attr N="Font" V="Calibri.ttf"/>
+				<Attr N="FontSize" V="16"/>
+				<Attr N="MaxWidth" V="300"/>		
+				<Attr N="TextAlignment" V="0"/>
+				<Attr N="Color" V="{0.1, 0.2, 0.2, 1.0}"/>
+			</Inst>			
+			<Inst N="RequestCount" T="UIText">
+				<Attr N="Priority" V="10"/>
+				<Attr N="Text" V="Test"/>
+				<Attr N="Dock" V="{0.02,0.1}"/>
+				<Attr N="Anchor" V="{0.0,0.5}"/>
+				<Attr N="SizeX" V="-1"/>
+				<Attr N="SizeY" V="-1"/>
+				<Attr N="Font" V="Calibri.ttf"/>
+				<Attr N="FontSize" V="16"/>
+				<Attr N="MaxWidth" V="300"/>		
+				<Attr N="TextAlignment" V="0"/>
+				<Attr N="Color" V="{0.1, 0.2, 0.2, 1.0}"/>
+			</Inst>
+			<Inst N="RequestWait" T="UIText">
+				<Attr N="Priority" V="10"/>
+				<Attr N="Text" V="Test"/>
+				<Attr N="Dock" V="{0.02,0.125}"/>
+				<Attr N="Anchor" V="{0.0,0.5}"/>
+				<Attr N="SizeX" V="-1"/>
+				<Attr N="SizeY" V="-1"/>
+				<Attr N="Font" V="Calibri.ttf"/>
+				<Attr N="FontSize" V="16"/>
+				<Attr N="MaxWidth" V="300"/>		
+				<Attr N="TextAlignment" V="0"/>
+				<Attr N="Color" V="{0.1, 0.2, 0.2, 1.0}"/>
+			</Inst>
+			<Inst N="thumbnail" T="UITexture">
+				<Attr N="Priority" V="10"/>
+				<Attr N="Dock" V="{0.52,0.44}"/>
+				<Attr N="Anchor" V="{0.5,0.5}"/>
+				<Attr N="PreScaleX" V="1.56"/>
+				<Attr N="PreScaleY" V="1.56"/>
+				<Inst N="UserName" T="UIText">
+					<Attr N="Priority" V="11"/>
+					<Attr N="Text" V="userName"/>
+					<Attr N="Dock" V="{0.5,1.0}"/>
+					<Attr N="Anchor" V="{0.5,0.0}"/>
+					<Attr N="SizeX" V="-1"/>
+					<Attr N="SizeY" V="-1"/>
+					<Attr N="Font" V="Calibri.ttf"/>
+					<Attr N="FontSize" V="24"/>
+					<Attr N="MaxWidth" V="200"/>	
+					<Attr N="PreScaleX" V="0.65"/>
+					<Attr N="PreScaleY" V="0.65"/>
+					<Attr N="Color" V="{0.1, 0.2, 0.2, 1.0}"/>					
+				</Inst>
+				<Inst N="shape" T="UIShapeDisc">
+					<Attr N="SliceCount" V="32"/>
+				</Inst>
+			</Inst>
+			<Inst N="twitterLogo" T="UITexture">
+				<Attr N="Priority" V="10"/>
+				<Attr N="Dock" V="{0.95,0.94}"/>
+				<Attr N="Anchor" V="{0.5,0.5}"/>
+				<Attr N="PreScaleX" V="0.6"/>
+				<Attr N="PreScaleY" V="0.6"/>
+				<Inst N="twitterLogoTexture" T="Texture">
+					<Attr N="FileName" V="Twitter.png"/>
+				</Inst>
+			</Inst>
+			<Inst N="switchV" T="UIText">
+				<Attr N="Priority" V="11"/>
+				<Attr N="Text" V="Switch percent / similarity"/>
+				<Attr N="Anchor" V="{0.500000,0.500000}"/>
+				<Attr N="Dock" V="{0.050,0.950}"/>
+				<Attr N="Color" V="{0.0, 0.0, 0.4}"/>
+				<Attr N="SizeX" V="-1.0"/>
+				<Attr N="SizeY" V="-1.0"/>
+				<Attr N="Font" V="Calibri.ttf"/>
+				<Attr N="FontSize" V="24"/>
+				<Attr N="MaxWidth" V="128"/>
+				<Inst N="back_btn" T="UIButtonImage">
+					<Attr N="Priority" V="10"/>
+					<Attr N="UpTexture" V="Up.png"/>	
+					<Attr N="DownTexture" V="Down.png"/>
+					<Attr N="Sliced" V="{5.0,5.0}"/>
+					<Attr N="SizeModeX" V="Add"/>
+					<Attr N="SizeModeY" V="Add"/>
+					<Attr N="Anchor" V="{0.5,0.5}"/>
+					<Attr N="Dock" V="{0.5,0.5}"/>
+					<Attr N="SizeX" V="16"/>
+					<Attr N="SizeY" V="16"/>	
+					<Connect Si="ClickUp" E="this" Sl="switchDisplay" R="/CoreBaseApplication:TwitterAnalyser"/>
+				</Inst>
 			</Inst>
 		</Inst>
 	</Inst>

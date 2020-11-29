@@ -364,7 +364,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			mMainInterface["TreatedFollowers"]("Text") = textBuffer;
 			sprintf(textBuffer, "Found followings : %d", mFollowersFollowingCount.size());
 			mMainInterface["FoundFollowings"]("Text") = textBuffer;
-			sprintf(textBuffer, "Fake Followers found : %d", mFakeFollowerCount);
+			sprintf(textBuffer, "Inactive Followers : %d", mFakeFollowerCount);
 			mMainInterface["FakeFollowers"]("Text") = textBuffer;
 
 			if (mState != 10)
