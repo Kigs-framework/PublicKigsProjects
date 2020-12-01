@@ -56,7 +56,7 @@ protected:
 	float		 mValidUserPercent;
 
 	// current application state 
-	unsigned int					mState = 0;
+	unsigned int					mState = WAIT_STATE;
 
 	class ThumbnailStruct
 	{
@@ -168,4 +168,17 @@ protected:
 
 	int							mCurrentYear=0;
 
+	enum AppStates
+	{
+		WAIT_STATE						= 0,
+		GET_FOLLOWERS_INIT				= 1,
+		GET_FOLLOWERS_CONTINUE			= 2,
+		CHECK_INACTIVES					= 3,
+		TREAT_FOLLOWER					= 4,
+		UPDATE_STATISTICS				= 5,
+		GET_USER_DETAILS_FOR_CHECK		= 6,
+		WAIT_USER_DETAILS_FOR_CHECK		= 7,
+		GET_USER_DETAILS				= 8,
+		EVERYTHING_DONE					= 9
+	};
 };

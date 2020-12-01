@@ -135,7 +135,7 @@ void	TwitterAnalyser::ProtectedInit()
 		}
 
 		// get followers
-		mState = 1;
+		mState = GET_FOLLOWERS_INIT;
 		
 	}
 
@@ -167,24 +167,24 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 		switch (mState)
 		{
-		case 0: // wait
+		case WAIT_STATE: // wait
 			break;
 
-		case 1: // get follower list
+		case GET_FOLLOWERS_INIT: // get follower list
 		{
 			if (mFollowers.size() == 0)
 			{
 				// try to load followers file
 				if (LoadFollowersFile() && (mFollowersNextCursor == "-1"))
 				{
-					mState = 22;
+					mState = CHECK_INACTIVES;
 					break;
 				}
 			}
 		}
-		case 11:
+		case GET_FOLLOWERS_CONTINUE:
 		{
-			mState = 11;
+			mState = GET_FOLLOWERS_CONTINUE;
 			// check that we reached the end of followers
 			if ((mFollowers.size() == 0) || (mFollowersNextCursor != "-1"))
 			{
@@ -197,21 +197,21 @@ void	TwitterAnalyser::ProtectedUpdate()
 					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 					mAnswer->Init();
 					myRequestCount++;
-					mState = 0;
+					mState = WAIT_STATE;
 					RequestLaunched(60.5);
 				}
 			}
 
 			break;
 		}
-		case 22: // check fake
+		case CHECK_INACTIVES: // check fake
 		{
 			u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
 			UserStruct	tmpuser;
 			if (!LoadUserStruct(currentFollowerID, tmpuser, false))
 			{
 				mUserDetailsAsked.push_back(currentFollowerID);
-				mState = 44;	// ask for user detail and come back here
+				mState = GET_USER_DETAILS_FOR_CHECK;	// ask for user detail and come back here
 			}
 			else // check if follower seems fake
 			{
@@ -224,18 +224,18 @@ void	TwitterAnalyser::ProtectedUpdate()
 					NextTreatedFollower();
 					if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
 					{
-						mState = 10;
+						mState = EVERYTHING_DONE;
 						break;
 					}
 				}
 				else
 				{
-					mState = 2; // this follower is OK, treat it
+					mState = TREAT_FOLLOWER; // this follower is OK, treat it
 				}
 			}
 		}
 		break;
-		case 2: // treat one follower
+		case TREAT_FOLLOWER: // treat one follower
 		{
 			
 			// search for an available next-cursor for current following
@@ -261,7 +261,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 			if (!needRequest)
 			{
-				mState = 3;
+				mState = UPDATE_STATISTICS;
 				break;
 			}
 			else
@@ -275,14 +275,14 @@ void	TwitterAnalyser::ProtectedUpdate()
 					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 					mAnswer->Init();
 					myRequestCount++;
-					mState = 0;
+					mState = WAIT_STATE;
 					RequestLaunched(60.5);
 				}
 			}
 
 			break;
 		}
-		case 3: // update statistics
+		case UPDATE_STATISTICS: // update statistics
 		{
 			// if only one followning, just skip ( probably 
 			if (mCurrentFollowing.size() > 1)
@@ -295,24 +295,24 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 			if (mUserDetailsAsked.size()) // can only go there when validFollower is true
 			{
-				mState = 4;
+				mState = GET_USER_DETAILS;
 				break;
 			}
 			NextTreatedFollower();
 			if ( (mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
 			{
-				mState = 10;
+				mState = EVERYTHING_DONE;
 				break;
 			}
 
-			mState = 22;
+			mState = CHECK_INACTIVES;
 
 			break;
 		}
-		case 444: // wait for 
+		case WAIT_USER_DETAILS_FOR_CHECK: // wait for 
 			break;
-		case 44:
-		case 4: // update users details
+		case GET_USER_DETAILS_FOR_CHECK:
+		case GET_USER_DETAILS: // update users details
 		{
 			if (mUserDetailsAsked.size())
 			{
@@ -325,27 +325,27 @@ void	TwitterAnalyser::ProtectedUpdate()
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
 					RequestLaunched(1.1);
-					if(mState==44) // if state is 
-						mState = 444;
+					if(mState== GET_USER_DETAILS_FOR_CHECK) // if state is 
+						mState = WAIT_USER_DETAILS_FOR_CHECK;
 				}
 			}
 			else
 			{
-				if (mState == 4) // update statistics was already done, just go to next
+				if (mState == GET_USER_DETAILS) // update statistics was already done, just go to next
 				{
 					NextTreatedFollower(); 
 					if ((mValidFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
 					{
-						mState = 10;
+						mState = EVERYTHING_DONE;
 						break;
 					}
 				}
-				mState = 22;
+				mState = CHECK_INACTIVES;
 			}
 
 			break;
 		}
-		case 10:
+		case EVERYTHING_DONE:
 		{
 			// done, todo
 			break;
@@ -367,7 +367,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			sprintf(textBuffer, "Inactive Followers : %d", mFakeFollowerCount);
 			mMainInterface["FakeFollowers"]("Text") = textBuffer;
 
-			if (mState != 10)
+			if (mState != EVERYTHING_DONE)
 			{
 				sprintf(textBuffer, "Twitter API requests : %d", myRequestCount);
 				mMainInterface["RequestCount"]("Text") = textBuffer;
@@ -569,12 +569,12 @@ DEFINE_METHOD(TwitterAnalyser, getFollowers)
 		// do it again
 		if ((mFollowers.size() < mWantedTotalPanelSize)&&(nextStr!="-1"))
 		{
-			mState = 11;
+			mState = GET_FOLLOWERS_CONTINUE;
 			mFollowersNextCursor = nextStr;
 		}
 		else
 		{
-			mState = 22;
+			mState = CHECK_INACTIVES;
 			mFollowersNextCursor = "-1";
 		}
 		SaveFollowersFile();
@@ -619,7 +619,7 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 
 		SaveJSon(filename, currentP);
 
-		mState = 2;
+		mState = TREAT_FOLLOWER;
 	}
 	else
 	{
@@ -639,7 +639,7 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 
 			SaveJSon(filename, currentP);
 
-			mState = 3;
+			mState = UPDATE_STATISTICS;
 		}
 	}
 
@@ -664,7 +664,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			mUserID = json["id"];
 			pUser = &mCurrentUser;
 		}
-		else if(mState==4)
+		else if(mState== GET_USER_DETAILS)
 		{
 			pUser = &mFollowersFollowingCount[currentID].second;
 		}
@@ -703,11 +703,27 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
 
 			// get followers
-			mState = 1;
+			mState = GET_FOLLOWERS_INIT;
 		}
-		if (mState == 444)
+		if (mState == WAIT_USER_DETAILS_FOR_CHECK)
 		{
-			mState = 44;
+			mState = GET_USER_DETAILS_FOR_CHECK;
+		}
+	}
+	else if(!mWaitQuota)
+	{
+		NextTreatedFollower();
+		if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
+		{
+			mState = EVERYTHING_DONE;
+		}
+		else if (mState == GET_USER_DETAILS) // ask user details but user was suspended
+		{
+			mState = CHECK_INACTIVES;
+		}
+		else if(mState== WAIT_USER_DETAILS_FOR_CHECK)
+		{
+			mState = TREAT_FOLLOWER;
 		}
 	}
 
