@@ -11,6 +11,7 @@
 #include "GIFClass.h"
 #include "TextureFileManager.h"
 #include "UI/UITexture.h"
+#include "Histogram.h"
 
 IMPLEMENT_CLASS_INFO(TwitterAnalyser);
 
@@ -147,6 +148,12 @@ void	TwitterAnalyser::ProtectedInit()
 void	TwitterAnalyser::ProtectedUpdate()
 {
 	DataDrivenBaseApplication::ProtectedUpdate();
+
+	if (mDrawForceBased)
+	{
+		DrawForceBased();
+		return;
+	}
 
 	if (mWaitQuota)
 	{
@@ -288,7 +295,9 @@ void	TwitterAnalyser::ProtectedUpdate()
 			if (mCurrentFollowing.size() > 1)
 			{
 				u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
+				mCheckedFollowerList[currentFollowerID]= mCurrentFollowing;
 				mValidFollowerCount++;
+
 				UpdateStatistics();
 			}
 			mCurrentFollowing.clear();
@@ -334,7 +343,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 				if (mState == GET_USER_DETAILS) // update statistics was already done, just go to next
 				{
 					NextTreatedFollower(); 
-					if ((mValidFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
+					if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
 					{
 						mState = EVERYTHING_DONE;
 						break;
@@ -393,6 +402,8 @@ void	TwitterAnalyser::ProtectedUpdate()
 			{
 				mMainInterface["RequestCount"]("Text") = "";
 				mMainInterface["RequestWait"]("Text") = "";
+				mMainInterface["switchForce"]("IsHidden") = false;
+				mMainInterface["switchForce"]("IsTouchable") = true;
 			}
 
 			// check if Channel texture was loaded
@@ -420,6 +431,8 @@ void	TwitterAnalyser::ProtectedUpdate()
 void	TwitterAnalyser::ProtectedClose()
 {
 	DataDrivenBaseApplication::ProtectedClose();
+	mTwitterConnect = nullptr;
+	mAnswer = nullptr;
 }
 
 void	TwitterAnalyser::ProtectedInitSequence(const kstl::string& sequence)
@@ -427,13 +440,23 @@ void	TwitterAnalyser::ProtectedInitSequence(const kstl::string& sequence)
 	if (sequence == "sequencemain")
 	{
 		mMainInterface = GetFirstInstanceByName("UIItem", "Interface");
+		mMainInterface["switchForce"]("IsHidden") = true;
+		mMainInterface["switchForce"]("IsTouchable") = false;
 	}
 }
 void	TwitterAnalyser::ProtectedCloseSequence(const kstl::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{
-		
+		mMainInterface = nullptr;
+
+		// delete all channel structs
+		mFollowersFollowingCount.clear();
+		mShowedUser.clear();
+		mCurrentUser.mThumb.mTexture = nullptr;
+		mDownloaderList.clear();
+		mAccountSubscriberMap.clear();
+
 	}
 }
 
@@ -855,8 +878,10 @@ void	TwitterAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 
 void	TwitterAnalyser::switchDisplay()
 {
+	mMainInterface["switchForce"]("IsHidden") = true;
+	mMainInterface["switchForce"]("IsTouchable") = false;
+
 	mShowInfluence = !mShowInfluence;
-	printf("switch precent / inspiration\n");
 }
 
 std::string	TwitterAnalyser::GetUserFolderFromID(u64 id)
@@ -1100,6 +1125,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 		{
 			std::string thumbName = "thumbNail_" + GetIDString(update.first);
 			CMSP toAdd = CoreModifiable::Import("Thumbnail.xml", false, false, nullptr, thumbName);
+			toAdd->AddDynamicAttribute<maFloat, float>("Radius", 1.0f);
 			mShowedUser[update.first] = toAdd;
 			mMainInterface->addItem(toAdd);
 			somethingChanged = true;
@@ -1194,6 +1220,8 @@ void	TwitterAnalyser::refreshAllThumbs()
 			toSetup("PreScaleX") = 1.44f * prescale;
 			toSetup("PreScaleY") = 1.44f * prescale;
 
+			toSetup("Radius") = (float)toSetup("SizeX") * 1.44f * prescale * 0.5f;
+
 			toSetup["ChannelName"]("PreScaleX") = 1.0f / (1.44f * prescale);
 			toSetup["ChannelName"]("PreScaleY") = 1.0f / (1.44f * prescale);
 
@@ -1225,6 +1253,304 @@ void	TwitterAnalyser::refreshAllThumbs()
 		if (toShowCount >= mMaxUserCount)
 			break;
 	}
+
+}
+
+float	TwitterAnalyser::PerAccountUserMap::GetNormalisedSimilitude(const PerAccountUserMap& other)
+{
+	unsigned int count = 0;
+	for (int i = 0; i < mSize; i++)
+	{
+		if (other.m[i] & m[i])
+		{
+			count++;
+		}
+	}
+
+	float result = ((float)count) / ((float)(mSubscribedCount + other.mSubscribedCount - count));
+
+	return result;
+}
+
+float	TwitterAnalyser::PerAccountUserMap::GetNormalisedAttraction(const PerAccountUserMap& other)
+{
+	unsigned int count = 0;
+	for (int i = 0; i < mSize; i++)
+	{
+		if (other.m[i] & m[i])
+		{
+			count++;
+		}
+	}
+
+	float minSCount = (float)std::min(mSubscribedCount, other.mSubscribedCount);
+
+	float result = ((float)count) / minSCount;
+
+	return result;
+}
+
+void	TwitterAnalyser::prepareForceGraphData()
+{
+
+	Histogram<float>	hist({ 0.0,1.0 }, 256);
+
+	mAccountSubscriberMap.clear();
+
+	// for each showed channel
+	for (auto& c : mShowedUser)
+	{
+		PerAccountUserMap	toAdd(mCheckedFollowerList.size());
+		int sindex = 0;
+		int subcount = 0;
+		for (auto& s : mCheckedFollowerList)
+		{
+			if (isSubscriberOf(s.first,c.first))
+			{
+				toAdd.SetSubscriber(sindex);
+			}
+			++sindex;
+		}
+		toAdd.mThumbnail = c.second;
+		c.second["ChannelPercent"]("Text") = "";
+		c.second["ChannelName"]("Text") = "";
+		mAccountSubscriberMap[c.first] = toAdd;
+	}
+
+	for (auto& l1 : mAccountSubscriberMap)
+	{
+		l1.second.mPos = l1.second.mThumbnail->getValue<v2f>("Dock");
+		l1.second.mPos.x = 640 + (rand() % 129) - 64;
+		l1.second.mPos.y = 400 + (rand() % 81) - 40;
+		l1.second.mForce.Set(0.0f, 0.0f);
+		l1.second.mRadius = l1.second.mThumbnail->getValue<float>("Radius");
+
+		int index = 0;
+		for (auto& l2 : mAccountSubscriberMap)
+		{
+			if (&l1 == &l2)
+			{
+				l1.second.mCoeffs.push_back({ index,-1.0f });
+			}
+			else
+			{
+				float coef = l1.second.GetNormalisedSimilitude(l2.second);
+				l1.second.mCoeffs.push_back({ index ,coef });
+				hist.addValue(coef);
+			}
+			++index;
+		}
+
+		// sort mCoeffs by value
+		std::sort(l1.second.mCoeffs.begin(), l1.second.mCoeffs.end(), [](const std::pair<int, float>& a1, const std::pair<int, float>& a2)
+			{
+				if (a1.second == a2.second)
+				{
+					return (a1.first < a2.first);
+				}
+
+				return a1.second < a2.second;
+			}
+		);
+
+
+		// sort again mCoeffs but by index 
+		std::sort(l1.second.mCoeffs.begin(), l1.second.mCoeffs.end(), [](const std::pair<int, float>& a1, const std::pair<int, float>& a2)
+			{
+				return a1.first < a2.first;
+			}
+		);
+	}
+
+	hist.normalize();
+
+	std::vector<float> histlimits = hist.getPercentList({ 0.05f,0.5f,0.96f });
+
+
+	float rangecoef1 = 1.0f / (histlimits[1] - histlimits[0]);
+	float rangecoef2 = 1.0f / (histlimits[2] - histlimits[1]);
+	int index1 = 0;
+	for (auto& l1 : mAccountSubscriberMap)
+	{
+		// recompute coeffs according to histogram
+		int index2 = 0;
+		for (auto& c : l1.second.mCoeffs)
+		{
+			if (index1 != index2)
+			{
+				// first half ?
+				if ((c.second >= histlimits[0]) && (c.second <= histlimits[1]))
+				{
+					c.second -= histlimits[0];
+					c.second *= rangecoef1;
+					c.second -= 1.0f;
+					c.second = c.second * c.second * c.second;
+					c.second += 1.0f;
+					c.second *= (histlimits[1] - histlimits[0]);
+					c.second += histlimits[0];
+				}
+				else if ((c.second > histlimits[1]) && (c.second <= histlimits[2]))
+				{
+					c.second -= histlimits[1];
+					c.second *= rangecoef2;
+					c.second = c.second * c.second * c.second;
+					c.second *= (histlimits[2] - histlimits[1]);
+					c.second += histlimits[1];
+				}
+				c.second -= histlimits[1];
+				c.second *= 2.0f;
+
+			}
+			++index2;
+		}
+		++index1;
+	}
+}
+
+void	TwitterAnalyser::DrawForceBased()
+{
+	v2f center(1280.0 / 2.0, 800.0 / 2.0);
+
+	v2f thumbcenter = mMainInterface["thumbnail"]("Dock");
+	thumbcenter.x *= 1280.0f;
+	thumbcenter.y *= 800.0f;
+
+
+	const float timeDelay = 10.0f;
+	const float timeDivisor = 0.04f;
+
+	float currentTime = ((GetApplicationTimer()->GetTime() - mForcedBaseStartingTime) - timeDelay) * timeDivisor;
+	if (currentTime > 1.0f)
+	{
+		currentTime = 1.0f;
+	}
+	// first compute attraction force on each thumb
+	for (auto& l1 : mAccountSubscriberMap)
+	{
+		PerAccountUserMap& current = l1.second;
+
+		// always a  bit of attraction to center
+		v2f	v(thumbcenter);
+		v -= current.mPos;
+
+		// add a bit of random
+		v.x += (rand() % 32) - 16;
+		v.y += (rand() % 32) - 16;
+
+		current.mForce *= 0.1f;
+		current.mForce = v * 0.001f;
+
+		int i = 0;
+		for (auto& l2 : mAccountSubscriberMap)
+		{
+			if (&l1 == &l2)
+			{
+				i++;
+				continue;
+			}
+
+			v2f	v(l2.second.mPos - current.mPos);
+			float dist = Norm(v);
+			v.Normalize();
+			float coef = current.mCoeffs[i].second;
+			if (currentTime < 0.0f)
+			{
+				coef += -currentTime / (timeDelay * timeDivisor);
+			}
+			if (coef > 0.0f)
+			{
+				if (dist <= (current.mRadius + l2.second.mRadius)) // if not already touching
+				{
+					coef = 0.0f;
+				}
+			}
+
+			current.mForce += v * coef * (l2.second.mRadius + current.mRadius) / ((l2.second.mRadius + current.mRadius) + (dist * dist) * 0.001);
+
+			i++;
+		}
+	}
+	// then move according to forces
+	for (auto& l1 : mAccountSubscriberMap)
+	{
+		PerAccountUserMap& current = l1.second;
+		current.mPos += current.mForce;
+	}
+
+	if (currentTime > 0.0f)
+	{
+		// then adjust position with contact
+		for (auto& l1 : mAccountSubscriberMap)
+		{
+			PerAccountUserMap& current = l1.second;
+
+			for (auto& l2 : mAccountSubscriberMap)
+			{
+				if (&l1 == &l2)
+				{
+					// check with central image
+					v2f	v(current.mPos);
+					v -= thumbcenter;
+					float dist = Norm(v);
+					v.Normalize();
+
+					float r = (current.mRadius + 120) * currentTime;
+					if (dist < r)
+					{
+						float coef = (r - dist) * 120.0 / (r);
+						current.mPos += v * (coef);
+					}
+
+					continue;
+				}
+
+				v2f	v(l2.second.mPos - current.mPos);
+				float dist = Norm(v);
+				v.Normalize();
+
+				float r = (current.mRadius + l2.second.mRadius) * currentTime;
+				if (dist < r)
+				{
+					float coef = (r - dist) * 0.5f;
+					current.mPos -= v * coef;
+					l2.second.mPos += v * coef;
+				}
+			}
+		}
+	}
+	// then check if they don't get out of the screen
+	for (auto& l1 : mAccountSubscriberMap)
+	{
+
+		PerAccountUserMap& current = l1.second;
+		v2f	v(current.mPos);
+		v -= center;
+		float l1 = Norm(v);
+
+		float angle = atan2f(v.y, v.x);
+		v.Normalize();
+
+		v2f ellipse(center);
+		ellipse.x *= 0.9 * cosf(angle);
+		ellipse.y *= 0.9 * sinf(angle);
+
+		v2f tst = ellipse.Normalized();
+
+		ellipse -= tst * current.mRadius;
+		float l2 = Norm(ellipse);
+
+		if (l1 > l2)
+		{
+			current.mPos -= v * (l1 - l2);
+		}
+
+		v2f dock(current.mPos);
+		dock.x /= 1280.0f;
+		dock.y /= 800.0f;
+
+		current.mThumbnail("Dock") = dock;
+	}
+
 
 }
 
@@ -1328,4 +1654,25 @@ void		TwitterAnalyser::UpdateStatistics()
 			mFollowersFollowingCount[f] = std::pair<unsigned int, UserStruct>(1, toAdd);
 		}
 	}
+}
+
+void	TwitterAnalyser::switchForce()
+{
+	if (!mDrawForceBased)
+	{
+		prepareForceGraphData();
+		mForcedBaseStartingTime = GetApplicationTimer()->GetTime();
+
+		mMainInterface["switchV"]("IsHidden") = true;
+		mMainInterface["switchV"]("IsTouchable") = false;
+	}
+	else
+	{
+		mMainInterface["switchV"]("IsHidden") = false;
+		mMainInterface["switchV"]("IsTouchable") = true;
+		mMainInterface["switchForce"]("IsHidden") = true;
+		mMainInterface["switchForce"]("IsTouchable") = false;
+	}
+	mDrawForceBased = !mDrawForceBased;
+
 }

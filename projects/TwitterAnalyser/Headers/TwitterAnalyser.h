@@ -27,7 +27,8 @@ protected:
 
 	void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
 	void	switchDisplay();
-	WRAP_METHODS(thumbnailReceived, switchDisplay);
+	void	switchForce();
+	WRAP_METHODS(thumbnailReceived, switchDisplay, switchForce);
 
 	CoreItemSP	RetrieveJSON(CoreModifiable* sender);
 
@@ -58,6 +59,75 @@ protected:
 	// current application state 
 	unsigned int					mState = WAIT_STATE;
 
+
+	class PerAccountUserMap
+	{
+	public:
+		PerAccountUserMap() :m(nullptr), mSubscribedCount(0), mSize(0)
+		{
+
+		}
+
+		PerAccountUserMap(int SSize)
+		{
+			mSize = SSize;
+			m = new unsigned char[mSize];
+			memset(m, 0, mSize * sizeof(unsigned char));
+		}
+		PerAccountUserMap(const PerAccountUserMap& other)
+		{
+			if (m)
+			{
+				delete[] m;
+			}
+			mSize = other.mSize;
+			m = new unsigned char[mSize];
+			memcpy(m, other.m, mSize * sizeof(unsigned char));
+			mSubscribedCount = other.mSubscribedCount;
+		}
+
+		PerAccountUserMap& operator=(const PerAccountUserMap& other)
+		{
+			if (m)
+			{
+				delete[] m;
+			}
+			mSize = other.mSize;
+			m = new unsigned char[mSize];
+			memcpy(m, other.m, mSize * sizeof(unsigned char));
+			mSubscribedCount = other.mSubscribedCount;
+			mThumbnail = other.mThumbnail;
+			return *this;
+		}
+
+		~PerAccountUserMap()
+		{
+			delete[] m;
+		}
+
+		void	SetSubscriber(int index)
+		{
+			m[index] = 1;
+			mSubscribedCount++;
+		}
+
+		unsigned char* m = nullptr;
+		std::vector<std::pair<int, float>>	mCoeffs;
+		unsigned int		mSubscribedCount = 0;
+		unsigned int		mSize = 0;
+
+		CMSP				mThumbnail;
+		v2f					mForce;
+		v2f					mPos;
+		float				mRadius;
+
+		float	GetNormalisedSimilitude(const PerAccountUserMap& other);
+		float	GetNormalisedAttraction(const PerAccountUserMap& other);
+	};
+
+	std::unordered_map<u64, PerAccountUserMap>	mAccountSubscriberMap;
+
+	void	prepareForceGraphData();
 	class ThumbnailStruct
 	{
 	public:
@@ -74,7 +144,12 @@ protected:
 		unsigned int				mStatuses_count = 0;
 		std::string					UTCTime = "";
 		ThumbnailStruct				mThumb;
+		std::vector<u64>			mFollowing;
 	};
+
+	void	DrawForceBased();
+	bool	mDrawForceBased = false;
+	float	mForcedBaseStartingTime = 0.0f;
 
 	CMSP			mMainInterface;
 	u64				mUserID;
@@ -87,6 +162,7 @@ protected:
 
 	// list of followers
 	std::vector<u64>												mFollowers;
+	std::map<u64,std::vector<u64>>									mCheckedFollowerList;
 	unsigned int													mTreatedFollowerIndex = 0;
 	unsigned int													mTreatedFollowerCount = 0;
 	unsigned int													mValidFollowerCount = 0;
@@ -101,6 +177,22 @@ protected:
 			mTreatedFollowerIndex = mCurrentStartingFollowerList;
 		}
 		mTreatedFollowerCount++;
+	}
+
+	bool	isSubscriberOf(u64 follower, u64 account) const
+	{
+		const auto& found = mCheckedFollowerList.find(follower);
+		if (found != mCheckedFollowerList.end())
+		{
+			for (auto& c : (*found).second)
+			{
+				if (c == account)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 
