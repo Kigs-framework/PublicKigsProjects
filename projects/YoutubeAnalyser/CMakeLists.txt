@@ -22,6 +22,7 @@ if(${KIGS_PLATFORM} STREQUAL "Windows" )
 	target_sources(YoutubeAnalyser 
 		PRIVATE 
 			${all_sources}
+			"${KIGS_FRAMEWORK}/StandAloneUtilityClasses/Sources/Histogram.cpp"
 			${all_headers}
 			)
 	set_property(TARGET YoutubeAnalyser PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Data")

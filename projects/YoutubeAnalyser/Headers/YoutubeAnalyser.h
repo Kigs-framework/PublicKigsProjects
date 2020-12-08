@@ -49,26 +49,40 @@ protected:
 	class PerChannelUserMap
 	{
 	public:
-		PerChannelUserMap():m(nullptr),mSubscribedCount(0)
+		PerChannelUserMap():m(nullptr),mSubscribedCount(0), mSize(0)
 		{
 			
 		}
 
 		PerChannelUserMap(int SSize)
 		{
-			m = new unsigned char[SSize];
-			memset(m, 0, SSize * sizeof(unsigned char));
+			mSize = SSize;
+			m = new unsigned char[mSize];
+			memset(m, 0, mSize * sizeof(unsigned char));
 		}
 		PerChannelUserMap(const PerChannelUserMap& other)
 		{
-			m = other.m;
+			if (m)
+			{
+				delete[] m;
+			}
+			mSize = other.mSize;
+			m = new unsigned char[mSize];
+			memcpy(m, other.m, mSize * sizeof(unsigned char));
 			mSubscribedCount = other.mSubscribedCount;
 		}
 
 		PerChannelUserMap& operator=(const PerChannelUserMap& other)
 		{
-			m = other.m;
+			if (m)
+			{
+				delete[] m;
+			}
+			mSize = other.mSize;
+			m = new unsigned char[mSize];
+			memcpy(m, other.m, mSize * sizeof(unsigned char));
 			mSubscribedCount = other.mSubscribedCount;
+			mThumbnail = other.mThumbnail;
 			return *this;
 		}
 
@@ -83,10 +97,18 @@ protected:
 			mSubscribedCount++;
 		}
 
-		unsigned char*	m=nullptr;
-		unsigned int	mSubscribedCount=0;
-	private:
+		unsigned char*		m=nullptr;
+		std::vector<std::pair<int,float>>	mCoeffs;
+		unsigned int		mSubscribedCount=0;
+		unsigned int		mSize = 0;
 
+		CMSP				mThumbnail;
+		v2f					mForce;
+		v2f					mPos;
+		float				mRadius;
+
+		float	GetNormalisedSimilitude(const PerChannelUserMap& other);
+		float	GetNormalisedAttraction(const PerChannelUserMap& other);
 	};
 
 	class UserStruct 
@@ -108,6 +130,9 @@ protected:
 		}
 	};
 
+	void	DrawForceBased();
+	bool	mDrawForceBased = false;
+	float	mForcedBaseStartingTime = 0.0f;
 
 	void	ProtectedInit() override;
 	void	ProtectedUpdate() override;
@@ -123,11 +148,12 @@ protected:
 
 	void	refreshAllThumbs();
 
-	void	prepareCloudGraphData();
+	void	prepareForceGraphData();
 
 	void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
 	void	switchDisplay();
-	WRAP_METHODS(thumbnailReceived, switchDisplay);
+	void	switchForce();
+	WRAP_METHODS(thumbnailReceived, switchDisplay, switchForce);
 
 	// utility
 
