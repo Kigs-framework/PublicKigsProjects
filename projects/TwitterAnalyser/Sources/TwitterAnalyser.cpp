@@ -13,6 +13,54 @@
 #include "UI/UITexture.h"
 #include "Histogram.h"
 
+
+//#define LOG_ALL
+#ifdef LOG_ALL
+SmartPointer<::FileHandle> LOG_File = nullptr;
+
+static	std::string lastLogLine = "";
+static  int		duplicateLineCount = 1;
+
+
+void openLog()
+{
+	LOG_File = Platform_fopen("Log_All.txt", "wb");
+}
+
+void	log(std::string logline)
+{
+	if (LOG_File->mFile)
+	{
+		if ((lastLogLine == logline) && (logline != ""))
+		{
+			duplicateLineCount++;
+		}
+		else
+		{
+			if (duplicateLineCount > 1)
+			{
+				lastLogLine += "x" + std::to_string(duplicateLineCount);
+				duplicateLineCount = 1;
+			}
+			if (lastLogLine != "")
+			{
+				lastLogLine += "\n";
+				Platform_fwrite(lastLogLine.c_str(), 1, lastLogLine.length(), LOG_File.get());
+			}
+		}
+		lastLogLine = logline;
+	}
+}
+
+void closeLog()
+{
+	log(""); // flush last line if needed
+	Platform_fclose(LOG_File.get());
+}
+
+#endif
+
+
 IMPLEMENT_CLASS_INFO(TwitterAnalyser);
 
 IMPLEMENT_CONSTRUCTOR(TwitterAnalyser)
@@ -41,6 +89,10 @@ void	TwitterAnalyser::ProtectedInit()
 
 	// lets say that the update will sleep 1ms
 	SetUpdateSleepTime(1);
+
+#ifdef LOG_ALL
+	openLog();
+#endif
 
 	mCurrentTime = time(0);
 
@@ -110,11 +162,15 @@ void	TwitterAnalyser::ProtectedInit()
 
 	if (currentP.isNil()) // new user
 	{
-		// check classic User Cache
+#ifdef LOG_ALL
+		log("new user : request details");
+#endif
 
+		// check classic User Cache
 		std::string url = "1.1/users/show.json?screen_name=" + mUserName;
 		mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 		mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+		mAnswer->AddDynamicAttribute<maInt,int>("BearerIndex", CurrentBearer());
 		mAnswer->AddDynamicAttribute<maBool, bool>("RequestThumb", true);
 		mAnswer->Init();
 		myRequestCount++;
@@ -123,6 +179,7 @@ void	TwitterAnalyser::ProtectedInit()
 	else // load current user
 	{
 		mUserID = currentP["id"];
+
 		LoadUserStruct(mUserID, mCurrentUser, true);
 
 		// look if needs more followers
@@ -161,6 +218,10 @@ void	TwitterAnalyser::ProtectedUpdate()
 		// 2 minutes
 		if (dt > (2.0 * 60.0))
 		{
+#ifdef LOG_ALL
+			log("Wait Quota : relaunch request");
+#endif
+
 			mWaitQuota = false;
 			mAnswer->GetRef(); 
 			KigsCore::addAsyncRequest(mAnswer.get());
@@ -171,10 +232,12 @@ void	TwitterAnalyser::ProtectedUpdate()
 	}
 	else 
 	{
-
 		switch (mState)
 		{
 		case WAIT_STATE: // wait
+#ifdef LOG_ALL
+			log("WAIT_STATE");
+#endif
 			break;
 
 		case GET_FOLLOWERS_INIT: // get follower list
@@ -198,10 +261,14 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 				if (CanLaunchRequest())
 				{
+#ifdef LOG_ALL
+					log("getFollowers for " + mUserName + " request");
+#endif
 					// need to ask more data
 					std::string url = "1.1/followers/ids.json?cursor=" + mFollowersNextCursor + "&screen_name=" + mUserName + "&count=5000";
 					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowers", this);
 					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+					mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
 					mAnswer->Init();
 					myRequestCount++;
 					mState = WAIT_STATE;
@@ -214,6 +281,9 @@ void	TwitterAnalyser::ProtectedUpdate()
 		case CHECK_INACTIVES: // check fake
 		{
 			u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
+#ifdef LOG_ALL
+			log("CHECK_INACTIVES " + std::to_string(currentFollowerID) );
+#endif
 			UserStruct	tmpuser;
 			if (!LoadUserStruct(currentFollowerID, tmpuser, false))
 			{
@@ -222,11 +292,19 @@ void	TwitterAnalyser::ProtectedUpdate()
 			}
 			else // check if follower seems fake
 			{
-				int creationYear = getCreationYear(tmpuser.UTCTime);
-				int deltaYear = 1+(mCurrentYear - creationYear);
+				int deltaYear=1;
+
+				if (tmpuser.UTCTime != "")
+				{
+					int creationYear = getCreationYear(tmpuser.UTCTime);
+					deltaYear = 1 + (mCurrentYear - creationYear);
+				}
 
 				if ((tmpuser.mFollowersCount < 4) && (tmpuser.mFollowingCount < 30) && ((tmpuser.mStatuses_count/deltaYear)<3) ) // this is FAKE NEEEWWWWSS !
 				{
+#ifdef LOG_ALL
+					log("Is Inactive " + std::to_string(currentFollowerID));
+#endif
 					mFakeFollowerCount++;
 					NextTreatedFollower();
 					if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
@@ -244,9 +322,12 @@ void	TwitterAnalyser::ProtectedUpdate()
 		break;
 		case TREAT_FOLLOWER: // treat one follower
 		{
-			
+
 			// search for an available next-cursor for current following
 			u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
+#ifdef LOG_ALL
+			log("TREAT_FOLLOWER " + std::to_string(currentFollowerID));
+#endif
 			std::string stringID = GetIDString(currentFollowerID);
 			std::string filename = "Cache/Users/" + GetUserFolderFromID(currentFollowerID) + "/" + stringID + "_nc.json";
 			CoreItemSP currentNextCursor = LoadJSon(filename);
@@ -264,10 +345,10 @@ void	TwitterAnalyser::ProtectedUpdate()
 					needRequest = true;
 				}
 			}
-			LoadFollowingFile(currentFollowerID);
-
+			
 			if (!needRequest)
 			{
+				LoadFollowingFile(currentFollowerID);
 				mState = UPDATE_STATISTICS;
 				break;
 			}
@@ -275,11 +356,11 @@ void	TwitterAnalyser::ProtectedUpdate()
 			{
 				if (CanLaunchRequest())
 				{
-
 					std::string url = "1.1/friends/ids.json?cursor=" + nextCursor + "&user_id=" + stringID + "&count=5000";
 					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowing", this);
 					mAnswer->AddDynamicAttribute<maULong, u64>("UserID", currentFollowerID);
 					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+					mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
 					mAnswer->Init();
 					myRequestCount++;
 					mState = WAIT_STATE;
@@ -295,6 +376,9 @@ void	TwitterAnalyser::ProtectedUpdate()
 			if (mCurrentFollowing.size() > 1)
 			{
 				u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
+#ifdef LOG_ALL
+				log("UpdateStatistics " + std::to_string(currentFollowerID));
+#endif
 				mCheckedFollowerList[currentFollowerID]= mCurrentFollowing;
 				mValidFollowerCount++;
 
@@ -307,6 +391,9 @@ void	TwitterAnalyser::ProtectedUpdate()
 				mState = GET_USER_DETAILS;
 				break;
 			}
+#ifdef LOG_ALL
+			log("NextTreatedFollower ");
+#endif
 			NextTreatedFollower();
 			if ( (mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
 			{
@@ -319,10 +406,19 @@ void	TwitterAnalyser::ProtectedUpdate()
 			break;
 		}
 		case WAIT_USER_DETAILS_FOR_CHECK: // wait for 
+#ifdef LOG_ALL
+			log("WAIT_USER_DETAILS_FOR_CHECK ");
+#endif
 			break;
 		case GET_USER_DETAILS_FOR_CHECK:
+#ifdef LOG_ALL
+			log("GET_USER_DETAILS_FOR_CHECK ");
+#endif
 		case GET_USER_DETAILS: // update users details
 		{
+#ifdef LOG_ALL
+			log("GET_USER_DETAILS ");
+#endif
 			if (mUserDetailsAsked.size())
 			{
 				if (CanLaunchRequest())
@@ -330,6 +426,8 @@ void	TwitterAnalyser::ProtectedUpdate()
 					std::string url = "1.1/users/show.json?user_id=" + GetIDString(mUserDetailsAsked.back());
 					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+					mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
+					mAnswer->AddDynamicAttribute<maULong, u64>("UserID", mUserDetailsAsked.back());
 					mAnswer->Init();
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
@@ -342,6 +440,9 @@ void	TwitterAnalyser::ProtectedUpdate()
 			{
 				if (mState == GET_USER_DETAILS) // update statistics was already done, just go to next
 				{
+#ifdef LOG_ALL
+					log("NextTreatedFollower ");
+#endif
 					NextTreatedFollower(); 
 					if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
 					{
@@ -430,6 +531,10 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 void	TwitterAnalyser::ProtectedClose()
 {
+#ifdef LOG_ALL
+	closeLog();
+#endif
+
 	DataDrivenBaseApplication::ProtectedClose();
 	mTwitterConnect = nullptr;
 	mAnswer = nullptr;
@@ -493,13 +598,30 @@ CoreItemSP	TwitterAnalyser::RetrieveJSON(CoreModifiable* sender)
 				if (!result["errors"][0]["code"].isNil())
 				{
 					int code = result["errors"][0]["code"];
+					mApiErrorCode = code;
 					if (code == 88)
 					{
 						mWaitQuota = true;
 						mWaitQuotaCount++;
 						mStartWaitQuota = GetApplicationTimer()->GetTime();
 					}
+				
+					if (code == 32)
+					{
+						HTTPAsyncRequest* request = (HTTPAsyncRequest*)sender;
+						mWaitQuota = true;
+						mWaitQuotaCount++;
+						mStartWaitQuota = GetApplicationTimer()->GetTime();
+						request->ClearHeaders();
+						int bearerIndex = request->getValue<int>("BearerIndex");
+						// remove bearer from list
+						mTwitterBear.erase(mTwitterBear.begin() + bearerIndex);
+						mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+						mAnswer->setValue("BearerIndex", CurrentBearer());
+					}
+					
 				}
+
 				return nullptr;
 			}
 			
@@ -513,6 +635,10 @@ CoreItemSP	TwitterAnalyser::RetrieveJSON(CoreModifiable* sender)
 
 void		TwitterAnalyser::SaveJSon(const std::string& fname,const CoreItemSP& json, bool utf16)
 {
+#ifdef LOG_ALL
+	log("SaveJSon " + fname);
+#endif
+
 	if (utf16)
 	{
 		JSonFileParserUTF16 L_JsonParser;
@@ -617,7 +743,11 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 
 	if (!json.isNil())
 	{
+
 		u64 currentID=sender->getValue<u64>("UserID");
+#ifdef LOG_ALL
+		log("getFollowing request " + std::to_string(currentID) + "ok");
+#endif
 		CoreItemSP followingArray = json["ids"];
 		unsigned int idcount = followingArray->size();
 		for (unsigned int i = 0; i < idcount; i++)
@@ -650,6 +780,9 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 		{
 			// this user is not available, go to next one
 			u64 currentID = sender->getValue<u64>("UserID");
+#ifdef LOG_ALL
+			log("getFollowing request " + std::to_string(currentID) + "failed");
+#endif
 			SaveFollowingFile(currentID);
 
 			std::string stringID = GetIDString(currentID);
@@ -676,7 +809,12 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 
 	if (!json.isNil())
 	{
+
 		u64 currentID= json["id"];
+
+#ifdef LOG_ALL
+		log("getUserDetails " + std::to_string(currentID) + " ok");
+#endif
 
 		UserStruct	tmp;
 		UserStruct* pUser = &tmp;
@@ -735,7 +873,27 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 	}
 	else if(!mWaitQuota)
 	{
+
+		if (mApiErrorCode == 63) // user suspended
+		{
+			u64 id=sender->getValue<u64>("UserID");
+			UserStruct suspended;
+			suspended.mFollowersCount = 0;
+			suspended.mFollowingCount = 0;
+			suspended.mStatuses_count = 0;
+			SaveUserStruct(id, suspended);
+			mApiErrorCode = 0;
+			mFakeFollowerCount++;
+		}
+
+
+#ifdef LOG_ALL
+		log("getUserDetails failed");
+#endif
 		NextTreatedFollower();
+#ifdef LOG_ALL
+		log("NextTreatedFollower");
+#endif
 		if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
 		{
 			mState = EVERYTHING_DONE;
@@ -888,7 +1046,7 @@ std::string	TwitterAnalyser::GetUserFolderFromID(u64 id)
 {
 	std::string result;
 
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < 4; i++)
 	{
 		result +='0'+(id % 10);
 		id = id / 10;
@@ -920,7 +1078,9 @@ bool		TwitterAnalyser::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
 	{
 		return false;
 	}
-
+#ifdef LOG_ALL
+	log("loaded user" + std::to_string(id) + "details");
+#endif
 	ch.mName = initP["Name"];
 	ch.mFollowersCount = initP["FollowersCount"];
 	ch.mFollowingCount = initP["FollowingCount"];
@@ -945,6 +1105,10 @@ bool		TwitterAnalyser::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
 
 void		TwitterAnalyser::SaveUserStruct(u64 id, UserStruct& ch)
 {
+#ifdef LOG_ALL
+	log("save user" + std::to_string(id) + "details");
+#endif
+
 	JSonFileParserUTF16 L_JsonParser;
 	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<usString>>();
 	initP->set("Name", CoreItemSP::getCoreValue(ch.mName));
@@ -1562,12 +1726,21 @@ bool		TwitterAnalyser::LoadFollowingFile(u64 id)
 
 	if (mCurrentFollowing.size())
 	{
+#ifdef LOG_ALL
+		log("LoadFollowingFile " + std::to_string(id) + "ok");
+#endif
 		return true;
 	}
+#ifdef LOG_ALL
+	log("LoadFollowingFile " + std::to_string(id) + "failed");
+#endif
 	return false;
 }
 void		TwitterAnalyser::SaveFollowingFile(u64 id)
 {
+#ifdef LOG_ALL
+	log("SaveFollowingFile " + std::to_string(id));
+#endif
 	std::string filename = "Cache/Users/" + GetUserFolderFromID(id) + "/" + GetIDString(id) + ".ids";
 	SaveIDVectorFile(mCurrentFollowing, filename);
 }
@@ -1582,12 +1755,21 @@ bool		TwitterAnalyser::LoadFollowersFile()
 
 	if (mFollowers.size())
 	{
+#ifdef LOG_ALL
+		log("LoadFollowersFile ok");
+#endif
 		return true;
 	}
+#ifdef LOG_ALL
+	log("LoadFollowersFile failed");
+#endif
 	return false;
 }
 void		TwitterAnalyser::SaveFollowersFile()
 {
+#ifdef LOG_ALL
+	log("SaveFollowersFile");
+#endif
 	std::string filename = "Cache/UserName/";
 	filename += mUserName + ".ids";
 

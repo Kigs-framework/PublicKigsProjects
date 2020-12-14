@@ -273,4 +273,6 @@ protected:
 		GET_USER_DETAILS				= 8,
 		EVERYTHING_DONE					= 9
 	};
+
+	unsigned int				mApiErrorCode=0;
 };
