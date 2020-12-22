@@ -1932,7 +1932,7 @@ DEFINE_METHOD(YoutubeAnalyser, getCommentList)
 							if (!replies.isNil())
 							{
 								myParsedComments++;
-								CoreItemSP authorChannelID = topComment["authorChannelId"]["value"];
+								CoreItemSP authorChannelID = replies["authorChannelId"]["value"];
 								if (!authorChannelID.isNil())
 								{
 									std::string authorID = authorChannelID;
@@ -2005,7 +2005,12 @@ DEFINE_METHOD(YoutubeAnalyser, getUserSubscribtion)
 					{
 
 						usString title = subscriptions[i]["snippet"]["title"];
-						std::string url = subscriptions[i]["snippet"]["thumbnails"]["default"]["url"];
+						CoreItemSP thumbnailInfos = subscriptions[i]["snippet"]["thumbnails"];
+						std::string url="";
+						if (!thumbnailInfos.isNil())
+						{
+							url = thumbnailInfos["default"]["url"];
+						} 
 						std::string chanID = subscription;
 
 						if (chanID == mChannelID) // ok this user subscribes to analysed channel
