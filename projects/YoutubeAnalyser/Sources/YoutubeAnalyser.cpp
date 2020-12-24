@@ -45,6 +45,16 @@ IMPLEMENT_CONSTRUCTOR(YoutubeAnalyser)
 
 }
 
+void	replaceSpacesByEscapedOr(std::string& keyw)
+{
+	size_t pos = keyw.find(" ");
+	while (pos != std::string::npos)
+	{
+		keyw.replace(pos, 1, "%7C");
+		pos = keyw.find(" ");
+	}
+}
+
 void	YoutubeAnalyser::ProtectedInit()
 {
 	// Base modules have been created at this point
@@ -81,6 +91,8 @@ void	YoutubeAnalyser::ProtectedInit()
 	SetMemberFromParam(mValidChannelPercent, "ValidChannelPercent");
 	SetMemberFromParam(mMaxUserPerVideo, "MaxUserPerVideo");
 	SetMemberFromParam(mUseKeyword, "UseKeyword");
+
+	replaceSpacesByEscapedOr(mUseKeyword);
 
 	int oldFileLimitInDays=3*30;
 	SetMemberFromParam(oldFileLimitInDays, "OldFileLimitInDays");
@@ -225,10 +237,10 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			}
 			else
 			{
-				url += "&chart=mostPopular&regionCode=FR&hl=fr&q=" + mUseKeyword;
+				url += "&regionCode=FR&relevanceLanguage=fr&q=" + mUseKeyword;
 			}
-			std::string request = url  + mKey + nextPageToken + "&maxResults=1&order=date&type=video";
-
+			std::string request = url  + mKey + nextPageToken + "&maxResults=50&order=date&type=video";
+			
 			// TODO : add date parameter
 			//"&publishedAfter=""
 			//"&publishedBefore=""
@@ -240,12 +252,13 @@ void	YoutubeAnalyser::ProtectedUpdate()
 		else // get video list from file
 		{
 			CoreItemSP videoList = initP["videos"];
+			CoreItemSP videotitles = initP["videosTitles"];
 			if (!videoList.isNil())
 			{
 				mVideoListToProcess.clear();
 				for (int i = 0; i < videoList->size(); i++)
 				{
-					mVideoListToProcess.push_back({ videoList[i], 0 }); // 0 means loaded from file 1 means we can continue download
+					mVideoListToProcess.push_back({ videoList[i], videotitles[i] });
 				}
 				mState = 2; // then go to process videos
 			}
@@ -258,13 +271,6 @@ void	YoutubeAnalyser::ProtectedUpdate()
 	break;
 	case 21: // retrieve more comments from this video
 		needMoreData = true;
-		if (mVideoListToProcess.size() > mCurrentProcessedVideo)
-		{
-			if (mVideoListToProcess[mCurrentProcessedVideo].second != 1) // go to next one
-			{
-				mCurrentProcessedVideo++;
-			}
-		}
 
 #ifdef LOG_ALL
 		log("********************    state 21");
@@ -282,6 +288,10 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			mCurrentAuthorList.clear();
 			// https://www.googleapis.com/youtube/v3/commentThreads?part=snippet%2Creplies&videoId=_VB39Jo8mAQ&key=[YOUR_API_KEY]' 
 			std::string videoID = mVideoListToProcess[mCurrentProcessedVideo].first;
+
+			// set current video title 
+			mMainInterface["CurrentVideo"]("Text") = mVideoListToProcess[mCurrentProcessedVideo].second;
+
 #ifdef LOG_ALL
 			log(std::string("Process video ")+ videoID);
 #endif
@@ -294,27 +304,23 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			std::string nextPageToken;
 			if (needMoreData && (!initP.isNil()))
 			{
-				if (mVideoListToProcess[mCurrentProcessedVideo].second == 1) // downloaded
+				if (!initP["nextPageToken"].isNil())
 				{
-					if (!initP["nextPageToken"].isNil())
-					{
-						nextPageToken = "&pageToken=" + (std::string)initP["nextPageToken"];
-					}
-					else
-					{
-						initP = nullptr;
-					}
+					nextPageToken = "&pageToken=" + (std::string)initP["nextPageToken"];
+				}
+				else
+				{
+					mState = 2;
+					mCurrentProcessedVideo++;
+					mCurrentVideoUserFound = 0;
+					mNotSubscribedUserForThisVideo = 0;
+					break;
 				}
 			}			
 
 			// request new comments
 			if (initP.isNil() || nextPageToken!="")
 			{
-				if (nextPageToken == "") // this is a new page ( so a new video )
-				{
-					mCurrentVideoUserFound = 0;
-				}
-
 				std::string url = "/youtube/v3/commentThreads?part=snippet%2Creplies&videoId=";
 				std::string request = url + videoID + mKey + nextPageToken +  "&maxResults=50&order=time";
 				mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getCommentList", this);
@@ -325,10 +331,8 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			}
 			else // get authors from already saved file
 			{
-				if (mCurrentProcessedVideo == (mVideoListToProcess.size() - 1))
-				{
-					mVideoListToProcess[mCurrentProcessedVideo].second = 1; // next time, download
-				}
+				mParsedComments += (int)initP["ParsedComments"];
+				
 				CoreItemSP authorList = initP["authors"];
 				if (!authorList.isNil())
 				{
@@ -338,7 +342,6 @@ void	YoutubeAnalyser::ProtectedUpdate()
 						mCurrentAuthorList.insert(authorList[i]);
 					}
 					mState = 3;
-					mCurrentVideoUserFound = 0;
 				}
 				else
 				{
@@ -367,11 +370,12 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			log("********************* Max user for video");
 #endif
 			// go to next video
-			mAuthorListToProcess.clear();
-			mCurrentAuthorList.clear();
-			mVideoListToProcess[mCurrentProcessedVideo].second = 2; // we want to go to next video
-
+			mState = 2;
+			mCurrentProcessedVideo++;
+			mCurrentVideoUserFound = 0;
+			mNotSubscribedUserForThisVideo = 0;
 			mBadVideo = false;
+			break;
 		}
 
 		if (mAuthorListToProcess.size())
@@ -436,6 +440,13 @@ void	YoutubeAnalyser::ProtectedUpdate()
 
 					if (!mCurrentUser.mHasSubscribed)
 					{
+						mNotSubscribedUserForThisVideo++;
+						// parsed 40 users and none has subscribed to this channel
+						// so set bad video flag
+						if (mNotSubscribedUserForThisVideo > 20)
+						{
+							mBadVideo = true;
+						}
 						for (const auto& c : mCurrentUser.mPublicChannels)
 						{
 							// add new found channel
@@ -471,7 +482,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 					else
 					{
 						mySubscribedWriters++;
-						
+						mNotSubscribedUserForThisVideo = 0;
 						mCurrentVideoUserFound++;
 						for (const auto& c : mCurrentUser.mPublicChannels)
 						{
@@ -635,7 +646,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			}
 			sprintf(textBuffer, "Found Channels : %d", mFoundChannels.size());
 			mMainInterface["FoundChannels"]("Text") = textBuffer;
-			sprintf(textBuffer, "Parsed Comments : %d", myParsedComments);
+			sprintf(textBuffer, "Parsed Comments : %d", mParsedComments);
 			mMainInterface["ParsedComments"]("Text") = textBuffer;
 			sprintf(textBuffer, "Youtube Data API requests : %d", myRequestCount);
 			mMainInterface["RequestCount"]("Text") = textBuffer;
@@ -1642,7 +1653,7 @@ DEFINE_METHOD(YoutubeAnalyser, getChannelStats)
 	return true;
 }
 
-void		YoutubeAnalyser::SaveAuthorList(const std::string& nextPage,const std::string& videoID )
+void		YoutubeAnalyser::SaveAuthorList(const std::string& nextPage,const std::string& videoID, unsigned int localParsedComments)
 {
 	std::string filename = "Cache/" + mChannelName + "/videos/";
 
@@ -1671,12 +1682,23 @@ void		YoutubeAnalyser::SaveAuthorList(const std::string& nextPage,const std::str
 		v = CoreItemSP::getCoreVector();
 	}
 
+	// add new authors
 	for (const auto& auth : mAuthorListToProcess)
 	{
 		v->set("", CoreItemSP::getCoreValue(auth));
 	}
 
 	initP->set("authors", v);
+	
+	CoreItemSP parsedComments = initP["ParsedComments"];
+	if (parsedComments.isNil())
+	{
+		parsedComments = CoreItemSP::getCoreValue(0);
+	}
+	parsedComments = ((int)parsedComments) + localParsedComments;
+	
+	initP->set("ParsedComments", parsedComments);
+
 	JSonFileParser L_JsonParser;
 	L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
 }
@@ -1704,14 +1726,18 @@ void YoutubeAnalyser::SaveVideoList(const std::string& nextPage)
 	}
 
 	CoreItemSP v = CoreItemSP::getCoreVector();
+	// titles
+	CoreItemSP nv = CoreItemSP::getCoreVector();
 
 	// mVideoListToProcess is never reset, so just write the full list
 	for (const auto& vid : mVideoListToProcess)
 	{
 		v->set("", CoreItemSP::getCoreValue(vid.first));
+		nv->set("", CoreItemSP::getCoreValue(vid.second));
 	}
 
 	initP->set("videos", v);
+	initP->set("videosTitles", nv);
 	JSonFileParser L_JsonParser;
 	L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
 
@@ -1851,10 +1877,13 @@ DEFINE_METHOD(YoutubeAnalyser, getVideoList)
 						{
 							if (!video["id"]["videoId"].isNil())
 							{
-								mVideoListToProcess.push_back({ (std::string)video["id"]["videoId"],1 }); // 1 means just downloaded
 
-								// set current video title 
-								mMainInterface["CurrentVideo"]("Text") = (usString)video["snippet"]["title"];
+								std::string cid = video["snippet"]["channelId"];
+								if ((cid != mChannelID) || (mUseKeyword==""))
+								{
+									mVideoListToProcess.push_back({ (std::string)video["id"]["videoId"],(std::string)video["snippet"]["title"] });
+									
+								}
 							}
 						}
 					}
@@ -1888,13 +1917,9 @@ DEFINE_METHOD(YoutubeAnalyser, getCommentList)
 		{
 			nextPageToken = json["nextPageToken"];
 		}
-		else
-		{
-			// comments for this video were all processed
-			mCurrentProcessedVideo++;
-		}
-
 		CoreItemSP commentThreads = json["items"];
+
+		unsigned int localParsedComments=0;
 
 		if (!commentThreads.isNil())
 		{
@@ -1905,7 +1930,7 @@ DEFINE_METHOD(YoutubeAnalyser, getCommentList)
 					CoreItemSP topComment = commentThreads[i]["snippet"]["topLevelComment"]["snippet"];
 					if (!topComment.isNil())
 					{
-						myParsedComments++;
+						localParsedComments++;
 					
 						CoreItemSP authorChannelID = topComment["authorChannelId"]["value"];
 						if (!authorChannelID.isNil())
@@ -1931,7 +1956,7 @@ DEFINE_METHOD(YoutubeAnalyser, getCommentList)
 							CoreItemSP replies = commentThreads[i]["replies"]["comments"][j]["snippet"];
 							if (!replies.isNil())
 							{
-								myParsedComments++;
+								localParsedComments++;
 								CoreItemSP authorChannelID = replies["authorChannelId"]["value"];
 								if (!authorChannelID.isNil())
 								{
@@ -1956,8 +1981,10 @@ DEFINE_METHOD(YoutubeAnalyser, getCommentList)
 		// save authors state
 		{
 			std::string id = sender->getValue<std::string>("videoID");
-			SaveAuthorList(nextPageToken,id);
+			SaveAuthorList(nextPageToken,id, localParsedComments);
 		}
+
+		mParsedComments += localParsedComments;
 
 		mState = 3; // process author
 		return true;
@@ -2050,9 +2077,9 @@ DEFINE_METHOD(YoutubeAnalyser, getUserSubscribtion)
 		else  // add user without subscription
 		{
 			mNotSubscribedUserForThisVideo++;
-			// parsed 50 users and none has subscribed to this channel
+			// parsed 40 users and none has subscribed to this channel
 			// so set bad video flag
-			if (mNotSubscribedUserForThisVideo > 40)
+			if (mNotSubscribedUserForThisVideo > 20)
 			{
 				mBadVideo = true;
 			}

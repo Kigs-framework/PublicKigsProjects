@@ -165,7 +165,7 @@ protected:
 	void		SaveChannelStruct(const std::string& id, const ChannelStruct& ch);
 	bool		LoadChannelStruct(const std::string& id, ChannelStruct& ch,bool requestThumb=false);
 	void		SaveVideoList(const std::string& nextPage);
-	void		SaveAuthorList(const std::string& nextPage, const std::string& videoID);
+	void		SaveAuthorList(const std::string& nextPage, const std::string& videoID,unsigned int localParsedComments);
 	void		SaveAuthor(const std::string& id);
 
 	void		SaveStatFile();
@@ -184,7 +184,7 @@ protected:
 
 	unsigned int									mySubscribedWriters = 0;
 	unsigned int									myPublicWriters = 0;
-	unsigned int									myParsedComments = 0;
+	unsigned int									mParsedComments = 0;
 	unsigned int									myRequestCount = 0;
 
 	//all treated users
@@ -202,12 +202,12 @@ protected:
 	double											mLastUpdate;
 
 	// current process data
-	std::vector<std::pair<std::string, int>>		mVideoListToProcess;
+	std::vector<std::pair<std::string,std::string>>	mVideoListToProcess;
 	unsigned int									mCurrentProcessedVideo = 0;
 	std::vector<std::string>						mAuthorListToProcess;
 	std::set<std::string>							mCurrentAuthorList;
 	std::string										mCurrentProcessedUser;
-	unsigned int									mCurrentVideoUserFound;
+	unsigned int									mCurrentVideoUserFound=0;
 	UserStruct										mCurrentUser;
 	std::vector<std::pair<std::string, std::pair<usString, std::string>> >	mTmpUserChannels;
 
