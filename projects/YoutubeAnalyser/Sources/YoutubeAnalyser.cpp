@@ -440,12 +440,15 @@ void	YoutubeAnalyser::ProtectedUpdate()
 
 					if (!mCurrentUser.mHasSubscribed)
 					{
-						mNotSubscribedUserForThisVideo++;
-						// parsed 40 users and none has subscribed to this channel
-						// so set bad video flag
-						if (mNotSubscribedUserForThisVideo > 20)
+						if (mCurrentUser.mPublicChannels.size())
 						{
-							mBadVideo = true;
+							mNotSubscribedUserForThisVideo++;
+							// parsed 40 users and none has subscribed to this channel
+							// so set bad video flag
+							if (mNotSubscribedUserForThisVideo > 20)
+							{
+								mBadVideo = true;
+							}
 						}
 						for (const auto& c : mCurrentUser.mPublicChannels)
 						{
@@ -2055,10 +2058,11 @@ DEFINE_METHOD(YoutubeAnalyser, getUserSubscribtion)
 	}
 	if (isLastPage)
 	{
-
+		bool isPublicWriter = false;
 		if (mTmpUserChannels.size())
 		{
 			myPublicWriters++;
+			isPublicWriter = true;
 		}
 		if (mCurrentUser.mHasSubscribed)
 		{
@@ -2076,12 +2080,15 @@ DEFINE_METHOD(YoutubeAnalyser, getUserSubscribtion)
 		}
 		else  // add user without subscription
 		{
-			mNotSubscribedUserForThisVideo++;
-			// parsed 40 users and none has subscribed to this channel
-			// so set bad video flag
-			if (mNotSubscribedUserForThisVideo > 20)
+			if (isPublicWriter)
 			{
-				mBadVideo = true;
+				mNotSubscribedUserForThisVideo++;
+				// parsed 40 users and none has subscribed to this channel
+				// so set bad video flag
+				if (mNotSubscribedUserForThisVideo > 20)
+				{
+					mBadVideo = true;
+				}
 			}
 			for (const auto& c : mTmpUserChannels)
 			{
