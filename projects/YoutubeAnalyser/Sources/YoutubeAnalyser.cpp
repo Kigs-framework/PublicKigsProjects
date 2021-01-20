@@ -460,7 +460,8 @@ void	YoutubeAnalyser::ProtectedUpdate()
 								mFoundChannels[c]=toAdd;
 								toAdd->mSubscribersCount = 0;
 								toAdd->mNotSubscribedSubscribersCount = 1;
-								if (!LoadChannelStruct(c, *toAdd))
+								// load channel only when mSubscribersCount is enough
+								/*if (!LoadChannelStruct(c, *toAdd))
 								{
 									// request details
 									std::string url = "/youtube/v3/channels?part=statistics,snippet&id=";
@@ -471,7 +472,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 									mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "ID", c.c_str());
 									mAnswer->Init();
 									myRequestCount++;
-								}
+								}*/
 							}
 							else
 							{
@@ -497,7 +498,8 @@ void	YoutubeAnalyser::ProtectedUpdate()
 								mFoundChannels[c] = toAdd;
 								toAdd->mSubscribersCount = 1;
 								toAdd->mNotSubscribedSubscribersCount = 0;
-								if (!LoadChannelStruct(c, *toAdd))
+								// load channel only when mSubscribersCount is enough
+								/*if (!LoadChannelStruct(c, *toAdd))
 								{
 									// request details
 									std::string url = "/youtube/v3/channels?part=statistics,snippet&id=";
@@ -508,11 +510,26 @@ void	YoutubeAnalyser::ProtectedUpdate()
 									mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "ID", c.c_str());
 									mAnswer->Init();
 									myRequestCount++;
-								}
+								}*/
 							}
 							else
 							{
 								(*found).second->mSubscribersCount++;
+								if ((*found).second->mSubscribersCount==4)
+								{
+									if (!LoadChannelStruct(c, *(*found).second))
+									{
+										// request details
+										std::string url = "/youtube/v3/channels?part=statistics,snippet&id=";
+										std::string request = url + c + mKey;
+										mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
+										printf("Request : getChannelStats %s\n ", c.c_str());
+										mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::INT, "dontSetState", 0);
+										mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "ID", c.c_str());
+										mAnswer->Init();
+										myRequestCount++;
+									}
+								}
 							}
 						}
 						mSubscriberList.push_back(mCurrentProcessedUser);
@@ -558,8 +575,9 @@ void	YoutubeAnalyser::ProtectedUpdate()
 					toAdd->mNotSubscribedSubscribersCount = 1;
 				}
 
+				// load channel only when mSubscribersCount is enough
 				// check if we already know this channel
-				if (!LoadChannelStruct(c.first, *toAdd))
+				/*if (!LoadChannelStruct(c.first, *toAdd))
 				{
 					toAdd->mName = c.second.first;
 					toAdd->mThumb.mURL = c.second.second;
@@ -573,15 +591,29 @@ void	YoutubeAnalyser::ProtectedUpdate()
 					myRequestCount++;
 				}
 				else
-				{
+				{*/
 					mState = 4; // continue mTmpUserChannels
-				}
+				//}
 			}
 			else
 			{
 				if (mCurrentUser.mHasSubscribed)
 				{
 					(*found).second->mSubscribersCount++;
+					if (!LoadChannelStruct(c.first, *(*found).second))
+					{
+						(*found).second->mName = c.second.first;
+						(*found).second->mThumb.mURL = c.second.second;
+						// request details
+						std::string url = "/youtube/v3/channels?part=statistics&id=";
+						std::string request = url + c.first + mKey;
+						mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
+						printf("Request : getChannelStats %s\n ", c.first.c_str());
+						mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "ID", c.first.c_str());
+						mAnswer->Init();
+						myRequestCount++;
+						break;
+					}
 				}
 				else
 				{
