@@ -12,6 +12,7 @@
 #include "TextureFileManager.h"
 #include "UI/UITexture.h"
 #include "Histogram.h"
+#include "AnonymousModule.h"
 
 
 //#define LOG_ALL
@@ -134,6 +135,38 @@ void	TwitterAnalyser::ProtectedInit()
 	SetMemberFromParam(mMaxUserCount, "MaxUserCount");
 	SetMemberFromParam(mValidUserPercent, "ValidUserPercent");
 	SetMemberFromParam(mWantedTotalPanelSize, "WantedTotalPanelSize");
+	// likes mode
+	SetMemberFromParam(mUseLikes, "UseLikes");
+	SetMemberFromParam(mMaxLikersPerTweet, "MaxLikersPerTweet");
+
+	if (mUseLikes)
+	{
+		// load anonymous module for web scraper
+#ifdef _DEBUG
+		mWebScraperModule = new AnonymousModule("WebScraperD.dll");
+#else
+		mWebScraperModule = new AnonymousModule("WebScraper.dll");
+#endif
+		mWebScraperModule->Init(KigsCore::Instance(), nullptr);
+
+		mWebScraper= KigsCore::GetInstanceOf("theWebScrapper", "WebViewHandler");
+
+		// can't find anonymous module ? don't use likes
+		if (!mWebScraper->isSubType("WebViewHandler"))
+		{
+			mWebScraperModule->Close();
+			delete mWebScraperModule;
+			mWebScraper = nullptr;
+			mUseLikes = false;
+		}
+		else
+		{
+			mWebScraper->Init();
+			KigsCore::Connect(mWebScraper.get(), "navigationComplete", this, "LaunchScript");
+			KigsCore::Connect(mWebScraper.get(), "msgReceived", this, "treatWebScraperMessage");
+			AddAutoUpdate(mWebScraper.get());
+		}
+	}
 
 	int oldFileLimitInDays = 3 * 30;
 	SetMemberFromParam(oldFileLimitInDays, "OldFileLimitInDays");
@@ -242,13 +275,24 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 		case GET_FOLLOWERS_INIT: // get follower list
 		{
-			if (mFollowers.size() == 0)
+			if ((mFollowers.size() + mTweets.size()) == 0)
 			{
 				// try to load followers file
-				if (LoadFollowersFile() && (mFollowersNextCursor == "-1"))
+				if (mUseLikes)
 				{
-					mState = CHECK_INACTIVES;
-					break;
+					if (LoadTweetsFile())
+					{
+						mState = GET_TWEET_LIKES;
+						break;
+					}
+				}
+				else
+				{
+					if (LoadFollowersFile() && (mFollowersNextCursor == "-1"))
+					{
+						mState = CHECK_INACTIVES;
+						break;
+					}
 				}
 			}
 		}
@@ -256,7 +300,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 		{
 			mState = GET_FOLLOWERS_CONTINUE;
 			// check that we reached the end of followers
-			if ((mFollowers.size() == 0) || (mFollowersNextCursor != "-1"))
+			if (((mFollowers.size()+mTweets.size()) == 0) || (mFollowersNextCursor != "-1"))
 			{
 
 				if (CanLaunchRequest())
@@ -264,18 +308,82 @@ void	TwitterAnalyser::ProtectedUpdate()
 #ifdef LOG_ALL
 					log("getFollowers for " + mUserName + " request");
 #endif
-					// need to ask more data
-					std::string url = "1.1/followers/ids.json?cursor=" + mFollowersNextCursor + "&screen_name=" + mUserName + "&count=5000";
-					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowers", this);
-					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
-					mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
-					mAnswer->Init();
-					myRequestCount++;
-					mState = WAIT_STATE;
-					RequestLaunched(60.5);
+					if (mUseLikes)
+					{
+						// get user tweets
+
+						//https://api.twitter.com/2/users/:id/tweets?tweet.fields=created_at&expansions=author_id&user.fields=created_at&max_results=5
+						// TODO add until_id for next page
+						std::string url = "2/users/" + std::to_string(mUserID) + "/tweets?tweet.fields=public_metrics&max_results=100";
+						if (mFollowersNextCursor != "-1")
+						{
+							url += "&pagination_token=" + mFollowersNextCursor;
+						}
+						mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getTweets", this);
+						mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+						mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
+						mAnswer->Init();
+						myRequestCount++;
+						mState = WAIT_STATE;
+						RequestLaunched(60.5);
+					}
+					else
+					{
+						// need to ask more data
+						std::string url = "1.1/followers/ids.json?cursor=" + mFollowersNextCursor + "&screen_name=" + mUserName + "&count=5000";
+						mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollowers", this);
+						mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+						mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
+						mAnswer->Init();
+						myRequestCount++;
+						mState = WAIT_STATE;
+						RequestLaunched(60.5);
+					}
 				}
 			}
 
+			break;
+		}
+		case GET_TWEET_LIKES:
+		{
+			if (mCurrentTreatedTweetIndex<mTweets.size())
+			{
+				u64 tweetID = mTweets[mCurrentTreatedTweetIndex].mTweetID;
+
+				CoreItemSP likers = LoadLikersFile(tweetID);
+				if (!likers.isNil())
+				{
+					mTweetLikers.clear();
+					mCurrentTreatedLikerIndex = 0;
+					mValidTreatedLikersForThisTweet = 0;
+					for (auto l : likers)
+					{
+						mTweetLikers.push_back(l);
+					}
+
+					mState = GET_USER_FAVORITES;
+					break;
+				}
+				else
+				{
+					std::string stringID = GetIDString(tweetID);
+					std::string ScrapURL = "https://twitter.com/" + mUserName + "/status/" + stringID + "/likes";
+					mNextScript = "const walk = (el) => {"\
+						"window.chrome.webview.postMessage(JSON.stringify(el,[\"href\",\"id\", \"tagName\", \"className\"]));"\
+						"Array.from(el.children).forEach(walk);"\
+						"};"\
+						"walk(document.querySelector('[aria-label=\"Timeline: Liked by\"]'));"\
+						"window.chrome.webview.postMessage(\"scriptDone\");";
+					mScraperState = GET_LIKES;
+					mWebScraper->setValue("Url", ScrapURL);
+					mState = WAIT_STATE;
+				}
+			}
+			else // treat next tweet
+			{
+				mTweets.clear();
+				mState = GET_FOLLOWERS_CONTINUE;
+			}
 			break;
 		}
 		case CHECK_INACTIVES: // check fake
@@ -320,6 +428,50 @@ void	TwitterAnalyser::ProtectedUpdate()
 			}
 		}
 		break;
+		case GET_USER_FAVORITES:
+		{	
+			if ((mCurrentTreatedLikerIndex < mTweetLikers.size()) && ((mValidTreatedLikersForThisTweet <mMaxLikersPerTweet)||(!mMaxLikersPerTweet)))
+			{
+				std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+				auto found = mFoundLiker.find(user);
+				if (found != mFoundLiker.end()) // this one was already treated
+				{
+					(*found).second++;
+					mCurrentTreatedLikerIndex++; // goto next one
+					break;
+				}
+			
+				if (LoadFavoritesFile(user))
+				{
+					mState = UPDATE_LIKES_STATISTICS;
+					break;
+				}
+				else
+				{
+					
+					if (CanLaunchRequest())
+					{
+						std::string url = "1.1/favorites/list.json?screen_name=" + user + "&count=200&include_entities=false";
+						mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFavorites", this);
+						mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+						mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
+						mAnswer->Init();
+						myRequestCount++;
+						mState = WAIT_STATE;
+						RequestLaunched(60.5);
+					}
+				}
+			}
+			else // treat next tweet
+			{
+				mCurrentTreatedTweetIndex++;
+				mTweetLikers.clear();
+				mCurrentTreatedLikerIndex = 0;
+				mValidTreatedLikersForThisTweet = 0;
+				mState = GET_TWEET_LIKES;
+			}
+			break;
+		}
 		case TREAT_FOLLOWER: // treat one follower
 		{
 
@@ -370,6 +522,33 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 			break;
 		}
+		case UPDATE_LIKES_STATISTICS:
+		{
+			if (mFavorites.size())
+			{
+				UpdateLikesStatistics();
+				mFavorites.clear();
+				mValidFollowerCount++;
+				mValidTreatedLikersForThisTweet++;
+			}
+			std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+			mFoundLiker[user] = 1;
+			
+			mState = GET_USER_FAVORITES;
+			mCurrentTreatedLikerIndex++;
+			
+			if (mUserDetailsAsked.size()) // can only go there when validFollower is true
+			{
+				mState = GET_USER_DETAILS;
+				break;
+			}
+			if (mValidFollowerCount == mUserPanelSize)
+			{
+				mState = EVERYTHING_DONE;
+				break;
+			}
+		}
+		break;
 		case UPDATE_STATISTICS: // update statistics
 		{
 			// if only one followning, just skip ( probably 
@@ -383,6 +562,10 @@ void	TwitterAnalyser::ProtectedUpdate()
 				mValidFollowerCount++;
 
 				UpdateStatistics();
+			}
+			else
+			{
+				printf("closed ?");
 			}
 			mCurrentFollowing.clear();
 
@@ -432,25 +615,33 @@ void	TwitterAnalyser::ProtectedUpdate()
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
 					RequestLaunched(1.1);
-					if(mState== GET_USER_DETAILS_FOR_CHECK) // if state is 
+					if((mState== GET_USER_DETAILS_FOR_CHECK) || mUseLikes) // if state is 
 						mState = WAIT_USER_DETAILS_FOR_CHECK;
 				}
 			}
 			else
 			{
-				if (mState == GET_USER_DETAILS) // update statistics was already done, just go to next
+				if (mUseLikes)
 				{
-#ifdef LOG_ALL
-					log("NextTreatedFollower ");
-#endif
-					NextTreatedFollower(); 
-					if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
-					{
-						mState = EVERYTHING_DONE;
-						break;
-					}
+					mState = GET_USER_FAVORITES;
 				}
-				mState = CHECK_INACTIVES;
+				else
+				{
+
+					if (mState == GET_USER_DETAILS) // update statistics was already done, just go to next
+					{
+#ifdef LOG_ALL
+						log("NextTreatedFollower ");
+#endif
+						NextTreatedFollower();
+						if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
+						{
+							mState = EVERYTHING_DONE;
+							break;
+						}
+					}
+					mState = CHECK_INACTIVES;
+				}
 			}
 
 			break;
@@ -547,6 +738,8 @@ void	TwitterAnalyser::ProtectedInitSequence(const kstl::string& sequence)
 		mMainInterface = GetFirstInstanceByName("UIItem", "Interface");
 		mMainInterface["switchForce"]("IsHidden") = true;
 		mMainInterface["switchForce"]("IsTouchable") = false;
+		if(mUseLikes)
+			mMainInterface["heart"]("IsHidden") = false;
 	}
 }
 void	TwitterAnalyser::ProtectedCloseSequence(const kstl::string& sequence)
@@ -652,43 +845,59 @@ void		TwitterAnalyser::SaveJSon(const std::string& fname,const CoreItemSP& json,
 
 }
 
-CoreItemSP	TwitterAnalyser::LoadJSon(const std::string& fname, bool utf16)
+bool TwitterAnalyser::checkValidFile(const std::string& fname, SmartPointer<::FileHandle>& filenamehandle,double OldFileLimit)
 {
 	auto& pathManager = KigsCore::Singleton<FilePathManager>();
-	SmartPointer<::FileHandle> filenamehandle = pathManager->FindFullName(fname);
+	filenamehandle = pathManager->FindFullName(fname);
 
-	// Windows specific code 
-#ifdef WIN32
 
-	if ((filenamehandle->mStatus & FileHandle::Exist) && (mOldFileLimit > 1.0))
+	if ((filenamehandle->mStatus & FileHandle::Exist))
 	{
-		struct _stat resultbuf;
-
-		if (_stat(filenamehandle->mFullFileName.c_str(), &resultbuf) == 0)
+		if (OldFileLimit > 1.0)
 		{
-			auto mod_time = resultbuf.st_mtime;
+			// Windows specific code 
+#ifdef WIN32
+			struct _stat resultbuf;
 
-			double diffseconds = difftime(mCurrentTime, mod_time);
-
-			if (diffseconds > mOldFileLimit)
+			if (_stat(filenamehandle->mFullFileName.c_str(), &resultbuf) == 0)
 			{
-				return nullptr;
+				auto mod_time = resultbuf.st_mtime;
+
+				double diffseconds = difftime(mCurrentTime, mod_time);
+
+				if (diffseconds > OldFileLimit)
+				{
+					return false;
+				}
 			}
-		}
-	}
-
-
 #endif
-	CoreItemSP initP;
-	if (utf16)
-	{
-		JSonFileParserUTF16 L_JsonParser;
-		initP = L_JsonParser.Get_JsonDictionary(filenamehandle);
+		}
+	
+		return true;
+		
 	}
-	else
+
+
+	return false;
+}
+
+CoreItemSP	TwitterAnalyser::LoadJSon(const std::string& fname, bool utf16)
+{
+	SmartPointer<::FileHandle> filenamehandle;
+
+	CoreItemSP initP(nullptr);
+	if (checkValidFile(fname, filenamehandle, mOldFileLimit))
 	{
-		JSonFileParser L_JsonParser;
-		initP = L_JsonParser.Get_JsonDictionary(filenamehandle);
+		if (utf16)
+		{
+			JSonFileParserUTF16 L_JsonParser;
+			initP = L_JsonParser.Get_JsonDictionary(filenamehandle);
+		}
+		else
+		{
+			JSonFileParser L_JsonParser;
+			initP = L_JsonParser.Get_JsonDictionary(filenamehandle);
+		}
 	}
 	return initP;
 }
@@ -736,6 +945,149 @@ DEFINE_METHOD(TwitterAnalyser, getFollowers)
 
 	return true;
 }
+
+
+DEFINE_METHOD(TwitterAnalyser, getFavorites)
+{
+	auto json = RetrieveJSON(sender);
+
+	if (!json.isNil())
+	{
+		for (const auto& fav : json)
+		{
+			u64		tweetID=fav["id"];
+			u64		userid= fav["user"]["id"];
+			u32		likes_count = fav["favorite_count"];
+			u32		rt_count = fav["retweet_count"];
+
+			mFavorites.push_back({ tweetID ,userid ,likes_count ,rt_count });
+		}
+		std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+		SaveFavoritesFile(user);
+		mState = UPDATE_LIKES_STATISTICS;
+	}
+	else if (!mWaitQuota) // can't access favorite for this user
+	{
+		std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+
+		SaveFavoritesFile(user);
+		mState = UPDATE_LIKES_STATISTICS;
+	}
+
+	return true;
+}
+
+
+DEFINE_METHOD(TwitterAnalyser, getTweets)
+{
+	auto json = RetrieveJSON(sender);
+
+	if (!json.isNil())
+	{
+		CoreItemSP tweetsArray = json["data"];
+		unsigned int tweetcount = tweetsArray->size();
+		for (unsigned int i = 0; i < tweetcount; i++)
+		{
+			u64 tweetid = tweetsArray[i]["id"];
+			u32 like_count= tweetsArray[i]["public_metrics"]["like_count"];
+			u32 rt_count = tweetsArray[i]["public_metrics"]["retweet_count"];
+			if (like_count)
+			{
+				mTweets.push_back({ tweetid,like_count,rt_count });
+			}
+		}
+		std::string nextStr = "-1";
+
+		CoreItemSP meta = json["meta"];
+		if (!meta.isNil())
+		{
+			if (!meta["next_token"].isNil())
+			{
+				nextStr = meta["next_token"];
+				if (nextStr == "0")
+				{
+					nextStr = "-1";
+				}
+			}
+		}
+
+		// if some valid tweets were retrieve, then treat them
+		// process will come back here after tweets were treated
+		if (mTweets.size())
+		{
+			mState = GET_TWEET_LIKES;
+		}
+	
+		// use mFollowersNextCursor to store tweets next cursor
+		mFollowersNextCursor = nextStr;
+
+		SaveTweetsFile();
+		std::string filename = "Cache/UserName/";
+		filename += mUserName + ".json";
+		CoreItemSP currentUserJson = LoadJSon(filename);
+		currentUserJson->set("next-cursor", mFollowersNextCursor);
+		SaveJSon(filename, currentUserJson);
+	}
+
+	return true;
+}
+
+
+DEFINE_METHOD(TwitterAnalyser, getTweetLikes)
+{
+	auto json = RetrieveJSON(sender);
+
+	if (!json.isNil())
+	{
+		CoreItemSP tweetsArray = json["data"];
+		unsigned int tweetcount = tweetsArray->size();
+		for (unsigned int i = 0; i < tweetcount; i++)
+		{
+			u64 tweetid = tweetsArray[i]["id"];
+			u32 like_count = tweetsArray[i]["public_metrics"]["like_count"];
+			u32 rt_count = tweetsArray[i]["public_metrics"]["retweet_count"];
+			if (like_count)
+			{
+				mTweets.push_back({ tweetid,like_count,rt_count });
+			}
+		}
+		std::string nextStr = "-1";
+
+		CoreItemSP meta = json["meta"];
+		if (!meta.isNil())
+		{
+			if (!meta["next_token"].isNil())
+			{
+				nextStr = meta["next_token"];
+				if (nextStr == "0")
+				{
+					nextStr = "-1";
+				}
+			}
+		}
+		// do it again
+		if ((mTweets.size() < mWantedTotalPanelSize) && (nextStr != "-1"))
+		{
+			mState = GET_FOLLOWERS_CONTINUE;
+			mFollowersNextCursor = nextStr;
+		}
+		else
+		{
+			mState = CHECK_INACTIVES;
+			mFollowersNextCursor = "-1";
+		}
+		SaveTweetsFile();
+		std::string filename = "Cache/UserName/";
+		filename += mUserName + ".json";
+		CoreItemSP currentUserJson = LoadJSon(filename);
+		currentUserJson->set("next-cursor", mFollowersNextCursor);
+		SaveJSon(filename, currentUserJson);
+	}
+
+	return true;
+}
+
+
 
 DEFINE_METHOD(TwitterAnalyser, getFollowing)
 {
@@ -1132,43 +1484,23 @@ void		TwitterAnalyser::SaveUserStruct(u64 id, UserStruct& ch)
 
 bool		TwitterAnalyser::LoadThumbnail(u64 id, UserStruct& ch)
 {
-	std::string filename = "Cache/Thumbs/";
-	filename += GetIDString(id);
-	filename += ".jpg";
+	SmartPointer<::FileHandle> fullfilenamehandle;
 
-	auto& pathManager = KigsCore::Singleton<FilePathManager>();
-	SmartPointer<::FileHandle> fullfilenamehandle = pathManager->FindFullName(filename);
+	std::vector<std::string> ExtensionList = {".jpg",".png" ,".gif" };
 
-	if (fullfilenamehandle->mStatus & FileHandle::Exist)
+	for (const auto& xt : ExtensionList)
 	{
-		auto& textureManager = KigsCore::Singleton<TextureFileManager>();
-		ch.mThumb.mTexture = textureManager->GetTexture(filename);
-		return true;
+		std::string filename = "Cache/Thumbs/";
+		filename += GetIDString(id);
+		filename += xt;
+
+		if (checkValidFile(filename, fullfilenamehandle, mOldFileLimit))
+		{
+			auto& textureManager = KigsCore::Singleton<TextureFileManager>();
+			ch.mThumb.mTexture = textureManager->GetTexture(filename);
+			return true;
+		}
 	}
-	filename = "Cache/Thumbs/";
-	filename += GetIDString(id);
-	filename += ".png";
-	fullfilenamehandle = pathManager->FindFullName(filename);
-
-	if (fullfilenamehandle->mStatus & FileHandle::Exist)
-	{
-		auto& textureManager = KigsCore::Singleton<TextureFileManager>();
-		ch.mThumb.mTexture = textureManager->GetTexture(filename);
-		return true;
-	}
-
-	filename = "Cache/Thumbs/";
-	filename += GetIDString(id);
-	filename += ".gif";
-	fullfilenamehandle = pathManager->FindFullName(filename);
-
-	if (fullfilenamehandle->mStatus & FileHandle::Exist)
-	{
-		auto& textureManager = KigsCore::Singleton<TextureFileManager>();
-		ch.mThumb.mTexture = textureManager->GetTexture(filename);
-		return true;
-	}
-
 	return false;
 }
 
@@ -1718,6 +2050,55 @@ void	TwitterAnalyser::DrawForceBased()
 
 }
 
+CoreItemSP		TwitterAnalyser::LoadLikersFile(u64 tweetid)
+{
+	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".json";
+	CoreItemSP likers = LoadJSon(filename);
+	return likers;
+}
+void		TwitterAnalyser::SaveLikersFile(u64 tweetid)
+{
+	// likers are stored in unused mFollowers (when in UseLikes mode)
+	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".json";
+
+	CoreItemSP likers = CoreItemSP::getCoreVector();
+	for (const auto& l : mTweetLikers)
+	{
+		likers->set("", l);
+	}
+
+	SaveJSon(filename, likers, false);
+	
+}
+
+struct favoriteStruct
+{
+	u64		tweetID;
+	u64		userID;
+	u32		likes_count;
+	u32		retweet_count;
+};
+
+std::vector<favoriteStruct>										mFavorites;
+bool	TwitterAnalyser::LoadFavoritesFile(const std::string& username)
+{
+	std::string filename = "Cache/Tweets/" + username.substr(0,4) + "/" + username + ".favs";
+
+	if (LoadDataFile<favoriteStruct>(filename, mFavorites))
+	{
+		return true;
+	}
+	mFavorites.clear();
+	return false;
+}
+
+void	TwitterAnalyser::SaveFavoritesFile(const std::string& username)
+{
+	std::string filename = "Cache/Tweets/" + username.substr(0, 4) + "/" + username + ".favs";
+	SaveDataFile<favoriteStruct>(filename, mFavorites);
+}
+
+
 bool		TwitterAnalyser::LoadFollowingFile(u64 id)
 {
 	std::string filename = "Cache/Users/"+ GetUserFolderFromID(id)+"/" + GetIDString(id) + ".ids";
@@ -1779,38 +2160,87 @@ void		TwitterAnalyser::SaveFollowersFile()
 std::vector<u64>		TwitterAnalyser::LoadIDVectorFile(const std::string& filename)
 {
 	std::vector<u64> loaded;
-
-	SmartPointer<::FileHandle> L_File = Platform_fopen(filename.c_str(), "rb");
-	if (L_File->mFile)
+	if (LoadDataFile<u64>(filename, loaded))
 	{
-		// get file size
-		Platform_fseek(L_File.get(), 0, SEEK_END);
-		long filesize = Platform_ftell(L_File.get());
-		Platform_fseek(L_File.get(), 0, SEEK_SET);
-
-		loaded.resize(filesize / sizeof(u64));
-
-		Platform_fread(loaded.data(), sizeof(u64), loaded.size() , L_File.get());
-		Platform_fclose(L_File.get());
-
 		if (loaded.size() == 0) // following unavailable
 		{
 			loaded.push_back(mUserID);
 		}
-
 	}
 
 	return loaded;
 }
+
+bool		TwitterAnalyser::LoadTweetsFile()
+{
+	std::string filename = "Cache/UserName/";
+	filename += mUserName + ".twts";
+
+	std::vector<Twts>	loaded;
+	if (LoadDataFile<Twts>(filename, loaded))
+	{
+		mTweets = std::move(loaded);
+#ifdef LOG_ALL
+		log("LoadTweetsFile ok");
+#endif
+		return true;
+	}
+
+#ifdef LOG_ALL
+	log("LoadTweetsFile failed");
+#endif
+	return false;
+}
+
+void		TwitterAnalyser::SaveTweetsFile()
+{
+#ifdef LOG_ALL
+	log("SaveTweetsFile");
+#endif
+	std::string filename = "Cache/UserName/";
+	filename += mUserName + ".twts";
+
+	SaveDataFile<Twts>(filename, mTweets);
+}
+
 void					TwitterAnalyser::SaveIDVectorFile(const std::vector<u64>& v, const std::string& filename)
 {
-	SmartPointer<::FileHandle> L_File = Platform_fopen(filename.c_str(), "wb");
-	if (L_File->mFile)
+	SaveDataFile<u64>(filename, v);
+}
+
+void		TwitterAnalyser::UpdateLikesStatistics()
+{
+	mUserDetailsAsked.clear();
+
+	std::map<u64,u64> mFavoritesUsers;
+	for (auto f : mFavorites)
 	{
-		Platform_fwrite(v.data(), 1,v.size()*sizeof(u64), L_File.get());
-		Platform_fclose(L_File.get());
+		mFavoritesUsers[f.userID]=f.userID;
+	}
+
+
+	for (auto f : mFavoritesUsers)
+	{
+		auto alreadyfound = mFollowersFollowingCount.find(f.first);
+		if (alreadyfound != mFollowersFollowingCount.end())
+		{
+			(*alreadyfound).second.first++;
+			if ((*alreadyfound).second.first == 3)
+			{
+				if (!LoadUserStruct(f.first, (*alreadyfound).second.second, false))
+				{
+					mUserDetailsAsked.push_back(f.first);
+				}
+			}
+		}
+		else
+		{
+			UserStruct	toAdd;
+			mFollowersFollowingCount[f.first] = std::pair<unsigned int, UserStruct>(1, toAdd);
+		}
 	}
 }
+
 
 void		TwitterAnalyser::UpdateStatistics()
 {
@@ -1857,4 +2287,91 @@ void	TwitterAnalyser::switchForce()
 	}
 	mDrawForceBased = !mDrawForceBased;
 
+}
+
+void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string msg)
+{
+	switch (mScraperState)
+	{
+	case  GET_LIKES:
+	{
+		if (msg.find("href") != std::string::npos)
+		{
+			size_t possibleUserPos = msg.find("twitter.com/");
+			if (possibleUserPos != std::string::npos)
+			{
+				size_t endUserPos = msg.find("\"", possibleUserPos);
+				std::string user = msg.substr(possibleUserPos + 12, endUserPos - (possibleUserPos + 12));
+				if (user.find("search?") == std::string::npos) // seams OK
+				{
+					if (mCurrentScrappedUserNameList.size())
+					{
+						if (mCurrentScrappedUserNameList.back().userName == user)
+						{
+							mCurrentScrappedUserNameList.back().foundCount++;
+						}
+						else
+						{
+							mCurrentScrappedUserNameList.push_back({ user,1 });
+						}
+					}
+					else
+					{
+						mCurrentScrappedUserNameList.push_back({ user,1 });
+					}
+				}
+			}
+		}
+
+		if ((msg.find("scriptDone") != std::string::npos) || (msg=="null"))
+		{
+			if (mCurrentScrappedUserNameList.size()) // some users were found ?
+			{
+				bool valid = true;
+				if (mTweetLikers.size())
+				{
+					if (mCurrentScrappedUserNameList.back().userName == mTweetLikers.back())
+					{
+						valid = false;
+					}
+				}
+
+				if (valid)
+				{
+					for (const auto& u : mCurrentScrappedUserNameList)
+					{
+						mTweetLikers.push_back(u.userName);
+					}
+					mCurrentScrappedUserNameList.clear();
+					mNextScript = "var toscroll=document.querySelector('[href=\"/" + mTweetLikers.back() + "\"]');"\
+						"toscroll.scrollIntoView(true);"\
+						"window.chrome.webview.postMessage(\"scriptDone\");";
+					LaunchScript(sender);
+					mScraperState = SCROLL_LIKES;
+				}
+			}
+			
+			if (mScraperState != SCROLL_LIKES) // no more likers found
+			{
+				u64 tweetID = mTweets[mCurrentTreatedTweetIndex].mTweetID;
+				SaveLikersFile(tweetID);
+				mState = GET_USER_FAVORITES;
+			}
+		}
+	}
+	break;
+	case SCROLL_LIKES:
+	{
+		mNextScript =	"walk(document.querySelector('[aria-label=\"Timeline: Liked by\"]'));"\
+						"window.chrome.webview.postMessage(\"scriptDone\");";
+		mScraperState = GET_LIKES;
+		LaunchScript(sender);
+	}
+	break;
+	}
+}
+
+void	TwitterAnalyser::LaunchScript(CoreModifiable* sender)
+{
+	sender->setValue("Script", mNextScript);
 }

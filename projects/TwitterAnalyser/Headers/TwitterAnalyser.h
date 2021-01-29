@@ -4,6 +4,8 @@
 #include "Texture.h"
 #include "HTTPConnect.h"
 
+class AnonymousModule;
+
 class TwitterAnalyser : public DataDrivenBaseApplication
 {
 public:
@@ -21,14 +23,20 @@ protected:
 
 
 	DECLARE_METHOD(getFollowers);
+	DECLARE_METHOD(getFavorites);
+	DECLARE_METHOD(getTweets);
+	DECLARE_METHOD(getTweetLikes);
 	DECLARE_METHOD(getFollowing);
 	DECLARE_METHOD(getUserDetails);
-	COREMODIFIABLE_METHODS(getFollowers, getFollowing, getUserDetails);
+	COREMODIFIABLE_METHODS(getFavorites,getFollowers,getTweets, getTweetLikes, getFollowing, getUserDetails);
 
 	void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
 	void	switchDisplay();
 	void	switchForce();
-	WRAP_METHODS(thumbnailReceived, switchDisplay, switchForce);
+	void	treatWebScraperMessage(CoreModifiable* sender, std::string msg);
+	void	LaunchScript(CoreModifiable* sender);
+
+	WRAP_METHODS(thumbnailReceived, switchDisplay, switchForce, treatWebScraperMessage, LaunchScript);
 
 	CoreItemSP	RetrieveJSON(CoreModifiable* sender);
 
@@ -162,6 +170,77 @@ protected:
 
 	// list of followers
 	std::vector<u64>												mFollowers;
+	// list of liked tweets
+	struct Twts
+	{
+		u64		mTweetID;
+		u32		mLikeCount;
+		u32		mRetweetCount;
+	};
+	std::vector<Twts>												mTweets;
+	u32																mMaxLikersPerTweet=0;
+	u32																mCurrentTreatedTweetIndex=0;
+	std::string														mNextScript;
+	struct tmpScrappedUserName
+	{
+		std::string		userName;
+		u32				foundCount;
+	};
+	std::vector<tmpScrappedUserName>								mCurrentScrappedUserNameList;
+	std::vector<std::string>										mTweetLikers;
+	u32																mCurrentTreatedLikerIndex=0;
+	u32																mValidTreatedLikersForThisTweet = 0;
+	std::map<std::string, u32>										mFoundLiker;
+
+	struct favoriteStruct
+	{
+		u64		tweetID;
+		u64		userID;
+		u32		likes_count;
+		u32		retweet_count;
+	};
+
+	std::vector<favoriteStruct>										mFavorites;
+	bool	LoadFavoritesFile(const std::string& username);
+	void	SaveFavoritesFile(const std::string& username);
+
+	template<typename T>
+	bool	LoadDataFile(const std::string& filename, std::vector<T>& loaded)
+	{
+		SmartPointer<::FileHandle> L_File;
+		
+		if (checkValidFile(filename, L_File, mOldFileLimit))
+		{
+			if (Platform_fopen(L_File.get(), "rb"))
+			{
+				// get file size
+				Platform_fseek(L_File.get(), 0, SEEK_END);
+				long filesize = Platform_ftell(L_File.get());
+				Platform_fseek(L_File.get(), 0, SEEK_SET);
+
+				loaded.resize(filesize / sizeof(T));
+
+				Platform_fread(loaded.data(), sizeof(T), loaded.size(), L_File.get());
+				Platform_fclose(L_File.get());
+				return true;
+			}
+		}
+		
+
+		return false;
+	}
+
+	template<typename T>
+	void	SaveDataFile(const std::string& filename, const std::vector<T>& saved)
+	{
+		SmartPointer<::FileHandle> L_File = Platform_fopen(filename.c_str(), "wb");
+		if (L_File->mFile)
+		{
+			Platform_fwrite(saved.data(), 1, saved.size() * sizeof(T), L_File.get());
+			Platform_fclose(L_File.get());
+		}
+	}
+
 	std::map<u64,std::vector<u64>>									mCheckedFollowerList;
 	unsigned int													mTreatedFollowerIndex = 0;
 	unsigned int													mTreatedFollowerCount = 0;
@@ -206,10 +285,17 @@ protected:
 	bool		LoadFollowersFile();
 	void		SaveFollowersFile();
 
+	bool		LoadTweetsFile();
+	void		SaveTweetsFile();
+
 	bool		LoadFollowingFile(u64 id);
 	void		SaveFollowingFile(u64 id);
 
+	CoreItemSP		LoadLikersFile(u64 tweetid);
+	void		SaveLikersFile(u64 tweetid);
+
 	void		UpdateStatistics();
+	void		UpdateLikesStatistics();
 
 	std::vector<u64>		LoadIDVectorFile(const std::string& filename);
 	void					SaveIDVectorFile(const std::vector<u64>& v, const std::string& filename);
@@ -253,6 +339,8 @@ protected:
 		return false;
 	}
 
+	bool checkValidFile(const std::string& fname, SmartPointer<::FileHandle>& filenamehandle, double OldFileLimit);
+
 	double		mNextRequestDelay = 0.0;
 	double		mLastRequestTime = 0.0;
 
@@ -271,8 +359,23 @@ protected:
 		GET_USER_DETAILS_FOR_CHECK		= 6,
 		WAIT_USER_DETAILS_FOR_CHECK		= 7,
 		GET_USER_DETAILS				= 8,
-		EVERYTHING_DONE					= 9
+		GET_TWEET_LIKES					= 9,
+		GET_USER_FAVORITES				= 10,
+		UPDATE_LIKES_STATISTICS			= 11,
+		EVERYTHING_DONE					= 12
 	};
 
+	enum ScraperStates
+	{
+		GET_LIKES						=0,
+		SCROLL_LIKES					=1,
+	};
+	ScraperStates													mScraperState;
+
 	unsigned int				mApiErrorCode=0;
+
+	bool						mUseLikes = false;
+
+	AnonymousModule* mWebScraperModule=nullptr;
+	SP<CoreModifiable> mWebScraper=nullptr;
 };
