@@ -25,10 +25,9 @@ protected:
 	DECLARE_METHOD(getFollowers);
 	DECLARE_METHOD(getFavorites);
 	DECLARE_METHOD(getTweets);
-	DECLARE_METHOD(getTweetLikes);
 	DECLARE_METHOD(getFollowing);
 	DECLARE_METHOD(getUserDetails);
-	COREMODIFIABLE_METHODS(getFavorites,getFollowers,getTweets, getTweetLikes, getFollowing, getUserDetails);
+	COREMODIFIABLE_METHODS(getFavorites,getFollowers,getTweets,  getFollowing, getUserDetails);
 
 	void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
 	void	switchDisplay();
@@ -153,18 +152,21 @@ protected:
 		std::string					UTCTime = "";
 		ThumbnailStruct				mThumb;
 		std::vector<u64>			mFollowing;
+		float						mW;
 	};
 
 	void	DrawForceBased();
 	bool	mDrawForceBased = false;
+	v2f		mThumbcenter;
 	float	mForcedBaseStartingTime = 0.0f;
 
 	CMSP			mMainInterface;
 	u64				mUserID;
 	UserStruct		mCurrentUser;
 
-	std::vector<std::pair<CMSP, std::pair<u64, UserStruct*>> >		mDownloaderList;
+	std::vector<std::pair<CMSP, std::pair<u64, UserStruct*>> >						mDownloaderList;
 	std::map<u64, std::pair<unsigned int, UserStruct>>				mFollowersFollowingCount;
+	unsigned int													mCurrentLikerFollowerCount;
 
 	std::unordered_map<u64, CMSP>			mShowedUser;
 
@@ -200,7 +202,26 @@ protected:
 		u32		retweet_count;
 	};
 
-	std::vector<favoriteStruct>										mFavorites;
+	// list of favorites per liker
+	std::map<std::string,std::vector<favoriteStruct>>					mFavorites;
+	std::map <std::string, std::map<u64, float> >						mWeightedFavorites;
+
+	float	getTotalWeightForAccount(u64 toget)
+	{
+		float w = 0.0f;
+
+		for (const auto& wf : mWeightedFavorites)
+		{
+			auto found = wf.second.find(toget);
+			if(found != wf.second.end())
+			{
+				w += (*found).second;
+			}
+		}
+
+		return w;
+	}
+
 	bool	LoadFavoritesFile(const std::string& username);
 	void	SaveFavoritesFile(const std::string& username);
 
@@ -242,6 +263,7 @@ protected:
 	}
 
 	std::map<u64,std::vector<u64>>									mCheckedFollowerList;
+	std::map<std::string, std::vector<u64>>							mCheckedLikersList;
 	unsigned int													mTreatedFollowerIndex = 0;
 	unsigned int													mTreatedFollowerCount = 0;
 	unsigned int													mValidFollowerCount = 0;
@@ -262,6 +284,22 @@ protected:
 	{
 		const auto& found = mCheckedFollowerList.find(follower);
 		if (found != mCheckedFollowerList.end())
+		{
+			for (auto& c : (*found).second)
+			{
+				if (c == account)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	bool	isLikerOf(const std::string& liker, u64 account) const
+	{
+		const auto& found = mCheckedLikersList.find(liker);
+		if (found != mCheckedLikersList.end())
 		{
 			for (auto& c : (*found).second)
 			{
@@ -362,7 +400,9 @@ protected:
 		GET_TWEET_LIKES					= 9,
 		GET_USER_FAVORITES				= 10,
 		UPDATE_LIKES_STATISTICS			= 11,
-		EVERYTHING_DONE					= 12
+		GET_USER_ID						= 12,
+		WAIT_USER_ID					= 13,
+		EVERYTHING_DONE					= 14
 	};
 
 	enum ScraperStates

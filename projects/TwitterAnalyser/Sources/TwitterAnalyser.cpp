@@ -443,7 +443,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			
 				if (LoadFavoritesFile(user))
 				{
-					mState = UPDATE_LIKES_STATISTICS;
+					mState = GET_USER_ID;
 					break;
 				}
 				else
@@ -458,7 +458,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 						mAnswer->Init();
 						myRequestCount++;
 						mState = WAIT_STATE;
-						RequestLaunched(60.5);
+						RequestLaunched(20.5);
 					}
 				}
 			}
@@ -524,14 +524,14 @@ void	TwitterAnalyser::ProtectedUpdate()
 		}
 		case UPDATE_LIKES_STATISTICS:
 		{
-			if (mFavorites.size())
+			std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+			if (mFavorites[user].size())
 			{
 				UpdateLikesStatistics();
-				mFavorites.clear();
 				mValidFollowerCount++;
 				mValidTreatedLikersForThisTweet++;
 			}
-			std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+			
 			mFoundLiker[user] = 1;
 			
 			mState = GET_USER_FAVORITES;
@@ -588,6 +588,55 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 			break;
 		}
+
+		case WAIT_USER_ID:
+			// just wait
+			break;
+
+		case GET_USER_ID:
+		{
+			std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+			if (mFavorites[user].size())
+			{
+				std::string filename = "Cache/Tweets/" + user.substr(0, 4) + "/" + user + ".json";
+				CoreItemSP currentUserJson = LoadJSon(filename);
+				if (currentUserJson.isNil())
+				{
+					if (CanLaunchRequest())
+					{
+						std::string url = "1.1/users/show.json?screen_name=" + user;
+						mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
+						mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+						mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
+						mAnswer->AddDynamicAttribute<maBool, bool>("RequestThumb", false);
+						mAnswer->Init();
+						myRequestCount++;
+						RequestLaunched(1.1);
+						mState = WAIT_USER_ID;
+					}
+				}
+				else
+				{
+					u64 userID = currentUserJson["id"];
+					UserStruct	tmpuser;
+					if (!LoadUserStruct(userID, tmpuser, false))
+					{
+						mUserDetailsAsked.push_back(userID);
+						mState = GET_USER_DETAILS_FOR_CHECK;	// ask for user detail and come back here
+					}
+					else
+					{
+						mCurrentLikerFollowerCount = tmpuser.mFollowersCount;
+						mState = UPDATE_LIKES_STATISTICS;
+					}
+				}
+			}
+			else
+			{
+				mState = UPDATE_LIKES_STATISTICS;
+			}
+		}
+		break;
 		case WAIT_USER_DETAILS_FOR_CHECK: // wait for 
 #ifdef LOG_ALL
 			log("WAIT_USER_DETAILS_FOR_CHECK ");
@@ -661,11 +710,32 @@ void	TwitterAnalyser::ProtectedUpdate()
 		if (mMainInterface)
 		{
 			char textBuffer[256];
-			sprintf(textBuffer, "Treated Users : %d", mValidFollowerCount);
+			if (mUseLikes)
+			{
+				sprintf(textBuffer, "Treated Likers : %d", mValidFollowerCount);
+			}
+			else
+			{
+				sprintf(textBuffer, "Treated Users : %d", mValidFollowerCount);
+			}
 			mMainInterface["TreatedFollowers"]("Text") = textBuffer;
-			sprintf(textBuffer, "Found followings : %d", mFollowersFollowingCount.size());
+			if (mUseLikes)
+			{
+				sprintf(textBuffer, "Liked user count : %d", mFollowersFollowingCount.size());
+			}
+			else
+			{
+				sprintf(textBuffer, "Found followings : %d", mFollowersFollowingCount.size());
+			}
 			mMainInterface["FoundFollowings"]("Text") = textBuffer;
-			sprintf(textBuffer, "Inactive Followers : %d", mFakeFollowerCount);
+			if (mUseLikes)
+			{
+				sprintf(textBuffer, "Invalid likers count : %d", mFakeFollowerCount);
+			}
+			else
+			{
+				sprintf(textBuffer, "Inactive Followers : %d", mFakeFollowerCount);
+			}
 			mMainInterface["FakeFollowers"]("Text") = textBuffer;
 
 			if (mState != EVERYTHING_DONE)
@@ -696,6 +766,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 				mMainInterface["RequestWait"]("Text") = "";
 				mMainInterface["switchForce"]("IsHidden") = false;
 				mMainInterface["switchForce"]("IsTouchable") = true;
+				mMainInterface["FakeFollowers"]("Text") = "";
 			}
 
 			// check if Channel texture was loaded
@@ -953,6 +1024,9 @@ DEFINE_METHOD(TwitterAnalyser, getFavorites)
 
 	if (!json.isNil())
 	{
+		std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+		std::vector<favoriteStruct>& currentFavorites = mFavorites[user];
+
 		for (const auto& fav : json)
 		{
 			u64		tweetID=fav["id"];
@@ -960,18 +1034,18 @@ DEFINE_METHOD(TwitterAnalyser, getFavorites)
 			u32		likes_count = fav["favorite_count"];
 			u32		rt_count = fav["retweet_count"];
 
-			mFavorites.push_back({ tweetID ,userid ,likes_count ,rt_count });
+			currentFavorites.push_back({ tweetID ,userid ,likes_count ,rt_count });
 		}
-		std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+		
 		SaveFavoritesFile(user);
-		mState = UPDATE_LIKES_STATISTICS;
+		mState = GET_USER_ID;
 	}
 	else if (!mWaitQuota) // can't access favorite for this user
 	{
 		std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
 
 		SaveFavoritesFile(user);
-		mState = UPDATE_LIKES_STATISTICS;
+		mState = GET_USER_ID;
 	}
 
 	return true;
@@ -1021,61 +1095,6 @@ DEFINE_METHOD(TwitterAnalyser, getTweets)
 		// use mFollowersNextCursor to store tweets next cursor
 		mFollowersNextCursor = nextStr;
 
-		SaveTweetsFile();
-		std::string filename = "Cache/UserName/";
-		filename += mUserName + ".json";
-		CoreItemSP currentUserJson = LoadJSon(filename);
-		currentUserJson->set("next-cursor", mFollowersNextCursor);
-		SaveJSon(filename, currentUserJson);
-	}
-
-	return true;
-}
-
-
-DEFINE_METHOD(TwitterAnalyser, getTweetLikes)
-{
-	auto json = RetrieveJSON(sender);
-
-	if (!json.isNil())
-	{
-		CoreItemSP tweetsArray = json["data"];
-		unsigned int tweetcount = tweetsArray->size();
-		for (unsigned int i = 0; i < tweetcount; i++)
-		{
-			u64 tweetid = tweetsArray[i]["id"];
-			u32 like_count = tweetsArray[i]["public_metrics"]["like_count"];
-			u32 rt_count = tweetsArray[i]["public_metrics"]["retweet_count"];
-			if (like_count)
-			{
-				mTweets.push_back({ tweetid,like_count,rt_count });
-			}
-		}
-		std::string nextStr = "-1";
-
-		CoreItemSP meta = json["meta"];
-		if (!meta.isNil())
-		{
-			if (!meta["next_token"].isNil())
-			{
-				nextStr = meta["next_token"];
-				if (nextStr == "0")
-				{
-					nextStr = "-1";
-				}
-			}
-		}
-		// do it again
-		if ((mTweets.size() < mWantedTotalPanelSize) && (nextStr != "-1"))
-		{
-			mState = GET_FOLLOWERS_CONTINUE;
-			mFollowersNextCursor = nextStr;
-		}
-		else
-		{
-			mState = CHECK_INACTIVES;
-			mFollowersNextCursor = "-1";
-		}
 		SaveTweetsFile();
 		std::string filename = "Cache/UserName/";
 		filename += mUserName + ".json";
@@ -1172,7 +1191,18 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		UserStruct* pUser = &tmp;
 
 
-		if (json["screen_name"] == mUserName)
+		if (mState == WAIT_USER_ID)
+		{
+			JSonFileParser L_JsonParser;
+			CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
+			CoreItemSP idP = CoreItemSP::getCoreItemOfType<CoreValue<u64>>();
+			idP = json["id"];
+			initP->set("id", idP);
+			std::string user= json["screen_name"];
+			std::string filename = "Cache/Tweets/" + user.substr(0, 4) + "/" + user + ".json";
+			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
+		}
+		else if (json["screen_name"] == mUserName)
 		{
 			mUserID = json["id"];
 			pUser = &mCurrentUser;
@@ -1203,7 +1233,11 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 				LaunchDownloader(currentID, *pUser);
 			}
 		}
-		if (json["screen_name"] == mUserName)
+		if (mState == WAIT_USER_ID)
+		{
+			mState = GET_USER_ID;
+		}
+		else if (json["screen_name"] == mUserName)
 		{
 			// save user
 			JSonFileParser L_JsonParser;
@@ -1218,10 +1252,19 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			// get followers
 			mState = GET_FOLLOWERS_INIT;
 		}
+
 		if (mState == WAIT_USER_DETAILS_FOR_CHECK)
 		{
-			mState = GET_USER_DETAILS_FOR_CHECK;
+			if (mUseLikes)
+			{
+				mState = GET_USER_ID;
+			}
+			else
+			{
+				mState = GET_USER_DETAILS_FOR_CHECK;
+			}
 		}
+		
 	}
 	else if(!mWaitQuota)
 	{
@@ -1257,6 +1300,11 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		else if(mState== WAIT_USER_DETAILS_FOR_CHECK)
 		{
 			mState = TREAT_FOLLOWER;
+		}
+		else if (mState == WAIT_USER_ID)
+		{
+			mFavorites.clear();
+			mState = GET_USER_ID;
 		}
 	}
 
@@ -1537,37 +1585,57 @@ void	TwitterAnalyser::refreshAllThumbs()
 
 	if (mShowInfluence) // normalize according to follower count
 	{
-		std::sort(toShow.begin(), toShow.end(), [this](const std::pair<unsigned int, u64>& a1, const std::pair<unsigned int, u64>& a2)
-			{
+		if (mUseLikes)
+		{
 
-				auto&  a1User = mFollowersFollowingCount[a1.second];
-				auto&  a2User = mFollowersFollowingCount[a2.second];
-
-				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
-				// a1 subscribers %
-				float A1_percent = ((float)a1.first / (float)mValidFollowerCount);
-				// a1 intersection size with analysed channel
-				float A1_a_inter_b = (float)mCurrentUser.mFollowersCount * A1_percent;
-				// a1 union size with analysed channel 
-				float A1_a_union_b = (float)mCurrentUser.mFollowersCount + (float)a1User.second.mFollowersCount - A1_a_inter_b;
-
-				// a2 subscribers %
-				float A2_percent = ((float)a2.first / (float)mValidFollowerCount);
-				// a2 intersection size with analysed channel
-				float A2_a_inter_b = (float)mCurrentUser.mFollowersCount * A2_percent;
-				// a2 union size with analysed channel 
-				float A2_a_union_b = (float)mCurrentUser.mFollowersCount + (float)a2User.second.mFollowersCount - A2_a_inter_b;
-
-				float k1 = A1_a_inter_b / A1_a_union_b;
-				float k2 = A2_a_inter_b / A2_a_union_b;
-
-				if (k1 == k2)
+			std::sort(toShow.begin(), toShow.end(), [this](const std::pair<unsigned int, u64>& a1, const std::pair<unsigned int, u64>& a2)
 				{
-					return a1.second > a2.second;
+
+					float a1Score = mFollowersFollowingCount[a1.second].second.mW;
+					float a2Score = mFollowersFollowingCount[a2.second].second.mW;
+
+					if (a1Score == a2Score)
+					{
+						return a1.second > a2.second;
+					}
+					return (a1Score > a2Score);
 				}
-				return (k1 > k2);
-			}
-		);
+			);
+		}
+		else
+		{
+			std::sort(toShow.begin(), toShow.end(), [this](const std::pair<unsigned int, u64>& a1, const std::pair<unsigned int, u64>& a2)
+				{
+
+					auto& a1User = mFollowersFollowingCount[a1.second];
+					auto& a2User = mFollowersFollowingCount[a2.second];
+
+					// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
+					// a1 subscribers %
+					float A1_percent = ((float)a1.first / (float)mValidFollowerCount);
+					// a1 intersection size with analysed channel
+					float A1_a_inter_b = (float)mCurrentUser.mFollowersCount * A1_percent;
+					// a1 union size with analysed channel 
+					float A1_a_union_b = (float)mCurrentUser.mFollowersCount + (float)a1User.second.mFollowersCount - A1_a_inter_b;
+
+					// a2 subscribers %
+					float A2_percent = ((float)a2.first / (float)mValidFollowerCount);
+					// a2 intersection size with analysed channel
+					float A2_a_inter_b = (float)mCurrentUser.mFollowersCount * A2_percent;
+					// a2 union size with analysed channel 
+					float A2_a_union_b = (float)mCurrentUser.mFollowersCount + (float)a2User.second.mFollowersCount - A2_a_inter_b;
+
+					float k1 = A1_a_inter_b / A1_a_union_b;
+					float k2 = A2_a_inter_b / A2_a_union_b;
+
+					if (k1 == k2)
+					{
+						return a1.second > a2.second;
+					}
+					return (k1 > k2);
+				}
+			);
+		}
 	}
 	else
 	{
@@ -1633,6 +1701,11 @@ void	TwitterAnalyser::refreshAllThumbs()
 	float ray = 0.15f;
 	float dray = 0.0117f;
 	toShowCount = 0;
+	float mainW = 1.0;
+	if (mUseLikes)
+	{
+		 mainW = getTotalWeightForAccount(mUserID);
+	}
 	for (const auto& toS : toShow)
 	{
 		if (toS.second == mUserID)
@@ -1659,26 +1732,40 @@ void	TwitterAnalyser::refreshAllThumbs()
 			float prescale = 1.0f;
 			if (mShowInfluence) // normalize according to follower count
 			{
-				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
-				// A subscribers %
-				float A_percent = ((float)toPlace.first / (float)mValidFollowerCount);
-				// A intersection size with analysed channel
-				float A_a_inter_b = (float)mCurrentUser.mFollowersCount * A_percent;
-				// A union size with analysed channel 
-				float A_a_union_b = (float)mCurrentUser.mFollowersCount + (float)toPlace.second.mFollowersCount - A_a_inter_b;
-
-				float k = 100.0f * A_a_inter_b / A_a_union_b;
-				if (k > 100.0f) // avoid Jaccard index greater than 100
+				if (mUseLikes)
 				{
-					k = 100.0f;
+					float k = 100.0f*getTotalWeightForAccount((*found).first)/ mainW;
+					toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "ls";
+					prescale = 1.5f * k / 100.0f;
+
+					if (prescale < 0.1f)
+					{
+						prescale = 0.1f;
+					}
 				}
-				toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "sc";
-
-				prescale = 1.5f * k / 100.0f;
-
-				if (prescale < 0.1f)
+				else
 				{
-					prescale = 0.1f;
+					// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
+					// A subscribers %
+					float A_percent = ((float)toPlace.first / (float)mValidFollowerCount);
+					// A intersection size with analysed channel
+					float A_a_inter_b = (float)mCurrentUser.mFollowersCount * A_percent;
+					// A union size with analysed channel 
+					float A_a_union_b = (float)mCurrentUser.mFollowersCount + (float)toPlace.second.mFollowersCount - A_a_inter_b;
+
+					float k = 100.0f * A_a_inter_b / A_a_union_b;
+					if (k > 100.0f) // avoid Jaccard index greater than 100
+					{
+						k = 100.0f;
+					}
+					toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "sc";
+
+					prescale = 1.5f * k / 100.0f;
+
+					if (prescale < 0.1f)
+					{
+						prescale = 0.1f;
+					}
 				}
 			}
 			else
@@ -1796,21 +1883,43 @@ void	TwitterAnalyser::prepareForceGraphData()
 	// for each showed channel
 	for (auto& c : mShowedUser)
 	{
-		PerAccountUserMap	toAdd(mCheckedFollowerList.size());
-		int sindex = 0;
-		int subcount = 0;
-		for (auto& s : mCheckedFollowerList)
+		if (mUseLikes)
 		{
-			if (isSubscriberOf(s.first,c.first))
+			PerAccountUserMap	toAdd(mCheckedLikersList.size());
+			int sindex = 0;
+			int subcount = 0;
+			for (auto& s : mCheckedLikersList)
 			{
-				toAdd.SetSubscriber(sindex);
+				if (isLikerOf(s.first, c.first))
+				{
+					toAdd.SetSubscriber(sindex);
+				}
+				++sindex;
 			}
-			++sindex;
+			toAdd.mThumbnail = c.second;
+			c.second["ChannelPercent"]("Text") = "";
+			c.second["ChannelName"]("Text") = "";
+			mAccountSubscriberMap[c.first] = toAdd;
+			
 		}
-		toAdd.mThumbnail = c.second;
-		c.second["ChannelPercent"]("Text") = "";
-		c.second["ChannelName"]("Text") = "";
-		mAccountSubscriberMap[c.first] = toAdd;
+		else
+		{
+			PerAccountUserMap	toAdd(mCheckedFollowerList.size());
+			int sindex = 0;
+			int subcount = 0;
+			for (auto& s : mCheckedFollowerList)
+			{
+				if (isSubscriberOf(s.first, c.first))
+				{
+					toAdd.SetSubscriber(sindex);
+				}
+				++sindex;
+			}
+			toAdd.mThumbnail = c.second;
+			c.second["ChannelPercent"]("Text") = "";
+			c.second["ChannelName"]("Text") = "";
+			mAccountSubscriberMap[c.first] = toAdd;
+		}
 	}
 
 	for (auto& l1 : mAccountSubscriberMap)
@@ -1907,11 +2016,6 @@ void	TwitterAnalyser::DrawForceBased()
 {
 	v2f center(1280.0 / 2.0, 800.0 / 2.0);
 
-	v2f thumbcenter = mMainInterface["thumbnail"]("Dock");
-	thumbcenter.x *= 1280.0f;
-	thumbcenter.y *= 800.0f;
-
-
 	const float timeDelay = 10.0f;
 	const float timeDivisor = 0.04f;
 
@@ -1926,7 +2030,7 @@ void	TwitterAnalyser::DrawForceBased()
 		PerAccountUserMap& current = l1.second;
 
 		// always a  bit of attraction to center
-		v2f	v(thumbcenter);
+		v2f	v(mThumbcenter);
 		v -= current.mPos;
 
 		// add a bit of random
@@ -1984,9 +2088,9 @@ void	TwitterAnalyser::DrawForceBased()
 			{
 				if (&l1 == &l2)
 				{
-					// check with central image
+				/*	// check with central image
 					v2f	v(current.mPos);
-					v -= thumbcenter;
+					v -= mThumbcenter;
 					float dist = Norm(v);
 					v.Normalize();
 
@@ -1996,7 +2100,7 @@ void	TwitterAnalyser::DrawForceBased()
 						float coef = (r - dist) * 120.0 / (r);
 						current.mPos += v * (coef);
 					}
-
+					*/
 					continue;
 				}
 
@@ -2047,7 +2151,6 @@ void	TwitterAnalyser::DrawForceBased()
 		current.mThumbnail("Dock") = dock;
 	}
 
-
 }
 
 CoreItemSP		TwitterAnalyser::LoadLikersFile(u64 tweetid)
@@ -2084,18 +2187,18 @@ bool	TwitterAnalyser::LoadFavoritesFile(const std::string& username)
 {
 	std::string filename = "Cache/Tweets/" + username.substr(0,4) + "/" + username + ".favs";
 
-	if (LoadDataFile<favoriteStruct>(filename, mFavorites))
+	if (LoadDataFile<favoriteStruct>(filename, mFavorites[username]))
 	{
 		return true;
 	}
-	mFavorites.clear();
+	mFavorites[username].clear();
 	return false;
 }
 
 void	TwitterAnalyser::SaveFavoritesFile(const std::string& username)
 {
 	std::string filename = "Cache/Tweets/" + username.substr(0, 4) + "/" + username + ".favs";
-	SaveDataFile<favoriteStruct>(filename, mFavorites);
+	SaveDataFile<favoriteStruct>(filename, mFavorites[username]);
 }
 
 
@@ -2212,15 +2315,50 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 {
 	mUserDetailsAsked.clear();
 
+	std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+
+	auto itfound = mFavorites.find(user);
+	std::vector<favoriteStruct>& currentFavorites = (*itfound).second;
+	std::map<u64, float>& currentWeightedFavorites = mWeightedFavorites[user];
+
+
 	std::map<u64,u64> mFavoritesUsers;
-	for (auto f : mFavorites)
+	for (auto f : currentFavorites)
 	{
+		auto fw = currentWeightedFavorites.find(f.userID);
+		if (fw != currentWeightedFavorites.end())
+		{
+			(*fw).second += 1.0f;
+		}
+		else
+		{
+			currentWeightedFavorites[f.userID] = 1.0f;
+		}
+
 		mFavoritesUsers[f.userID]=f.userID;
 	}
 
+	
+	float FollowerW = log((float)(mCurrentLikerFollowerCount + 1));
+	// normalize currentWeightedFavorites
+	float mainAccountWeight = 1.0f;
+
+	auto fw= currentWeightedFavorites.find(mUserID);
+	if (fw != currentWeightedFavorites.end())
+	{
+		mainAccountWeight = (*fw).second;
+	}
+	else
+	{
+		currentWeightedFavorites[mUserID] = 1.0f;
+	}
+
+	std::vector<u64>& currentUserLikes=mCheckedLikersList[user];
 
 	for (auto f : mFavoritesUsers)
 	{
+		currentUserLikes.push_back(f.first);
+		
 		auto alreadyfound = mFollowersFollowingCount.find(f.first);
 		if (alreadyfound != mFollowersFollowingCount.end())
 		{
@@ -2236,8 +2374,28 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 		else
 		{
 			UserStruct	toAdd;
+			toAdd.mW = 0.0f;
 			mFollowersFollowingCount[f.first] = std::pair<unsigned int, UserStruct>(1, toAdd);
 		}
+	}
+
+	mainAccountWeight = sqrtf(mainAccountWeight);
+
+	for (auto& toWeight : currentWeightedFavorites)
+	{
+		float currentW = sqrtf(toWeight.second);
+
+		if (currentW > mainAccountWeight)
+		{
+			currentW = (currentW + mainAccountWeight) * 0.5f;
+			currentW = mainAccountWeight / currentW;
+		}
+		else
+		{
+			currentW /= mainAccountWeight;
+		}
+		toWeight.second = currentW * FollowerW * mainAccountWeight;
+		mFollowersFollowingCount[toWeight.first].second.mW += toWeight.second;
 	}
 }
 
@@ -2272,18 +2430,29 @@ void	TwitterAnalyser::switchForce()
 {
 	if (!mDrawForceBased)
 	{
+		mThumbcenter = (v2f)mMainInterface["thumbnail"]("Dock");
+		mThumbcenter.x *= 1280.0f;
+		mThumbcenter.y *= 800.0f;
+
+		mMainInterface["thumbnail"]("Dock") = v2f(0.94f, 0.08f);
+
 		prepareForceGraphData();
 		mForcedBaseStartingTime = GetApplicationTimer()->GetTime();
 
 		mMainInterface["switchV"]("IsHidden") = true;
 		mMainInterface["switchV"]("IsTouchable") = false;
+		mMainInterface["switchForce"]("Dock") = v2f( 0.050f,0.950f );
+
 	}
 	else
 	{
+		mMainInterface["thumbnail"]("Dock") = v2f(0.52f, 0.44f);
+
 		mMainInterface["switchV"]("IsHidden") = false;
 		mMainInterface["switchV"]("IsTouchable") = true;
 		mMainInterface["switchForce"]("IsHidden") = true;
 		mMainInterface["switchForce"]("IsTouchable") = false;
+		mMainInterface["switchForce"]("Dock") = v2f(0.950f, 0.050f);
 	}
 	mDrawForceBased = !mDrawForceBased;
 
