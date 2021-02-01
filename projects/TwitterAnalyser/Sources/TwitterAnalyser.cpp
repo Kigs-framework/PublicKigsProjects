@@ -62,11 +62,29 @@ void closeLog()
 #endif
 
 
+template<typename T>
+void	randomizeVector(std::vector<T>& v)
+{
+	unsigned int s = v.size();
+	unsigned int mod = s;
+	for (unsigned int i = 0; i < (s-1); i++)
+	{
+		unsigned int swapIndex = rand() % mod;
+
+		T swap = v[mod-1];
+		v[mod - 1] = v[swapIndex];
+		v[swapIndex] = swap;
+		mod--;
+	}
+
+}
+
+
 IMPLEMENT_CLASS_INFO(TwitterAnalyser);
 
 IMPLEMENT_CONSTRUCTOR(TwitterAnalyser)
 {
-	
+	srand(time(NULL));
 }
 
 int getCreationYear(const std::string& created_date)
@@ -163,6 +181,7 @@ void	TwitterAnalyser::ProtectedInit()
 		{
 			mWebScraper->Init();
 			KigsCore::Connect(mWebScraper.get(), "navigationComplete", this, "LaunchScript");
+			mWebScraper->setValue("URL", "https://twitter.com/login");
 			KigsCore::Connect(mWebScraper.get(), "msgReceived", this, "treatWebScraperMessage");
 			AddAutoUpdate(mWebScraper.get());
 		}
@@ -1068,6 +1087,7 @@ DEFINE_METHOD(TwitterAnalyser, getTweets)
 
 	if (!json.isNil())
 	{
+		std::vector<Twts> retrievedTweets;
 		CoreItemSP tweetsArray = json["data"];
 		unsigned int tweetcount = tweetsArray->size();
 		for (unsigned int i = 0; i < tweetcount; i++)
@@ -1077,9 +1097,14 @@ DEFINE_METHOD(TwitterAnalyser, getTweets)
 			u32 rt_count = tweetsArray[i]["public_metrics"]["retweet_count"];
 			if (like_count)
 			{
-				mTweets.push_back({ tweetid,like_count,rt_count });
+				retrievedTweets.push_back({ tweetid,like_count,rt_count });
 			}
 		}
+
+		randomizeVector(retrievedTweets);
+
+		mTweets.insert(mTweets.end(), retrievedTweets.begin(), retrievedTweets.end());
+
 		std::string nextStr = "-1";
 
 		CoreItemSP meta = json["meta"];
@@ -2526,6 +2551,8 @@ void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string
 			if (mScraperState != SCROLL_LIKES) // no more likers found
 			{
 				u64 tweetID = mTweets[mCurrentTreatedTweetIndex].mTweetID;
+
+				randomizeVector(mTweetLikers);
 				SaveLikersFile(tweetID);
 				mState = GET_USER_FAVORITES;
 			}
