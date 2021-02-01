@@ -536,15 +536,16 @@ void	TwitterAnalyser::ProtectedUpdate()
 			
 			mState = GET_USER_FAVORITES;
 			mCurrentTreatedLikerIndex++;
-			
-			if (mUserDetailsAsked.size()) // can only go there when validFollower is true
-			{
-				mState = GET_USER_DETAILS;
-				break;
-			}
+		
 			if (mValidFollowerCount == mUserPanelSize)
 			{
 				mState = EVERYTHING_DONE;
+				break;
+			}
+			if (mUserDetailsAsked.size()) // can only go there when validFollower is true
+			{
+				mBackupState = GET_USER_FAVORITES;
+				mState = GET_USER_DETAILS;
 				break;
 			}
 		}
@@ -623,6 +624,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					{
 						mUserDetailsAsked.push_back(userID);
 						mState = GET_USER_DETAILS_FOR_CHECK;	// ask for user detail and come back here
+						mBackupState = GET_USER_ID;
 					}
 					else
 					{
@@ -672,7 +674,15 @@ void	TwitterAnalyser::ProtectedUpdate()
 			{
 				if (mUseLikes)
 				{
-					mState = GET_USER_FAVORITES;
+					if (mBackupState != WAIT_STATE)
+					{
+						mState = mBackupState;
+						mBackupState = WAIT_STATE;
+					}
+					else
+					{
+						mState = GET_USER_FAVORITES;
+					}
 				}
 				else
 				{
@@ -1255,14 +1265,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 
 		if (mState == WAIT_USER_DETAILS_FOR_CHECK)
 		{
-			if (mUseLikes)
-			{
-				mState = GET_USER_ID;
-			}
-			else
-			{
-				mState = GET_USER_DETAILS_FOR_CHECK;
-			}
+			mState = GET_USER_DETAILS_FOR_CHECK;
 		}
 		
 	}
@@ -1299,7 +1302,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		}
 		else if(mState== WAIT_USER_DETAILS_FOR_CHECK)
 		{
-			mState = TREAT_FOLLOWER;
+			mState = GET_USER_DETAILS_FOR_CHECK;
 		}
 		else if (mState == WAIT_USER_ID)
 		{

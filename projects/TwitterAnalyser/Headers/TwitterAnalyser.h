@@ -65,6 +65,7 @@ protected:
 
 	// current application state 
 	unsigned int					mState = WAIT_STATE;
+	unsigned int					mBackupState = WAIT_STATE;
 
 
 	class PerAccountUserMap
