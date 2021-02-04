@@ -419,4 +419,11 @@ protected:
 
 	AnonymousModule* mWebScraperModule=nullptr;
 	SP<CoreModifiable> mWebScraper=nullptr;
+
+	void	ReadScripts();
+
+	std::string	mWalkInitScript = "";
+	std::string	mScrollScript = "";
+	std::string mCallWalkScript = "";
+
 };

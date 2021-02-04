@@ -102,6 +102,36 @@ int getCreationYear(const std::string& created_date)
 	return year;
 }
 
+void	TwitterAnalyser::ReadScripts()
+{
+
+	u64 length;
+	CoreRawBuffer* rawbuffer = ModuleFileManager::LoadFileAsCharString("WalkerScript.txt", length, 1);
+	if (rawbuffer)
+	{
+		mWalkInitScript = (const char*)rawbuffer->buffer();
+		rawbuffer->Destroy();
+		rawbuffer = nullptr;
+	}
+
+	rawbuffer = ModuleFileManager::LoadFileAsCharString("CallWalkerScript.txt", length, 1);
+	if (rawbuffer)
+	{
+		mCallWalkScript = (const char*)rawbuffer->buffer();
+		rawbuffer->Destroy();
+		rawbuffer = nullptr;
+	}
+
+	/*rawbuffer = ModuleFileManager::LoadFileAsCharString("ScrollScript.txt", length, 1);
+	if (rawbuffer)
+	{
+		mScrollScript = (const char*)rawbuffer->buffer();
+		rawbuffer->Destroy();
+		rawbuffer = nullptr;
+	}*/
+}
+
+
 void	TwitterAnalyser::ProtectedInit()
 {
 	// Base modules have been created at this point
@@ -181,9 +211,12 @@ void	TwitterAnalyser::ProtectedInit()
 		{
 			mWebScraper->Init();
 			KigsCore::Connect(mWebScraper.get(), "navigationComplete", this, "LaunchScript");
-			mWebScraper->setValue("URL", "https://twitter.com/login");
+			mWebScraper->setValue("Url", "https://twitter.com/login");
 			KigsCore::Connect(mWebScraper.get(), "msgReceived", this, "treatWebScraperMessage");
 			AddAutoUpdate(mWebScraper.get());
+
+			ReadScripts();
+
 		}
 	}
 
@@ -387,12 +420,13 @@ void	TwitterAnalyser::ProtectedUpdate()
 				{
 					std::string stringID = GetIDString(tweetID);
 					std::string ScrapURL = "https://twitter.com/" + mUserName + "/status/" + stringID + "/likes";
-					mNextScript = "const walk = (el) => {"\
+					/*mNextScript = "const walk = (el) => {"\
 						"window.chrome.webview.postMessage(JSON.stringify(el,[\"href\",\"id\", \"tagName\", \"className\"]));"\
 						"Array.from(el.children).forEach(walk);"\
 						"};"\
-						"walk(document.querySelector('[aria-label=\"Timeline: Liked by\"]'));"\
-						"window.chrome.webview.postMessage(\"scriptDone\");";
+						"walk(document.querySelector('[aria-label=\"Fil d'actualités : Aimé par\"]'));"\
+						"window.chrome.webview.postMessage(\"scriptDone\");";*/
+					mNextScript = mWalkInitScript + mCallWalkScript;
 					mScraperState = GET_LIKES;
 					mWebScraper->setValue("Url", ScrapURL);
 					mState = WAIT_STATE;
@@ -400,7 +434,6 @@ void	TwitterAnalyser::ProtectedUpdate()
 			}
 			else // treat next tweet
 			{
-				mTweets.clear();
 				mState = GET_FOLLOWERS_CONTINUE;
 			}
 			break;
@@ -2561,8 +2594,7 @@ void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string
 	break;
 	case SCROLL_LIKES:
 	{
-		mNextScript =	"walk(document.querySelector('[aria-label=\"Timeline: Liked by\"]'));"\
-						"window.chrome.webview.postMessage(\"scriptDone\");";
+		mNextScript = mCallWalkScript;
 		mScraperState = GET_LIKES;
 		LaunchScript(sender);
 	}
@@ -2572,5 +2604,9 @@ void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string
 
 void	TwitterAnalyser::LaunchScript(CoreModifiable* sender)
 {
-	sender->setValue("Script", mNextScript);
+	if (mNextScript != "")
+	{
+		sender->setValue("Script",(UTF8Char*)mNextScript.c_str());
+		mNextScript == "";
+	}
 }
