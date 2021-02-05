@@ -28,7 +28,7 @@ void openLog()
 	LOG_File = Platform_fopen("Log_All.txt", "wb");
 }
 
-void	log(std::string logline)
+void	writelog(std::string logline)
 {
 	if (LOG_File->mFile)
 	{
@@ -55,7 +55,7 @@ void	log(std::string logline)
 
 void closeLog()
 {
-	log(""); // flush last line if needed
+	writelog(""); // flush last line if needed
 	Platform_fclose(LOG_File.get());
 }
 
@@ -66,17 +66,19 @@ template<typename T>
 void	randomizeVector(std::vector<T>& v)
 {
 	unsigned int s = v.size();
-	unsigned int mod = s;
-	for (unsigned int i = 0; i < (s-1); i++)
+	if (s>1)
 	{
-		unsigned int swapIndex = rand() % mod;
+		unsigned int mod = s;
+		for (unsigned int i = 0; i < (s - 1); i++)
+		{
+			unsigned int swapIndex = rand() % mod;
 
-		T swap = v[mod-1];
-		v[mod - 1] = v[swapIndex];
-		v[swapIndex] = swap;
-		mod--;
+			T swap = v[mod - 1];
+			v[mod - 1] = v[swapIndex];
+			v[swapIndex] = swap;
+			mod--;
+		}
 	}
-
 }
 
 
@@ -248,7 +250,7 @@ void	TwitterAnalyser::ProtectedInit()
 	if (currentP.isNil()) // new user
 	{
 #ifdef LOG_ALL
-		log("new user : request details");
+		writelog("new user : request details");
 #endif
 
 		// check classic User Cache
@@ -304,7 +306,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 		if (dt > (2.0 * 60.0))
 		{
 #ifdef LOG_ALL
-			log("Wait Quota : relaunch request");
+			writelog("Wait Quota : relaunch request");
 #endif
 
 			mWaitQuota = false;
@@ -321,7 +323,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 		{
 		case WAIT_STATE: // wait
 #ifdef LOG_ALL
-			log("WAIT_STATE");
+			writelog("WAIT_STATE");
 #endif
 			break;
 
@@ -358,7 +360,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 				if (CanLaunchRequest())
 				{
 #ifdef LOG_ALL
-					log("getFollowers for " + mUserName + " request");
+					writelog("getFollowers for " + mUserName + " request");
 #endif
 					if (mUseLikes)
 					{
@@ -442,7 +444,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 		{
 			u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
 #ifdef LOG_ALL
-			log("CHECK_INACTIVES " + std::to_string(currentFollowerID) );
+			writelog("CHECK_INACTIVES " + std::to_string(currentFollowerID) );
 #endif
 			UserStruct	tmpuser;
 			if (!LoadUserStruct(currentFollowerID, tmpuser, false))
@@ -463,7 +465,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 				if ((tmpuser.mFollowersCount < 4) && (tmpuser.mFollowingCount < 30) && ((tmpuser.mStatuses_count/deltaYear)<3) ) // this is FAKE NEEEWWWWSS !
 				{
 #ifdef LOG_ALL
-					log("Is Inactive " + std::to_string(currentFollowerID));
+					writelog("Is Inactive " + std::to_string(currentFollowerID));
 #endif
 					mFakeFollowerCount++;
 					NextTreatedFollower();
@@ -530,7 +532,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			// search for an available next-cursor for current following
 			u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
 #ifdef LOG_ALL
-			log("TREAT_FOLLOWER " + std::to_string(currentFollowerID));
+			writelog("TREAT_FOLLOWER " + std::to_string(currentFollowerID));
 #endif
 			std::string stringID = GetIDString(currentFollowerID);
 			std::string filename = "Cache/Users/" + GetUserFolderFromID(currentFollowerID) + "/" + stringID + "_nc.json";
@@ -609,7 +611,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			{
 				u64 currentFollowerID = mFollowers[mTreatedFollowerIndex];
 #ifdef LOG_ALL
-				log("UpdateStatistics " + std::to_string(currentFollowerID));
+				writelog("UpdateStatistics " + std::to_string(currentFollowerID));
 #endif
 				mCheckedFollowerList[currentFollowerID]= mCurrentFollowing;
 				mValidFollowerCount++;
@@ -628,7 +630,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 				break;
 			}
 #ifdef LOG_ALL
-			log("NextTreatedFollower ");
+			writelog("NextTreatedFollower ");
 #endif
 			NextTreatedFollower();
 			if ( (mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
@@ -693,17 +695,17 @@ void	TwitterAnalyser::ProtectedUpdate()
 		break;
 		case WAIT_USER_DETAILS_FOR_CHECK: // wait for 
 #ifdef LOG_ALL
-			log("WAIT_USER_DETAILS_FOR_CHECK ");
+			writelog("WAIT_USER_DETAILS_FOR_CHECK ");
 #endif
 			break;
 		case GET_USER_DETAILS_FOR_CHECK:
 #ifdef LOG_ALL
-			log("GET_USER_DETAILS_FOR_CHECK ");
+			writelog("GET_USER_DETAILS_FOR_CHECK ");
 #endif
 		case GET_USER_DETAILS: // update users details
 		{
 #ifdef LOG_ALL
-			log("GET_USER_DETAILS ");
+			writelog("GET_USER_DETAILS ");
 #endif
 			if (mUserDetailsAsked.size())
 			{
@@ -742,7 +744,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					if (mState == GET_USER_DETAILS) // update statistics was already done, just go to next
 					{
 #ifdef LOG_ALL
-						log("NextTreatedFollower ");
+						writelog("NextTreatedFollower ");
 #endif
 						NextTreatedFollower();
 						if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
@@ -962,7 +964,7 @@ CoreItemSP	TwitterAnalyser::RetrieveJSON(CoreModifiable* sender)
 void		TwitterAnalyser::SaveJSon(const std::string& fname,const CoreItemSP& json, bool utf16)
 {
 #ifdef LOG_ALL
-	log("SaveJSon " + fname);
+	writelog("SaveJSon " + fname);
 #endif
 
 	if (utf16)
@@ -1134,10 +1136,11 @@ DEFINE_METHOD(TwitterAnalyser, getTweets)
 			}
 		}
 
-		randomizeVector(retrievedTweets);
-
-		mTweets.insert(mTweets.end(), retrievedTweets.begin(), retrievedTweets.end());
-
+		if (retrievedTweets.size())
+		{
+			randomizeVector(retrievedTweets);
+			mTweets.insert(mTweets.end(), retrievedTweets.begin(), retrievedTweets.end());
+		}
 		std::string nextStr = "-1";
 
 		CoreItemSP meta = json["meta"];
@@ -1185,7 +1188,7 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 
 		u64 currentID=sender->getValue<u64>("UserID");
 #ifdef LOG_ALL
-		log("getFollowing request " + std::to_string(currentID) + "ok");
+		writelog("getFollowing request " + std::to_string(currentID) + "ok");
 #endif
 		CoreItemSP followingArray = json["ids"];
 		unsigned int idcount = followingArray->size();
@@ -1220,7 +1223,7 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 			// this user is not available, go to next one
 			u64 currentID = sender->getValue<u64>("UserID");
 #ifdef LOG_ALL
-			log("getFollowing request " + std::to_string(currentID) + "failed");
+			writelog("getFollowing request " + std::to_string(currentID) + "failed");
 #endif
 			SaveFollowingFile(currentID);
 
@@ -1252,7 +1255,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		u64 currentID= json["id"];
 
 #ifdef LOG_ALL
-		log("getUserDetails " + std::to_string(currentID) + " ok");
+		writelog("getUserDetails " + std::to_string(currentID) + " ok");
 #endif
 
 		UserStruct	tmp;
@@ -1344,11 +1347,11 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 
 
 #ifdef LOG_ALL
-		log("getUserDetails failed");
+		writelog("getUserDetails failed");
 #endif
 		NextTreatedFollower();
 #ifdef LOG_ALL
-		log("NextTreatedFollower");
+		writelog("NextTreatedFollower");
 #endif
 		if ((mTreatedFollowerCount == mFollowers.size()) || (mValidFollowerCount == mUserPanelSize))
 		{
@@ -1540,7 +1543,7 @@ bool		TwitterAnalyser::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
 		return false;
 	}
 #ifdef LOG_ALL
-	log("loaded user" + std::to_string(id) + "details");
+	writelog("loaded user" + std::to_string(id) + "details");
 #endif
 	ch.mName = initP["Name"];
 	ch.mFollowersCount = initP["FollowersCount"];
@@ -1567,7 +1570,7 @@ bool		TwitterAnalyser::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
 void		TwitterAnalyser::SaveUserStruct(u64 id, UserStruct& ch)
 {
 #ifdef LOG_ALL
-	log("save user" + std::to_string(id) + "details");
+	writelog("save user" + std::to_string(id) + "details");
 #endif
 
 	JSonFileParserUTF16 L_JsonParser;
@@ -1651,9 +1654,15 @@ void	TwitterAnalyser::refreshAllThumbs()
 
 			std::sort(toShow.begin(), toShow.end(), [this](const std::pair<unsigned int, u64>& a1, const std::pair<unsigned int, u64>& a2)
 				{
+					auto& a1User = mFollowersFollowingCount[a1.second];
+					auto& a2User = mFollowersFollowingCount[a2.second];
 
-					float a1Score = mFollowersFollowingCount[a1.second].second.mW;
-					float a2Score = mFollowersFollowingCount[a2.second].second.mW;
+					float sqrtSize = sqrtf((float)mCurrentUser.mFollowersCount);
+					float sqrtA1Size= sqrtf((float)a1User.second.mFollowersCount);
+					float sqrtA2Size = sqrtf((float)a2User.second.mFollowersCount);
+
+					float a1Score = a1User.second.mW * ((sqrtSize > sqrtA1Size) ? (sqrtA1Size / sqrtSize) : (sqrtSize / sqrtA1Size));
+					float a2Score = a2User.second.mW * ((sqrtSize > sqrtA2Size) ? (sqrtA2Size / sqrtSize) : (sqrtSize / sqrtA2Size));
 
 					if (a1Score == a2Score)
 					{
@@ -1795,7 +1804,13 @@ void	TwitterAnalyser::refreshAllThumbs()
 			{
 				if (mUseLikes)
 				{
-					float k = 100.0f*getTotalWeightForAccount((*found).first)/ mainW;
+
+					float sqrtSize = sqrtf((float)mCurrentUser.mFollowersCount);
+					float sqrtA1Size = sqrtf((float)toPlace.second.mFollowersCount);
+	
+					float coef= ((sqrtSize > sqrtA1Size) ? (sqrtA1Size / sqrtSize) : (sqrtSize / sqrtA1Size));
+
+					float k = 100.0f* coef*getTotalWeightForAccount((*found).first)/ mainW;
 					toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "ls";
 					prescale = 1.5f * k / 100.0f;
 
@@ -2272,19 +2287,19 @@ bool		TwitterAnalyser::LoadFollowingFile(u64 id)
 	if (mCurrentFollowing.size())
 	{
 #ifdef LOG_ALL
-		log("LoadFollowingFile " + std::to_string(id) + "ok");
+		writelog("LoadFollowingFile " + std::to_string(id) + "ok");
 #endif
 		return true;
 	}
 #ifdef LOG_ALL
-	log("LoadFollowingFile " + std::to_string(id) + "failed");
+	writelog("LoadFollowingFile " + std::to_string(id) + "failed");
 #endif
 	return false;
 }
 void		TwitterAnalyser::SaveFollowingFile(u64 id)
 {
 #ifdef LOG_ALL
-	log("SaveFollowingFile " + std::to_string(id));
+	writelog("SaveFollowingFile " + std::to_string(id));
 #endif
 	std::string filename = "Cache/Users/" + GetUserFolderFromID(id) + "/" + GetIDString(id) + ".ids";
 	SaveIDVectorFile(mCurrentFollowing, filename);
@@ -2301,19 +2316,19 @@ bool		TwitterAnalyser::LoadFollowersFile()
 	if (mFollowers.size())
 	{
 #ifdef LOG_ALL
-		log("LoadFollowersFile ok");
+		writelog("LoadFollowersFile ok");
 #endif
 		return true;
 	}
 #ifdef LOG_ALL
-	log("LoadFollowersFile failed");
+	writelog("LoadFollowersFile failed");
 #endif
 	return false;
 }
 void		TwitterAnalyser::SaveFollowersFile()
 {
 #ifdef LOG_ALL
-	log("SaveFollowersFile");
+	writelog("SaveFollowersFile");
 #endif
 	std::string filename = "Cache/UserName/";
 	filename += mUserName + ".ids";
@@ -2345,13 +2360,13 @@ bool		TwitterAnalyser::LoadTweetsFile()
 	{
 		mTweets = std::move(loaded);
 #ifdef LOG_ALL
-		log("LoadTweetsFile ok");
+		writelog("LoadTweetsFile ok");
 #endif
 		return true;
 	}
 
 #ifdef LOG_ALL
-	log("LoadTweetsFile failed");
+	writelog("LoadTweetsFile failed");
 #endif
 	return false;
 }
@@ -2359,7 +2374,7 @@ bool		TwitterAnalyser::LoadTweetsFile()
 void		TwitterAnalyser::SaveTweetsFile()
 {
 #ifdef LOG_ALL
-	log("SaveTweetsFile");
+	writelog("SaveTweetsFile");
 #endif
 	std::string filename = "Cache/UserName/";
 	filename += mUserName + ".twts";
@@ -2400,7 +2415,7 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 	}
 
 	
-	float FollowerW = log((float)(mCurrentLikerFollowerCount + 1));
+	float FollowerW = sqrtf((float)(mCurrentLikerFollowerCount));
 	// normalize currentWeightedFavorites
 	float mainAccountWeight = 1.0f;
 
