@@ -1647,22 +1647,28 @@ void	TwitterAnalyser::refreshAllThumbs()
 		return;
 	}
 
+	float mainW = 1.0;
+	if (mUseLikes)
+	{
+		mainW = mFollowersFollowingCount[mUserID].second.mW;
+	}
+
 	if (mShowInfluence) // normalize according to follower count
 	{
 		if (mUseLikes)
 		{
-
-			std::sort(toShow.begin(), toShow.end(), [this](const std::pair<unsigned int, u64>& a1, const std::pair<unsigned int, u64>& a2)
+			std::sort(toShow.begin(), toShow.end(), [this, mainW](const std::pair<unsigned int, u64>& a1, const std::pair<unsigned int, u64>& a2)
 				{
 					auto& a1User = mFollowersFollowingCount[a1.second];
 					auto& a2User = mFollowersFollowingCount[a2.second];
 
-					float sqrtSize = sqrtf((float)mCurrentUser.mFollowersCount);
-					float sqrtA1Size= sqrtf((float)a1User.second.mFollowersCount);
-					float sqrtA2Size = sqrtf((float)a2User.second.mFollowersCount);
+					float a1PC = a1User.second.mW / mainW;
+					float a1I = a1PC * (mCurrentUser.mStatuses_count+ a1User.second.mStatuses_count)*0.5f;
+					float a2PC = a2User.second.mW / mainW;
+					float a2I = a2PC * (mCurrentUser.mStatuses_count + a2User.second.mStatuses_count)*0.5f;
 
-					float a1Score = a1User.second.mW * ((sqrtSize > sqrtA1Size) ? (sqrtA1Size / sqrtSize) : (sqrtSize / sqrtA1Size));
-					float a2Score = a2User.second.mW * ((sqrtSize > sqrtA2Size) ? (sqrtA2Size / sqrtSize) : (sqrtSize / sqrtA2Size));
+					float a1Score = a1I / ((float)mCurrentUser.mStatuses_count + (float)a1User.second.mStatuses_count - a1I);
+					float a2Score = a2I / ((float)mCurrentUser.mStatuses_count + (float)a2User.second.mStatuses_count - a2I);
 
 					if (a1Score == a2Score)
 					{
@@ -1771,11 +1777,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 	float ray = 0.15f;
 	float dray = 0.0117f;
 	toShowCount = 0;
-	float mainW = 1.0;
-	if (mUseLikes)
-	{
-		 mainW = getTotalWeightForAccount(mUserID);
-	}
+	
 	for (const auto& toS : toShow)
 	{
 		if (toS.second == mUserID)
@@ -1804,13 +1806,12 @@ void	TwitterAnalyser::refreshAllThumbs()
 			{
 				if (mUseLikes)
 				{
+					float toPlacePC = toPlace.second.mW / mainW;
+					float toPlaceI = toPlacePC * (mCurrentUser.mStatuses_count + toPlace.second.mStatuses_count)*0.5f;
+					
+					float coef = toPlaceI / ((float)mCurrentUser.mStatuses_count + (float)toPlace.second.mStatuses_count - toPlaceI);
 
-					float sqrtSize = sqrtf((float)mCurrentUser.mFollowersCount);
-					float sqrtA1Size = sqrtf((float)toPlace.second.mFollowersCount);
-	
-					float coef= ((sqrtSize > sqrtA1Size) ? (sqrtA1Size / sqrtSize) : (sqrtSize / sqrtA1Size));
-
-					float k = 100.0f* coef*getTotalWeightForAccount((*found).first)/ mainW;
+					float k = 100.0f* coef;
 					toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "ls";
 					prescale = 1.5f * k / 100.0f;
 
