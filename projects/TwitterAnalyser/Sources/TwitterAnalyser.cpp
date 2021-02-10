@@ -1662,13 +1662,8 @@ void	TwitterAnalyser::refreshAllThumbs()
 					auto& a1User = mFollowersFollowingCount[a1.second];
 					auto& a2User = mFollowersFollowingCount[a2.second];
 
-					float a1PC = a1User.second.mW / mainW;
-					float a1I = a1PC * (mCurrentUser.mStatuses_count+ a1User.second.mStatuses_count)*0.5f;
-					float a2PC = a2User.second.mW / mainW;
-					float a2I = a2PC * (mCurrentUser.mStatuses_count + a2User.second.mStatuses_count)*0.5f;
-
-					float a1Score = a1I / ((float)mCurrentUser.mStatuses_count + (float)a1User.second.mStatuses_count - a1I);
-					float a2Score = a2I / ((float)mCurrentUser.mStatuses_count + (float)a2User.second.mStatuses_count - a2I);
+					float a1Score = a1User.second.mW;
+					float a2Score = a2User.second.mW;
 
 					if (a1Score == a2Score)
 					{
@@ -1806,11 +1801,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 			{
 				if (mUseLikes)
 				{
-					float toPlacePC = toPlace.second.mW / mainW;
-					float toPlaceI = toPlacePC * (mCurrentUser.mStatuses_count + toPlace.second.mStatuses_count)*0.5f;
-					
-					float coef = toPlaceI / ((float)mCurrentUser.mStatuses_count + (float)toPlace.second.mStatuses_count - toPlaceI);
-
+					float coef = toPlace.second.mW / mainW;
 					float k = 100.0f* coef;
 					toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "ls";
 					prescale = 1.5f * k / 100.0f;
@@ -2416,8 +2407,6 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 	}
 
 	
-	float FollowerW = sqrtf((float)(mCurrentLikerFollowerCount));
-	// normalize currentWeightedFavorites
 	float mainAccountWeight = 1.0f;
 
 	auto fw= currentWeightedFavorites.find(mUserID);
@@ -2456,22 +2445,12 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 		}
 	}
 
-	mainAccountWeight = sqrtf(mainAccountWeight);
 
 	for (auto& toWeight : currentWeightedFavorites)
 	{
-		float currentW = sqrtf(toWeight.second);
+		float currentW = 1.0f - fabsf(toWeight.second - mainAccountWeight) / (float)(toWeight.second + mainAccountWeight);
 
-		if (currentW > mainAccountWeight)
-		{
-			currentW = (currentW + mainAccountWeight) * 0.5f;
-			currentW = mainAccountWeight / currentW;
-		}
-		else
-		{
-			currentW /= mainAccountWeight;
-		}
-		toWeight.second = currentW * FollowerW * mainAccountWeight;
+		toWeight.second = currentW * mainAccountWeight;
 		mFollowersFollowingCount[toWeight.first].second.mW += toWeight.second;
 	}
 }
@@ -2573,10 +2552,20 @@ void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string
 		{
 			if (mCurrentScrappedUserNameList.size()) // some users were found ?
 			{
+				std::vector<std::string>	validscrappedlist;
+
+				for (const auto& u : mCurrentScrappedUserNameList)
+				{
+					if (u.foundCount == 2)
+					{
+						validscrappedlist.push_back(u.userName);
+					}
+				}
+
 				bool valid = true;
 				if (mTweetLikers.size())
 				{
-					if (mCurrentScrappedUserNameList.back().userName == mTweetLikers.back())
+					if (validscrappedlist.back() == mTweetLikers.back())
 					{
 						valid = false;
 					}
@@ -2584,9 +2573,15 @@ void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string
 
 				if (valid)
 				{
-					for (const auto& u : mCurrentScrappedUserNameList)
+					for (const auto& u : validscrappedlist)
 					{
-						mTweetLikers.push_back(u.userName);
+						auto f = mTweetLikersMap.find(u);
+						
+						if (f == mTweetLikersMap.end())
+						{
+							mTweetLikers.push_back(u);
+							mTweetLikersMap[u] = 0;
+						}
 					}
 					mCurrentScrappedUserNameList.clear();
 					mNextScript = "var toscroll=document.querySelector('[href=\"/" + mTweetLikers.back() + "\"]');"\
@@ -2600,7 +2595,7 @@ void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string
 			if (mScraperState != SCROLL_LIKES) // no more likers found
 			{
 				u64 tweetID = mTweets[mCurrentTreatedTweetIndex].mTweetID;
-
+				mTweetLikersMap.clear();
 				randomizeVector(mTweetLikers);
 				SaveLikersFile(tweetID);
 				mState = GET_USER_FAVORITES;

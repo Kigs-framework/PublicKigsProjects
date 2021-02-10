@@ -191,6 +191,7 @@ protected:
 	};
 	std::vector<tmpScrappedUserName>								mCurrentScrappedUserNameList;
 	std::vector<std::string>										mTweetLikers;
+	std::map<std::string, unsigned int>								mTweetLikersMap;
 	u32																mCurrentTreatedLikerIndex=0;
 	u32																mValidTreatedLikersForThisTweet = 0;
 	std::map<std::string, u32>										mFoundLiker;
