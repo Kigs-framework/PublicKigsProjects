@@ -2573,6 +2573,7 @@ void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string
 
 				if (valid)
 				{
+					bool oneWasAdded = false;
 					for (const auto& u : validscrappedlist)
 					{
 						auto f = mTweetLikersMap.find(u);
@@ -2581,14 +2582,19 @@ void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string
 						{
 							mTweetLikers.push_back(u);
 							mTweetLikersMap[u] = 0;
+							oneWasAdded = true;
 						}
 					}
-					mCurrentScrappedUserNameList.clear();
-					mNextScript = "var toscroll=document.querySelector('[href=\"/" + mTweetLikers.back() + "\"]');"\
-						"toscroll.scrollIntoView(true);"\
-						"window.chrome.webview.postMessage(\"scriptDone\");";
-					LaunchScript(sender);
-					mScraperState = SCROLL_LIKES;
+
+					if (mTweetLikers.size() && oneWasAdded)
+					{
+						mCurrentScrappedUserNameList.clear();
+						mNextScript = "var toscroll=document.querySelector('[href=\"/" + mTweetLikers.back() + "\"]');"\
+							"toscroll.scrollIntoView(true);"\
+							"window.chrome.webview.postMessage(\"scriptDone\");";
+						LaunchScript(sender);
+						mScraperState = SCROLL_LIKES;
+					}
 				}
 			}
 			
