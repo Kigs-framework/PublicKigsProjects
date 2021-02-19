@@ -146,7 +146,7 @@ protected:
 	class UserStruct
 	{
 	public:
-		usString					mName="";
+		usString					mName=std::string("");
 		unsigned int				mFollowersCount = 0;
 		unsigned int				mFollowingCount = 0;
 		unsigned int				mStatuses_count = 0;
@@ -154,6 +154,12 @@ protected:
 		ThumbnailStruct				mThumb;
 		std::vector<u64>			mFollowing;
 		float						mW;
+		// detailed stats
+		u32							mLikerCount;
+		u32							mLikerFollowerCount;
+		u32							mLikerMainUserFollowerCount;
+		u32							mLikerBothFollowCount;
+		u32							mLikesCount;
 	};
 
 	void	DrawForceBased();
@@ -167,7 +173,6 @@ protected:
 
 	std::vector<std::pair<CMSP, std::pair<u64, UserStruct*>> >						mDownloaderList;
 	std::map<u64, std::pair<unsigned int, UserStruct>>				mFollowersFollowingCount;
-	unsigned int													mCurrentLikerFollowerCount;
 
 	std::unordered_map<u64, CMSP>			mShowedUser;
 
@@ -195,6 +200,8 @@ protected:
 	u32																mCurrentTreatedLikerIndex=0;
 	u32																mValidTreatedLikersForThisTweet = 0;
 	std::map<std::string, u32>										mFoundLiker;
+	u64																mCurrentLikerID;
+	u32																mLikerFollowerCount = 0;
 
 	struct favoriteStruct
 	{
@@ -354,6 +361,7 @@ protected:
 	double		mLastUpdate;
 	bool		mShowInfluence = false;
 	bool		mWaitQuota = false;
+	bool		mDetailedStatsWereExported = false;
 	unsigned int	mWaitQuotaCount = 0;
 
 	std::string	mFollowersNextCursor = "-1";
@@ -402,9 +410,10 @@ protected:
 		GET_TWEET_LIKES					= 9,
 		GET_USER_FAVORITES				= 10,
 		UPDATE_LIKES_STATISTICS			= 11,
-		GET_USER_ID						= 12,
-		WAIT_USER_ID					= 13,
-		EVERYTHING_DONE					= 14
+		GET_LIKER_FOLLOWING				= 12,
+		GET_USER_ID						= 13,
+		WAIT_USER_ID					= 14,
+		EVERYTHING_DONE					= 15
 	};
 
 	enum ScraperStates
@@ -417,6 +426,7 @@ protected:
 	unsigned int				mApiErrorCode=0;
 
 	bool						mUseLikes = false;
+	bool						mDetailedLikeStats = false;
 
 	AnonymousModule* mWebScraperModule=nullptr;
 	SP<CoreModifiable> mWebScraper=nullptr;
@@ -426,5 +436,7 @@ protected:
 	std::string	mWalkInitScript = "";
 	std::string	mScrollScript = "";
 	std::string mCallWalkScript = "";
+
+	void ExportDetailedStats();
 
 };
