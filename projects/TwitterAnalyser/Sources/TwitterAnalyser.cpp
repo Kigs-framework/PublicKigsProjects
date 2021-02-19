@@ -10,7 +10,7 @@
 #include "PNGClass.h"
 #include "GIFClass.h"
 #include "TextureFileManager.h"
-#include "UI/UITexture.h"
+#include "UI/UIImage.h"
 #include "Histogram.h"
 #include "AnonymousModule.h"
 
@@ -837,9 +837,9 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 			if (mCurrentUser.mThumb.mTexture && mMainInterface["thumbnail"])
 			{
-				const SP<UITexture>& tmp = mMainInterface["thumbnail"];
+				const SP<UIImage>& tmp = mMainInterface["thumbnail"];
 
-				if (!tmp->GetTexture())
+				if (!tmp->HasTexture())
 				{
 					tmp->addItem(mCurrentUser.mThumb.mTexture);
 					mMainInterface["thumbnail"]["UserName"]("Text") = mCurrentUser.mName;
@@ -1484,6 +1484,7 @@ void	TwitterAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 
 				SmartPointer<TinyImage>	imgsp = OwningRawPtrToSmartPtr(img);
 				toFill->mThumb.mTexture->CreateFromImage(imgsp);
+
 			}
 			else
 			{
@@ -1881,11 +1882,11 @@ void	TwitterAnalyser::refreshAllThumbs()
 			toSetup["ChannelName"]("FontSize") = 20.0f ;
 			toSetup["ChannelName"]("MaxWidth") = 160.0f ;
 
-			const SP<UITexture>& checkTexture = toSetup;
+			const SP<UIImage>& checkTexture = toSetup;
 
 			if(toPlace.second.mName.length())
 			{
-				if (!checkTexture->GetTexture())
+				if (!checkTexture->HasTexture())
 				{
 					somethingChanged = true;
 					if (toPlace.second.mThumb.mTexture)
