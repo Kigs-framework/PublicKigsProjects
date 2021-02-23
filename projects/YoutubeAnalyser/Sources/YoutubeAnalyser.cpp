@@ -8,7 +8,7 @@
 #include "TinyImage.h"
 #include "JPEGClass.h"
 #include "PNGClass.h"
-#include "UI/UITexture.h"
+#include "UI/UIImage.h"
 #include "TextureFileManager.h"
 #include "Histogram.h"
 
@@ -690,9 +690,9 @@ void	YoutubeAnalyser::ProtectedUpdate()
 
 			if (mChannelInfos.mThumb.mTexture && mMainInterface["thumbnail"])
 			{
-				const SP<UITexture>& tmp = mMainInterface["thumbnail"];
+				const SP<UIImage>& tmp = mMainInterface["thumbnail"];
 
-				if (!tmp->GetTexture())
+				if (!tmp->HasTexture())
 				{
 					tmp->addItem(mChannelInfos.mThumb.mTexture);
 					mMainInterface["thumbnail"]["ChannelName"]("Text") = mChannelInfos.mName;
@@ -932,9 +932,9 @@ void	YoutubeAnalyser::refreshAllThumbs()
 			toSetup["ChannelName"]("FontSize") = 0.6f * 18.0f / prescale;
 			toSetup["ChannelName"]("MaxWidth") = 0.6f * 150.0f / prescale;
 
-			const SP<UITexture>& checkTexture = toSetup;
+			const SP<UIImage>& checkTexture = toSetup;
 
-			if (!checkTexture->GetTexture())
+			if (!checkTexture->HasTexture())
 			{
 				somethingChanged = true;
 				if (toPlace.first->mThumb.mTexture)

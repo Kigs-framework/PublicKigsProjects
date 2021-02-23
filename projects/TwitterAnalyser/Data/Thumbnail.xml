@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="iso-8859-1"?>
-<Inst N="thmbnail" T="UITexture">
+<Inst N="thmbnail" T="UIImage">
 	<Attr N="Priority" V="10"/>
 	<Attr N="Dock" V="{0.5,0.5}"/>
 	<Attr N="PreScaleX" V="0.6"/>
