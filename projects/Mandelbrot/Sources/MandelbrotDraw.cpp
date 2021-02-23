@@ -1,8 +1,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <vector>
+#include "TecLibs/Tec3D.h"
+#include "TinyImage.h"
 
 int IterationMax = 64;
+
+TinyImage* gpbmp = nullptr;
 
 struct RGBA
 {
@@ -22,9 +27,9 @@ int getIndex(int posX, int posY, int sizeX, int sizeY)
 	return -1;
 }
 
-inline void colorFromIteration(RGBA* currentColor,int Iteration)
+inline void colorFromIteration(RGBA* currentColor,const std::pair<int,v2f>& Iteration)
 {
-	if (Iteration == IterationMax)
+	if (Iteration.first == IterationMax)
 	{
 		currentColor->R = 0;
 		currentColor->G = 0;
@@ -33,14 +38,42 @@ inline void colorFromIteration(RGBA* currentColor,int Iteration)
 	}
 	else
 	{
-		currentColor->R = (unsigned char)((Iteration << 4) & 255);
-		currentColor->G = 0;
-		currentColor->B = (unsigned char)(((Iteration >> 4) & 255) << 4);
-		currentColor->A = 255;
+	
+		if (gpbmp)
+		{
+			unsigned char* bmpdata=gpbmp->GetPixelData();
+
+			float tst = sqrtf(Iteration.second.x * Iteration.second.x + Iteration.second.y * Iteration.second.y) - 2.0f;
+			if (tst > 4.0f)
+				tst = 4.0f;
+
+			tst = (1.0f - (tst * 1.0f/4.0f))*32.0f;
+
+			int x = (fabsf(Iteration.second.x) * 32.0f);
+			int y = (fabsf(Iteration.second.y) * 32.0f);
+		//	int y = tst;
+
+			unsigned char* color = &bmpdata[3 * ((y & 63) * 256 + (x & 255))];
+
+			int R = ((int)color[0] + ((Iteration.first << 4) & 255))/2;
+			int B = ((int)color[2] + (((Iteration.first >> 4) & 255) << 4)) / 2;
+			currentColor->R = R;
+			currentColor->G = color[1];
+			currentColor->B = B;
+			currentColor->A = 255;
+		}
+		else
+		{
+			currentColor->R = (unsigned char)((Iteration.first << 4) & 255);
+			currentColor->G = 0;
+			currentColor->B = (unsigned char)(((Iteration.first >> 4) & 255) << 4);
+			currentColor->A = 255;
+		}
+
 	}
 }
 
-inline int iterationLoop(float Cx, float Cy)
+inline std::pair<int,v2f> iterationLoop(float Cx, float Cy)
 {
 	float Zx = Cx;
 	float Zy = Cy;
@@ -58,26 +91,28 @@ inline int iterationLoop(float Cx, float Cy)
 		Zy2 = Zy * Zy;
 	}
 
-	return Iteration;
+	return { Iteration,v2f(Zx,Zy) };
 }
 
 void	drawRectangle(unsigned char* pixelsdata, int sizeX, int sizeY, int startX, int startY, int RectSizeX,int RectSizeY, float startCx, float startCy, float Dx, float Dy)
 {
 	// draw square border 
 	RGBA* rgbaPixels = (RGBA*)pixelsdata;
-	int Iteration = 0;
+
 	// first draw horizontal borders
-	RGBA currentColor;
+	
+	#pragma omp parallel for
 	for (int j = 0; j < RectSizeY; j++)
 	{
 		float Cy = startCy + j * Dy;
 		int index = getIndex(startX, j + startY, sizeX, sizeY);
-
+		
 		for (int i = 0; i < RectSizeX; i++)
 		{
 			float Cx = startCx + i * Dx;
 
-			Iteration = iterationLoop(Cx, Cy);
+			auto Iteration = iterationLoop(Cx, Cy);
+			RGBA currentColor;
 			colorFromIteration(&currentColor, Iteration);	
 			rgbaPixels[index] = currentColor;
 			index++;
@@ -94,7 +129,7 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 	int checkRecurse1 = 0;
 	int checkRecurse2 = 0;
 
-	int Iteration = 0;
+	std::pair<int, v2f> Iteration;
 	// first draw horizontal borders
 	RGBA currentColor;
 	for (int j = 0; j < SquareSize; j+= SquareSize-1)
@@ -106,8 +141,8 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 			float Cx = startCx + i * Dx;
 
 			Iteration = iterationLoop(Cx, Cy);
-			checkRecurse1 |= Iteration;
-			checkRecurse2 += Iteration;
+			checkRecurse1 |= Iteration.first;
+			checkRecurse2 += Iteration.first;
 			colorFromIteration(&currentColor, Iteration);
 			int index = getIndex(i+startX, j+startY, sizeX, sizeY);
 			rgbaPixels[index] = currentColor;
@@ -124,8 +159,8 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 			float Cy = startCy + j * Dy;
 
 			Iteration = iterationLoop(Cx, Cy);
-			checkRecurse1 |= Iteration;
-			checkRecurse2 += Iteration;
+			checkRecurse1 |= Iteration.first;
+			checkRecurse2 += Iteration.first;
 			colorFromIteration(&currentColor, Iteration);
 			int index = getIndex(i + startX, j + startY, sizeX, sizeY);
 			rgbaPixels[index] = currentColor;
@@ -135,7 +170,7 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 
 	int countIteration = 4 * (SquareSize-1);
 
-	if ((checkRecurse1 == Iteration) && (checkRecurse2 == (Iteration* countIteration)))// fill square
+	if ((checkRecurse1 == Iteration.first) && (checkRecurse2 == (Iteration.first * countIteration)))// fill square
 	{
 		for (int i = 1; i < SquareSize - 1; i++)
 		{
@@ -155,7 +190,7 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 			float Cy = startCy + Dx;
 			float Cx = startCx + Dy;
 
-			int Iteration = iterationLoop(Cx, Cy);
+			Iteration = iterationLoop(Cx, Cy);
 			int index = getIndex(startX + 1, startY + 1, sizeX, sizeY);
 			colorFromIteration(&currentColor, Iteration);
 			rgbaPixels[index] = currentColor;
@@ -171,8 +206,9 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 	}
 }
 
-void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomCenterX, float zoomCenterY, float zoomCoef)
+void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomCenterX, float zoomCenterY, float zoomCoef, TinyImage* bmp)
 {
+	gpbmp = bmp;
 	RGBA* rgbaPixels = (RGBA*)pixelsdata;
 
 	memset(rgbaPixels, 0, sizeof(RGBA) * sizeX * sizeY);
@@ -184,7 +220,11 @@ void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomC
 	{
 		IterationMax = 255;
 	}
+	float Cy = ( - sizeY / 2) * oneOnZoomCoef + zoomCenterY;
+	float Cx = ( - sizeX / 2) * oneOnZoomCoef + zoomCenterX;
+	drawRectangle(pixelsdata, sizeX, sizeY, 0, 0, sizeX, sizeY, Cx, Cy, oneOnZoomCoef, oneOnZoomCoef);
 
+	/*
 	#pragma omp parallel for
 	for (int j = 0; j < sizeY-78; j+=78)
 	{
@@ -214,4 +254,5 @@ void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomC
 	Cy = (rectStartY - sizeY / 2)* oneOnZoomCoef + zoomCenterY;
 
 	drawRectangle(pixelsdata, sizeX, sizeY, 0, rectStartY, rectStartX, rectSizeY, Cx, Cy, oneOnZoomCoef, oneOnZoomCoef);
+	*/
 }

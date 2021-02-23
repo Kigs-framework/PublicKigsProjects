@@ -4,6 +4,8 @@
 #include "KigsBitmap.h"
 #include "UI/UIItem.h"
 
+class TinyImage;
+
 class Mandelbrot : public DataDrivenBaseApplication
 {
 public:
@@ -26,4 +28,6 @@ protected:
 
 	double			mStartTime = -1.0;
 	double			mRotationAngle = 0.0f;
+
+	TinyImage* mImage = nullptr;
 };

@@ -1,8 +1,9 @@
 #include <Mandelbrot.h>
 #include <FilePathManager.h>
 #include <NotificationCenter.h>
+#include "TinyImage.h"
 
-extern void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomCenterX, float zoomCenterY, float zoomCoef);
+extern void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomCenterX, float zoomCenterY, float zoomCoef,TinyImage* bmp);
 
 IMPLEMENT_CLASS_INFO(Mandelbrot);
 
@@ -25,7 +26,11 @@ void	Mandelbrot::ProtectedInit()
 	// Load AppInit, GlobalConfig then launch first sequence
 	DataDrivenBaseApplication::ProtectedInit();
 
-	mZoomCoef = 200.0f;
+	mZoomCoef = 10.0f;
+
+	//mImage =TinyImage::CreateImage("Anneau.png");
+	mImage = TinyImage::CreateImage("copper.png");
+
 }
 
 void	Mandelbrot::ProtectedUpdate()
@@ -42,7 +47,7 @@ void	Mandelbrot::ProtectedUpdate()
 		}
 		v2f bitmapSize = mBitmap->getValue<v2f>("Size");
 
-		DrawMandelbrot(mBitmap->GetPixelBuffer(), (int)bitmapSize.x, (int)bitmapSize.y, -0.743643887037151, 0.13182590420533, mZoomCoef);
+		DrawMandelbrot(mBitmap->GetPixelBuffer(), (int)bitmapSize.x, (int)bitmapSize.y, -0.743643887037151, 0.13182590420533, mZoomCoef, mImage);
 		mZoomCoef *= 1.01;
 		count_frame++;
 		double totalTime = DataDrivenBaseApplication::GetApplicationTimer()->GetTime() - mStartTime;
@@ -70,7 +75,7 @@ void	Mandelbrot::ProtectedInitSequence(const kstl::string& sequence)
 	if (sequence == "sequencemain")
 	{
 		mBitmap = GetFirstInstanceByName("KigsBitmap", "mandelbrot");
-		mBitmapDisplay = GetFirstInstanceByName("UITexture", "uitexture");
+		mBitmapDisplay = GetFirstInstanceByName("UIImage", "uitexture");
 		mBitmapDisplay->setValue("PreScaleX", 1.4f);
 		mBitmapDisplay->setValue("PreScaleY", 1.4f);
 	}
