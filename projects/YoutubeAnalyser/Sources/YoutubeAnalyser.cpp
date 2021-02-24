@@ -1133,11 +1133,6 @@ void	YoutubeAnalyser::DrawForceBased()
 {
 	v2f center(1280.0 / 2.0, 800.0 / 2.0);
 
-	v2f thumbcenter = mMainInterface["thumbnail"]("Dock");
-	thumbcenter.x *= 1280.0f;
-	thumbcenter.y *= 800.0f;
-
-
 	const float timeDelay = 10.0f;
 	const float timeDivisor = 0.04f;
 
@@ -1152,7 +1147,7 @@ void	YoutubeAnalyser::DrawForceBased()
 		PerChannelUserMap& current = l1.second;
 	
 		// always a  bit of attraction to center
-		v2f	v(thumbcenter);
+		v2f	v(mThumbcenter);
 		v -= current.mPos;
 
 		// add a bit of random
@@ -1210,7 +1205,7 @@ void	YoutubeAnalyser::DrawForceBased()
 			{
 				if (&l1 == &l2)
 				{
-					// check with central image
+					/*// check with central image
 					v2f	v(current.mPos);
 					v -= thumbcenter;
 					float dist = Norm(v);
@@ -1222,7 +1217,7 @@ void	YoutubeAnalyser::DrawForceBased()
 						float coef = (r - dist) * 120.0 / (r);
 						current.mPos += v * (coef);
 					}
-
+					*/
 					continue;
 				}
 
@@ -2187,18 +2182,28 @@ void	YoutubeAnalyser::switchForce()
 {
 	if (!mDrawForceBased)
 	{
+		mThumbcenter = (v2f)mMainInterface["thumbnail"]("Dock");
+		mThumbcenter.x *= 1280.0f;
+		mThumbcenter.y *= 800.0f;
+
+		mMainInterface["thumbnail"]("Dock") = v2f(0.94f, 0.08f);
+
 		prepareForceGraphData();
 		mForcedBaseStartingTime= GetApplicationTimer()->GetTime();
 
 		mMainInterface["switchV"]("IsHidden") = true;
 		mMainInterface["switchV"]("IsTouchable") = false;
+		mMainInterface["switchForce"]("Dock") = v2f(0.050f, 0.950f);
 	}
 	else
 	{
+		mMainInterface["thumbnail"]("Dock") = v2f(0.52f, 0.44f);
+
 		mMainInterface["switchV"]("IsHidden") = false;
 		mMainInterface["switchV"]("IsTouchable") = true;
 		mMainInterface["switchForce"]("IsHidden") = true;
 		mMainInterface["switchForce"]("IsTouchable") = false;
+		mMainInterface["switchForce"]("Dock") = v2f(0.950f, 0.050f);
 	}
 	mDrawForceBased = !mDrawForceBased;
 

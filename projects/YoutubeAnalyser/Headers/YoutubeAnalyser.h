@@ -132,6 +132,7 @@ protected:
 
 	void	DrawForceBased();
 	bool	mDrawForceBased = false;
+	v2f		mThumbcenter;
 	float	mForcedBaseStartingTime = 0.0f;
 
 	void	ProtectedInit() override;
