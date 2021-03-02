@@ -1133,9 +1133,10 @@ DEFINE_METHOD(TwitterAnalyser, getFavorites)
 {
 	auto json = RetrieveJSON(sender);
 
+	std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
+
 	if (!json.isNil())
 	{
-		std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
 		std::vector<favoriteStruct>& currentFavorites = mFavorites[user];
 
 		for (const auto& fav : json)
@@ -1148,15 +1149,18 @@ DEFINE_METHOD(TwitterAnalyser, getFavorites)
 			currentFavorites.push_back({ tweetID ,userid ,likes_count ,rt_count });
 		}
 		
-		SaveFavoritesFile(user);
-		mState = GET_USER_ID;
+
 	}
-	else if (!mWaitQuota) // can't access favorite for this user
+	
+	if (!mWaitQuota) // can't access favorite for this user
 	{
 		std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
 
 		SaveFavoritesFile(user);
-		mState = GET_USER_ID;
+		if (mDetailedLikeStats)
+			mState = GET_USER_ID;
+		else
+			mState = UPDATE_LIKES_STATISTICS;
 	}
 
 	return true;
