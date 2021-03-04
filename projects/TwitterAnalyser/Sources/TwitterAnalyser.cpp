@@ -61,6 +61,19 @@ void closeLog()
 
 #endif
 
+std::string	GetDate(int fromNowInSeconds)
+{
+	char yestDt[64];
+
+	time_t now = time(NULL);
+	now = now + fromNowInSeconds;
+	struct tm* t = localtime(&now);
+
+	sprintf(yestDt, "%d-%02d-%02dT",2000+t->tm_year-100,t->tm_mon+1, t->tm_mday);
+
+	return yestDt;
+}
+
 
 template<typename T>
 void	randomizeVector(std::vector<T>& v)
@@ -189,9 +202,24 @@ void	TwitterAnalyser::ProtectedInit()
 	SetMemberFromParam(mUseLikes, "UseLikes");
 	SetMemberFromParam(mMaxLikersPerTweet, "MaxLikersPerTweet");	
 
+
+	int oldFileLimitInDays = 3 * 30;
+	SetMemberFromParam(oldFileLimitInDays, "OldFileLimitInDays");
+
+	mOldFileLimit = 60.0 * 60.0 * 24.0 * (double)oldFileLimitInDays;
+
 	if (mUseLikes)
 	{
 		SetMemberFromParam(mDetailedLikeStats, "DetailedLikeStats");
+
+		if (mDetailedLikeStats)
+		{
+			SetMemberFromParam(mDailyAnalysis, "DailyStats");
+			if (mDailyAnalysis)
+			{
+				mOldFileLimit = 60.0 * 60.0 * 12.0;
+			}
+		}
 		// load anonymous module for web scraper
 #ifdef _DEBUG
 		mWebScraperModule = new AnonymousModule("WebScraperD.dll");
@@ -223,11 +251,6 @@ void	TwitterAnalyser::ProtectedInit()
 
 		}
 	}
-
-	int oldFileLimitInDays = 3 * 30;
-	SetMemberFromParam(oldFileLimitInDays, "OldFileLimitInDays");
-
-	mOldFileLimit = 60.0 * 60.0 * 24.0 * (double)oldFileLimitInDays;
 
 	SP<FilePathManager>& pathManager = KigsCore::Singleton<FilePathManager>();
 	// when a path is given, search the file only with this path
@@ -370,7 +393,16 @@ void	TwitterAnalyser::ProtectedUpdate()
 
 						//https://api.twitter.com/2/users/:id/tweets?tweet.fields=created_at&expansions=author_id&user.fields=created_at&max_results=5
 						// TODO add until_id for next page
-						std::string url = "2/users/" + std::to_string(mUserID) + "/tweets?tweet.fields=public_metrics&max_results=100";
+						std::string url = "2/users/" + std::to_string(mUserID) + "/tweets?tweet.fields=public_metrics";
+
+						if (mDailyAnalysis)
+						{
+							std::string yesterday = GetDate(-24 * 60 * 60);
+							url += "&start_time=" + yesterday + "00:00:00Z";
+							url += "&end_time=" + yesterday + +"23:59:59Z";
+						}
+
+						url += "&max_results=100";
 						if (mFollowersNextCursor != "-1")
 						{
 							url += "&pagination_token=" + mFollowersNextCursor;
@@ -1181,7 +1213,7 @@ DEFINE_METHOD(TwitterAnalyser, getTweets)
 			u64 tweetid = tweetsArray[i]["id"];
 			u32 like_count= tweetsArray[i]["public_metrics"]["like_count"];
 			u32 rt_count = tweetsArray[i]["public_metrics"]["retweet_count"];
-			if (like_count)
+			if (like_count>1)
 			{
 				retrievedTweets.push_back({ tweetid,like_count,rt_count });
 			}
@@ -1694,6 +1726,11 @@ bool		TwitterAnalyser::LoadThumbnail(u64 id, UserStruct& ch)
 void TwitterAnalyser::ExportDetailedStats()
 {
 	std::string filename = mUserName;
+	if(mDailyAnalysis)
+		filename += "_"+GetDate(-24 * 60 * 60);
+	else
+		filename += "_"+GetDate(0);
+
 	filename += "_likes_detailed_stats.csv";
 	float wantedpercent = mValidUserPercent;
 

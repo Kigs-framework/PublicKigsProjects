@@ -67,7 +67,7 @@ protected:
 	unsigned int					mState = WAIT_STATE;
 	unsigned int					mBackupState = WAIT_STATE;
 
-
+	// structures
 	class PerAccountUserMap
 	{
 	public:
@@ -133,20 +133,17 @@ protected:
 		float	GetNormalisedAttraction(const PerAccountUserMap& other);
 	};
 
-	std::unordered_map<u64, PerAccountUserMap>	mAccountSubscriberMap;
-
-	void	prepareForceGraphData();
 	class ThumbnailStruct
 	{
 	public:
 		SP<Texture>					mTexture = nullptr;
-		std::string					mURL="";
+		std::string					mURL = "";
 	};
 
 	class UserStruct
 	{
 	public:
-		usString					mName=std::string("");
+		usString					mName = std::string("");
 		unsigned int				mFollowersCount = 0;
 		unsigned int				mFollowingCount = 0;
 		unsigned int				mStatuses_count = 0;
@@ -162,7 +159,33 @@ protected:
 		u32							mLikesCount;
 	};
 
+	struct Twts
+	{
+		u64		mTweetID;
+		u32		mLikeCount;
+		u32		mRetweetCount;
+	};
+
+	struct tmpScrappedUserName
+	{
+		std::string		userName;
+		u32				foundCount;
+	};
+
+	struct favoriteStruct
+	{
+		u64		tweetID;
+		u64		userID;
+		u32		likes_count;
+		u32		retweet_count;
+	};
+
+	std::unordered_map<u64, PerAccountUserMap>	mAccountSubscriberMap;
+
+	void	prepareForceGraphData();
+	
 	void	DrawForceBased();
+
 	bool	mDrawForceBased = false;
 	v2f		mThumbcenter;
 	float	mForcedBaseStartingTime = 0.0f;
@@ -179,21 +202,12 @@ protected:
 	// list of followers
 	std::vector<u64>												mFollowers;
 	// list of liked tweets
-	struct Twts
-	{
-		u64		mTweetID;
-		u32		mLikeCount;
-		u32		mRetweetCount;
-	};
+
 	std::vector<Twts>												mTweets;
 	u32																mMaxLikersPerTweet=0;
 	u32																mCurrentTreatedTweetIndex=0;
 	std::string														mNextScript;
-	struct tmpScrappedUserName
-	{
-		std::string		userName;
-		u32				foundCount;
-	};
+	
 	std::vector<tmpScrappedUserName>								mCurrentScrappedUserNameList;
 	std::vector<std::string>										mTweetLikers;
 	std::map<std::string, unsigned int>								mTweetLikersMap;
@@ -202,14 +216,6 @@ protected:
 	std::map<std::string, u32>										mFoundLiker;
 	u64																mCurrentLikerID;
 	u32																mLikerFollowerCount = 0;
-
-	struct favoriteStruct
-	{
-		u64		tweetID;
-		u64		userID;
-		u32		likes_count;
-		u32		retweet_count;
-	};
 
 	// list of favorites per liker
 	std::map<std::string,std::vector<favoriteStruct>>					mFavorites;
@@ -427,6 +433,8 @@ protected:
 
 	bool						mUseLikes = false;
 	bool						mDetailedLikeStats = false;
+
+	bool						mDailyAnalysis=false;
 
 	AnonymousModule* mWebScraperModule=nullptr;
 	SP<CoreModifiable> mWebScraper=nullptr;
