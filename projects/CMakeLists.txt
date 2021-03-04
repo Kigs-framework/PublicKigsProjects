@@ -6,4 +6,4 @@ add_subdirectory(TwitterAnalyser)
 if(${KIGS_PLATFORM} STREQUAL "Windows")
 	add_subdirectory(WebScraper)
 endif()
-
+add_subdirectory(boules)
