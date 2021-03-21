@@ -1,0 +1,4 @@
+const walk = (el) => {
+window.chrome.webview.postMessage(JSON.stringify(el,["href","id", "tagName", "className"]));
+Array.from(el.children).forEach(walk);
+};
