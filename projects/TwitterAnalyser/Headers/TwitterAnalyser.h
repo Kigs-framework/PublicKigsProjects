@@ -27,7 +27,8 @@ protected:
 	DECLARE_METHOD(getTweets);
 	DECLARE_METHOD(getFollowing);
 	DECLARE_METHOD(getUserDetails);
-	COREMODIFIABLE_METHODS(getFavorites,getFollowers,getTweets,  getFollowing, getUserDetails);
+	DECLARE_METHOD(getHashTagsTweets);
+	COREMODIFIABLE_METHODS(getFavorites,getFollowers,getTweets,  getFollowing, getUserDetails, getHashTagsTweets);
 
 	void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
 	void	switchDisplay();
@@ -57,6 +58,17 @@ protected:
 		return mCurrentBearer;
 	}
 	std::string mUserName;
+	std::string mHashTag;
+
+	std::string getHashtagFilename()
+	{
+		std::string result = mHashTag;
+		if (result[0] == '#')
+		{
+			result = "HashTag" + mHashTag.substr(1);
+		}
+		return result;
+	}
 
 	unsigned int mUserPanelSize;
 	unsigned int mWantedTotalPanelSize=100000;
@@ -194,16 +206,19 @@ protected:
 	u64				mUserID;
 	UserStruct		mCurrentUser;
 
-	std::vector<std::pair<CMSP, std::pair<u64, UserStruct*>> >						mDownloaderList;
+	std::vector<std::pair<CMSP, std::pair<u64, UserStruct*>> >		mDownloaderList;
 	std::map<u64, std::pair<unsigned int, UserStruct>>				mFollowersFollowingCount;
 
-	std::unordered_map<u64, CMSP>			mShowedUser;
+	std::unordered_map<u64, CMSP>									mShowedUser;
 
 	// list of followers
 	std::vector<u64>												mFollowers;
+	std::map<u64, u64>												mTwittosMap;
 	// list of liked tweets
 
 	std::vector<Twts>												mTweets;
+	std::vector<std::string>										mTweetsPosters;
+
 	u32																mMaxLikersPerTweet=0;
 	u32																mCurrentTreatedTweetIndex=0;
 	std::string														mNextScript;
@@ -338,8 +353,8 @@ protected:
 	bool		LoadFollowersFile();
 	void		SaveFollowersFile();
 
-	bool		LoadTweetsFile();
-	void		SaveTweetsFile();
+	bool		LoadTweetsFile(const std::string& fname = "");
+	void		SaveTweetsFile(const std::string& fname = "");
 
 	bool		LoadFollowingFile(u64 id);
 	void		SaveFollowingFile(u64 id);
@@ -419,7 +434,8 @@ protected:
 		GET_LIKER_FOLLOWING				= 12,
 		GET_USER_ID						= 13,
 		WAIT_USER_ID					= 14,
-		EVERYTHING_DONE					= 15
+		GET_HASHTAG_CONTINUE			= 15,
+		EVERYTHING_DONE					= 16
 	};
 
 	enum ScraperStates

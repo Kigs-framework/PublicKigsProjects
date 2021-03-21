@@ -189,11 +189,13 @@ void	TwitterAnalyser::ProtectedInit()
 		}
 	} while (!foundBear.isNil());
 
-	mUserName = initP["UserName"];
+
 	auto SetMemberFromParam = [&](auto& x, const char* id) {
 		if (!initP[id].isNil()) x = initP[id];
 	};
 
+	SetMemberFromParam(mUserName, "UserName");
+	SetMemberFromParam(mHashTag, "HashTag");
 	SetMemberFromParam(mUserPanelSize, "UserPanelSize");
 	SetMemberFromParam(mMaxUserCount, "MaxUserCount");
 	SetMemberFromParam(mValidUserPercent, "ValidUserPercent");
@@ -266,47 +268,135 @@ void	TwitterAnalyser::ProtectedInit()
 	mTwitterConnect->setValue("Port", "443");
 	mTwitterConnect->Init();
 
+	std::string currentUserProgress = "Cache/";
 
 	// search if current user is in Cached data
-	std::string currentUserProgress = "Cache/UserName/";
-	currentUserProgress += mUserName + ".json";
-	CoreItemSP currentP = LoadJSon(currentUserProgress);
 
-	if (currentP.isNil()) // new user
+	if (mHashTag.length())
 	{
-#ifdef LOG_ALL
-		writelog("new user : request details");
-#endif
 
-		// check classic User Cache
-		std::string url = "1.1/users/show.json?screen_name=" + mUserName;
-		mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
-		mAnswer->AddHeader(mTwitterBear[NextBearer()]);
-		mAnswer->AddDynamicAttribute<maInt,int>("BearerIndex", CurrentBearer());
-		mAnswer->AddDynamicAttribute<maBool, bool>("RequestThumb", true);
-		mAnswer->Init();
-		myRequestCount++;
-		RequestLaunched(1.1);
-	}
-	else // load current user
-	{
-		mUserID = currentP["id"];
-
-		LoadUserStruct(mUserID, mCurrentUser, true);
-
-		// look if needs more followers
-		std::string filename = "Cache/UserName/";
-		filename += mUserName + ".json";
-		CoreItemSP currentUserJson = LoadJSon(filename);
-
-		if (!currentUserJson["next-cursor"].isNil())
+		auto& textureManager = KigsCore::Singleton<TextureFileManager>();
+		mCurrentUser.mThumb.mTexture = textureManager->GetTexture("keyw.png");
+		if (mHashTag[0] == '#')
 		{
-			mFollowersNextCursor = currentUserJson["next-cursor"];
+			mCurrentUser.mName = " " + mHashTag;
+		}
+		else
+		{
+			mCurrentUser.mName = mHashTag;
+		}
+		currentUserProgress += "HashTag/";
+		currentUserProgress += getHashtagFilename() + ".json";
+		CoreItemSP currentP = LoadJSon(currentUserProgress);
+		if (currentP.isNil()) // new hashtag
+		{
+
+			JSonFileParser L_JsonParser;
+			CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
+			CoreItemSP idP = CoreItemSP::getCoreItemOfType<CoreValue<std::string>>();
+			idP = mHashTag;
+			initP->set("hashtag", idP);
+			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), currentUserProgress);
+
+			std::string url = "1.1/search/tweets.json?q=" + mHashTag + "&count=100&include_entities=false&result_type=mixed";
+			mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getHashTagsTweets", this);
+			mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+			mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
+			mAnswer->Init();
+			myRequestCount++;
+			RequestLaunched(5.1);
+		}
+		else // load current hashtag 
+		{
+		
+			if (mUseLikes) // save tweets ids
+			{
+				std::string filename = "Cache/HashTag/" + getHashtagFilename() + ".twts";
+				LoadTweetsFile(filename);
+				CoreItemSP posters=currentP["Posters"];
+				for (auto p : posters)
+				{
+					mTweetsPosters.push_back(p);
+				}
+			}
+			else // save twittos id
+			{
+				std::string filename = "Cache/HashTag/" + getHashtagFilename() + ".ids";
+				mFollowers = LoadIDVectorFile(filename);
+
+				for (unsigned int i = 0; i < mFollowers.size(); i++)
+				{
+					u64 id = mFollowers[i];
+					mTwittosMap[id] = id;
+				}
+			}
+
+			if (!currentP["next-cursor"].isNil())
+			{
+				mFollowersNextCursor = currentP["next-cursor"];
+			}
+
+			if (mFollowersNextCursor != "-1")
+			{
+				mState = GET_HASHTAG_CONTINUE;
+			}
+			else
+			{
+				if (mUseLikes)
+				{
+					mState = GET_TWEET_LIKES;
+				}
+				else
+				{
+					mState = CHECK_INACTIVES;
+				}
+			}
 		}
 
-		// get followers
-		mState = GET_FOLLOWERS_INIT;
-		
+
+	}
+	else
+	{
+		currentUserProgress += "UserName/";
+		currentUserProgress += mUserName + ".json";
+		CoreItemSP currentP = LoadJSon(currentUserProgress);
+
+		if (currentP.isNil()) // new user
+		{
+#ifdef LOG_ALL
+			writelog("new user : request details");
+#endif
+
+			// check classic User Cache
+			std::string url = "1.1/users/show.json?screen_name=" + mUserName;
+			mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
+			mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+			mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
+			mAnswer->AddDynamicAttribute<maBool, bool>("RequestThumb", true);
+			mAnswer->Init();
+			myRequestCount++;
+			RequestLaunched(1.1);
+		}
+		else // load current user
+		{
+			mUserID = currentP["id"];
+
+			LoadUserStruct(mUserID, mCurrentUser, true);
+
+			// look if needs more followers
+			std::string filename = "Cache/UserName/";
+			filename += mUserName + ".json";
+			CoreItemSP currentUserJson = LoadJSon(filename);
+
+			if (!currentUserJson["next-cursor"].isNil())
+			{
+				mFollowersNextCursor = currentUserJson["next-cursor"];
+			}
+
+			// get followers
+			mState = GET_FOLLOWERS_INIT;
+
+		}
 	}
 
 	// Load AppInit, GlobalConfig then launch first sequence
@@ -352,6 +442,35 @@ void	TwitterAnalyser::ProtectedUpdate()
 #endif
 			break;
 
+		case GET_HASHTAG_CONTINUE:
+		{
+			if (mFollowersNextCursor != "-1")
+			{
+				if (CanLaunchRequest())
+				{
+					std::string url = "1.1/search/tweets.json" + mFollowersNextCursor;
+					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getHashTagsTweets", this);
+					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
+					mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
+					mAnswer->Init();
+					myRequestCount++;
+					RequestLaunched(5.1);
+				}
+			}
+			else
+			{
+				if (mUseLikes)
+				{
+					mState = GET_TWEET_LIKES;
+				}
+				else
+				{
+					mState = CHECK_INACTIVES;
+				}
+			}
+
+		}
+			break;
 		case GET_FOLLOWERS_INIT: // get follower list
 		{
 			if ((mFollowers.size() + mTweets.size()) == 0)
@@ -455,7 +574,14 @@ void	TwitterAnalyser::ProtectedUpdate()
 				else
 				{
 					std::string stringID = GetIDString(tweetID);
-					std::string ScrapURL = "https://twitter.com/" + mUserName + "/status/" + stringID + "/likes";
+
+					std::string username = mUserName;
+					if (mTweetsPosters.size())
+					{
+						username = mTweetsPosters[mCurrentTreatedTweetIndex];
+					}
+
+					std::string ScrapURL = "https://twitter.com/" + username + "/status/" + stringID + "/likes";
 					/*mNextScript = "const walk = (el) => {"\
 						"window.chrome.webview.postMessage(JSON.stringify(el,[\"href\",\"id\", \"tagName\", \"className\"]));"\
 						"Array.from(el.children).forEach(walk);"\
@@ -1337,6 +1463,96 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 		}
 	}
 
+	return true;
+}
+
+DEFINE_METHOD(TwitterAnalyser, getHashTagsTweets)
+{
+	auto json = RetrieveJSON(sender);
+
+	if (!json.isNil())
+	{
+		CoreItemSP tweetsArray = json["statuses"];
+		unsigned int idcount = tweetsArray->size();
+
+		if (mUseLikes) // save tweets ids
+		{
+			for (unsigned int i = 0; i < idcount; i++)
+			{
+				CoreItemSP currentTweet = tweetsArray[i];
+				
+				u32 like_count = currentTweet["favorite_count"];
+				if (like_count > 1)
+				{
+					u32 rt_count = currentTweet["retweet_count"];
+					u64 tweetid = currentTweet["id"];
+
+					mTweets.push_back({ tweetid,like_count,rt_count });
+					mTweetsPosters.push_back(currentTweet["user"]["screen_name"]);
+				}
+			}
+
+			std::string filename = "Cache/HashTag/" + getHashtagFilename() + ".twts";
+			SaveTweetsFile(filename);		
+		}
+		else // save twittos id
+		{
+			for (unsigned int i = 0; i < idcount; i++)
+			{
+				u64 id = tweetsArray[i]["user"]["id"];
+				if (mTwittosMap.find(id) == mTwittosMap.end())
+				{
+					mTwittosMap[id] = id;
+					mFollowers.push_back(id);
+				}
+			}
+
+			std::string filename = "Cache/HashTag/" + getHashtagFilename() + ".ids";
+
+			SaveIDVectorFile(mFollowers, filename);
+
+		}
+
+		std::string nextStr = "-1";
+
+		if(!json["search_metadata"]["next_results"].isNil())
+			nextStr=json["search_metadata"]["next_results"];
+
+		if (nextStr == "0")
+		{
+			nextStr = "-1";
+		}
+
+		if (mUseLikes && (mTweets.size()<100))
+		{
+			mFollowersNextCursor = nextStr;
+		}
+		else if(!mUseLikes && (mFollowers.size() < mWantedTotalPanelSize))
+		{
+			mFollowersNextCursor = nextStr;
+		}
+		else
+		{
+			mFollowersNextCursor = "-1";
+		}
+		mState = GET_HASHTAG_CONTINUE;
+		std::string filename = "Cache/HashTag/";
+		filename += getHashtagFilename() + ".json";
+		CoreItemSP currentUserJson = LoadJSon(filename);
+		currentUserJson->set("next-cursor", mFollowersNextCursor);
+
+		if (mTweetsPosters.size())
+		{
+			CoreItemSP posters = CoreItemSP::getCoreVector();
+			currentUserJson->set("Posters", posters);
+			for (const auto& p : mTweetsPosters)
+			{
+				posters->set("", p);
+			}
+		}
+
+		SaveJSon(filename, currentUserJson);
+	}
 	return true;
 }
 
@@ -2539,11 +2755,15 @@ std::vector<u64>		TwitterAnalyser::LoadIDVectorFile(const std::string& filename)
 	return loaded;
 }
 
-bool		TwitterAnalyser::LoadTweetsFile()
+bool		TwitterAnalyser::LoadTweetsFile(const std::string& fname)
 {
-	std::string filename = "Cache/UserName/";
-	filename += mUserName + ".twts";
-
+	std::string filename=fname;
+	
+	if (!fname.length())
+	{
+		filename = "Cache/UserName/";
+		filename += mUserName + ".twts";
+	}
 	std::vector<Twts>	loaded;
 	if (LoadDataFile<Twts>(filename, loaded))
 	{
@@ -2560,13 +2780,18 @@ bool		TwitterAnalyser::LoadTweetsFile()
 	return false;
 }
 
-void		TwitterAnalyser::SaveTweetsFile()
+void		TwitterAnalyser::SaveTweetsFile(const std::string& fname)
 {
 #ifdef LOG_ALL
 	writelog("SaveTweetsFile");
 #endif
-	std::string filename = "Cache/UserName/";
-	filename += mUserName + ".twts";
+	std::string filename = fname;
+
+	if (!fname.length())
+	{
+		filename = "Cache/UserName/";
+		filename += mUserName + ".twts";
+	}
 
 	SaveDataFile<Twts>(filename, mTweets);
 }
@@ -2582,7 +2807,7 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 
 	std::set<u64>	followings;
 	bool			isMainUserFollower = false;
-	if (mDetailedLikeStats)
+	if (mDetailedLikeStats && (mHashTag.length()==0)) // when hashtag, no main user
 	{
 		for (auto following : mCurrentFollowing)
 		{
@@ -2604,7 +2829,7 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 	std::map<u64, float>& currentWeightedFavorites = mWeightedFavorites[user];
 
 
-	std::map<u64,u64> mFavoritesUsers;
+	std::map<u64,u64> lFavoritesUsers;
 	for (auto f : currentFavorites)
 	{
 		auto fw = currentWeightedFavorites.find(f.userID);
@@ -2617,25 +2842,23 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 			currentWeightedFavorites[f.userID] = 1.0f;
 		}
 
-		mFavoritesUsers[f.userID]=f.userID;
+		lFavoritesUsers[f.userID]=f.userID;
 	}
 
 	
 	float mainAccountWeight = 1.0f;
-
-	auto fw= currentWeightedFavorites.find(mUserID);
-	if (fw != currentWeightedFavorites.end())
+	if (!mHashTag.length())
 	{
-		mainAccountWeight = (*fw).second;
-	}
-	else
-	{
-		currentWeightedFavorites[mUserID] = 1.0f;
+		auto fw = currentWeightedFavorites.find(mUserID);
+		if (fw != currentWeightedFavorites.end())
+		{
+			mainAccountWeight = (*fw).second;
+		}
 	}
 
 	std::vector<u64>& currentUserLikes=mCheckedLikersList[user];
 
-	for (auto f : mFavoritesUsers)
+	for (auto f : lFavoritesUsers)
 	{
 		currentUserLikes.push_back(f.first);
 		
