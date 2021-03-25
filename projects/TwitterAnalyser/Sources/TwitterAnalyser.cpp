@@ -1080,6 +1080,12 @@ void	TwitterAnalyser::ProtectedInitSequence(const kstl::string& sequence)
 		mMainInterface["switchForce"]("IsTouchable") = false;
 		if(mUseLikes)
 			mMainInterface["heart"]("IsHidden") = false;
+
+		if (mHashTag.length()) // hash tag => no Jaccard or similarity
+		{
+			mMainInterface["switchV"]("IsHidden") = true;
+			mMainInterface["switchV"]("IsTouchable") = false;
+		}
 	}
 }
 void	TwitterAnalyser::ProtectedCloseSequence(const kstl::string& sequence)
@@ -2961,8 +2967,11 @@ void	TwitterAnalyser::switchForce()
 		prepareForceGraphData();
 		mForcedBaseStartingTime = GetApplicationTimer()->GetTime();
 
-		mMainInterface["switchV"]("IsHidden") = true;
-		mMainInterface["switchV"]("IsTouchable") = false;
+		if (!mHashTag.length()) // hash tag => no Jaccard or similarity
+		{
+			mMainInterface["switchV"]("IsHidden") = true;
+			mMainInterface["switchV"]("IsTouchable") = false;
+		}
 		mMainInterface["switchForce"]("Dock") = v2f( 0.050f,0.950f );
 
 	}
@@ -2970,8 +2979,11 @@ void	TwitterAnalyser::switchForce()
 	{
 		mMainInterface["thumbnail"]("Dock") = v2f(0.52f, 0.44f);
 
-		mMainInterface["switchV"]("IsHidden") = false;
-		mMainInterface["switchV"]("IsTouchable") = true;
+		if (!mHashTag.length()) // hash tag => no Jaccard or similarity
+		{
+			mMainInterface["switchV"]("IsHidden") = false;
+			mMainInterface["switchV"]("IsTouchable") = true;
+		}
 		mMainInterface["switchForce"]("IsHidden") = true;
 		mMainInterface["switchForce"]("IsTouchable") = false;
 		mMainInterface["switchForce"]("Dock") = v2f(0.950f, 0.050f);
