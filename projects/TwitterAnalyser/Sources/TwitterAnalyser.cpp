@@ -3022,12 +3022,18 @@ void	TwitterAnalyser::switchForce()
 		prepareForceGraphData();
 		mForcedBaseStartingTime = GetApplicationTimer()->GetTime();
 
+		mMainInterface["switchV"]("IsHidden") = true;
+		mMainInterface["switchV"]("IsTouchable") = false;
+
 		mMainInterface["switchForce"]("Dock") = v2f( 0.050f,0.950f );
 
 	}
 	else
 	{
 		mMainInterface["thumbnail"]("Dock") = v2f(0.52f, 0.44f);
+
+		mMainInterface["switchV"]("IsHidden") = false;
+		mMainInterface["switchV"]("IsTouchable") = true;
 
 		mMainInterface["switchForce"]("IsHidden") = true;
 		mMainInterface["switchForce"]("IsTouchable") = false;
