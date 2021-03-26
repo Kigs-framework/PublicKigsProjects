@@ -359,8 +359,8 @@ protected:
 	bool		LoadFollowingFile(u64 id);
 	void		SaveFollowingFile(u64 id);
 
-	CoreItemSP		LoadLikersFile(u64 tweetid);
-	void		SaveLikersFile(u64 tweetid);
+	CoreItemSP	LoadLikersFile(u64 tweetid, const std::string& username);
+	void		SaveLikersFile(u64 tweetid, const std::string& username);
 
 	void		UpdateStatistics();
 	void		UpdateLikesStatistics();
@@ -380,7 +380,19 @@ protected:
 	// if a file is older ( in seconds ) than this limit, then it's considered as not existing ( to recreate )
 	double		mOldFileLimit = 0.0;
 	double		mLastUpdate;
-	bool		mShowInfluence = false;
+
+	enum Measure
+	{
+		Percent			=0,
+		Similarity		=1,
+		Normalized		=2,
+		MEASURE_COUNT	=3
+	};
+
+	const std::string	mUnity[MEASURE_COUNT] = {"\%","sc","n"};
+
+
+	Measure		mCurrentMeasure = Percent;
 	bool		mWaitQuota = false;
 	bool		mDetailedStatsWereExported = false;
 	unsigned int	mWaitQuotaCount = 0;
@@ -443,7 +455,7 @@ protected:
 		GET_LIKES						=0,
 		SCROLL_LIKES					=1,
 	};
-	ScraperStates													mScraperState;
+	ScraperStates					mScraperState;
 
 	unsigned int				mApiErrorCode=0;
 
