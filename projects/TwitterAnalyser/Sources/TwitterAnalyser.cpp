@@ -873,8 +873,8 @@ void	TwitterAnalyser::ProtectedUpdate()
 						mAnswer->AddDynamicAttribute<maBool, bool>("RequestThumb", false);
 						mAnswer->Init();
 						myRequestCount++;
-						RequestLaunched(1.1);
 						mState = WAIT_USER_ID;
+						RequestLaunched(1.1);
 					}
 				}
 				else
@@ -908,6 +908,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 		}
 		break;
 		case WAIT_USER_DETAILS_FOR_CHECK: // wait for 
+		case WAIT_USER_DETAILS:
 #ifdef LOG_ALL
 			writelog("WAIT_USER_DETAILS_FOR_CHECK ");
 #endif
@@ -934,8 +935,10 @@ void	TwitterAnalyser::ProtectedUpdate()
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
 					RequestLaunched(1.1);
-					if((mState== GET_USER_DETAILS_FOR_CHECK) || mUseLikes) // if state is 
+					if ((mState == GET_USER_DETAILS_FOR_CHECK) || mUseLikes) // if state is 
 						mState = WAIT_USER_DETAILS_FOR_CHECK;
+					else
+						mState = WAIT_USER_DETAILS;
 				}
 			}
 			else
@@ -1621,11 +1624,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			mUserID = json["id"];
 			pUser = &mCurrentUser;
 		}
-		else if(mState== GET_USER_DETAILS)
-		{
-			pUser = &mFollowersFollowingCount[currentID].second;
-		}
-		else if(mFollowersFollowingCount.find(currentID) != mFollowersFollowingCount.end())
+		else 
 		{
 			pUser = &mFollowersFollowingCount[currentID].second;
 		}
@@ -1671,6 +1670,10 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		{
 			mState = GET_USER_DETAILS_FOR_CHECK;
 		}
+		else if (mState == WAIT_USER_DETAILS)
+		{
+			mState = GET_USER_DETAILS;
+		}
 		
 	}
 	else if(!mWaitQuota)
@@ -1700,7 +1703,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		{
 			mState = EVERYTHING_DONE;
 		}
-		else if (mState == GET_USER_DETAILS) // ask user details but user was suspended
+		else if (mState == WAIT_USER_DETAILS) // ask user details but user was suspended
 		{
 			mState = CHECK_INACTIVES;
 		}
@@ -2949,7 +2952,7 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 		if (alreadyfound != mFollowersFollowingCount.end())
 		{
 			(*alreadyfound).second.first++;
-			if ((*alreadyfound).second.first == 3)
+			if ((*alreadyfound).second.first == (mUserPanelSize/50))
 			{
 				if (!LoadUserStruct(f.first, (*alreadyfound).second.second, false))
 				{
@@ -3007,7 +3010,6 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 
 void		TwitterAnalyser::UpdateStatistics()
 {
-
 	mUserDetailsAsked.clear();
 	for (auto f : mCurrentFollowing)
 	{
@@ -3015,7 +3017,7 @@ void		TwitterAnalyser::UpdateStatistics()
 		if (alreadyfound != mFollowersFollowingCount.end())
 		{
 			(*alreadyfound).second.first++;
-			if ((*alreadyfound).second.first == 3)
+			if ((*alreadyfound).second.first == (mUserPanelSize / 50))
 			{
 				if (!LoadUserStruct(f, (*alreadyfound).second.second, false))
 				{
