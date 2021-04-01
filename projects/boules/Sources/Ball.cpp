@@ -16,27 +16,47 @@ void	Ball::Update(double time)
 }
 
 // return time to the next collision with the other ball or -1 if no collision found in the future
-double	Ball::getCollisionTimeWithOther(const Ball& other)
+std::pair<double,double>	Ball::getCollisionTimeWithOther(const Ball& other)
 {
 	// compute coefs
 	v2f DS(mSpeed - other.mSpeed);
 	v2f DP(GetPos(0.0) - other.GetPos(0.0));
 
-	float CoefA = DS.x * DS.x + DS.y * DS.y;
-	float CoefB = 2.0f * (DS.x * DP.x + DS.y * DP.y);
-	float CoefC = DP.x * DP.x + DP.y * DP.y;
+	double CoefA = DS.x * DS.x + DS.y * DS.y;
+	double CoefB = 2.0 * (DS.x * DP.x + DS.y * DP.y);
+	double CoefC = DP.x * DP.x + DP.y * DP.y;
 
 	Equation2	toSolve(CoefA, CoefB, CoefC);
 
 	// get equation results for d^2 = 4.0f * mR * other.mR
-	std::vector<float>	results = toSolve.Solve(4.0f * mR * other.mR);
+	std::vector<double>	results = toSolve.Solve(4.0 * mR * other.mR);
 
 	// we need two results for a real intersection
 	if (results.size() == 2)
 	{
-		// sort solutions so that t1<t2
 		double t1 = results[0];
 		double t2 = results[1];
+		// compute better approximation
+		double midtime = (t1 + t2) * 0.5;
+		if (midtime > 0.0)
+		{
+			DP.Set(GetPos(midtime) - other.GetPos(midtime));
+			CoefB = 2.0 * (DS.x * DP.x + DS.y * DP.y);
+			CoefC = DP.x * DP.x + DP.y * DP.y;
+
+			Equation2	toSolveBetter(CoefA, CoefB, CoefC);
+
+			// get equation results for d^2 = 4.0f * mR * other.mR
+			std::vector<double>	resultsBetter = toSolveBetter.Solve(4.0 * mR * other.mR);
+			if (resultsBetter.size() != 2)
+			{
+				return { -1.0,-1.0 };
+			}
+			t1 = resultsBetter[0] + midtime;
+			t2 = resultsBetter[1] = midtime;
+		}
+
+		// sort solutions so that t1<t2
 		if (t1 > t2)
 		{
 			double swp = t2;
@@ -44,17 +64,11 @@ double	Ball::getCollisionTimeWithOther(const Ball& other)
 			t1 = swp;
 		}
 
-		// if first solution is negative, no contact in the future
-		if (t1 < 0.0)
-		{
-			return -1.0;
-		}
-
 		// return the good solution
-		return t1;
+		return { t1,t2 };
 	}
 	// no intersection
-	return -1.0;
+	return { -1.0,-1.0 };
 }
 
 // return time to the next collision with the given wall

@@ -25,9 +25,9 @@ void	boules::ProtectedInit()
 	// init balls
 	// create balls on a grid
 	int currentB = 0;
-	for (int i = 0; i < 11;i++)
+	for (int i = 0; i < 10;i++)
 	{
-		for (int j = 0; j < 6; j++)
+		for (int j = 0; j < 5; j++)
 		{
 			float r = 16.0f + (rand() % 32);
 			mBalls.push_back(Ball(r,r*r));
@@ -67,16 +67,17 @@ void	boules::ProtectedUpdate()
 
 		}
 
+		mPreviousTime = currentTime;
+
 		// graphic update of balls
 		for (auto& b : mBalls)
 		{
 			b.Update(currentTime);
 		}
-
 		// check if we want to reset all simulation
 		if ((currentTime > 5.0f) && (mFutureCollisions.size())) // last reset is more than 5 second before
 		{
-			if ((mFutureCollisions[0].mCollisionTime - currentTime) > 0.5f) // next collision is in more than 0.5s
+			if ((mFutureCollisions[0].mCollisionTime - currentTime) > 0.05f) // next collision is in more than 0.05s
 			{
 				resetAll(currentTime);
 			}
@@ -104,11 +105,26 @@ void	boules::FindFutureCollisions(double time)
 	{
 		for (int j = i+1; j < mBalls.size(); j++) // check collsion with other balls
 		{
-			double futureC = mBalls[i].getCollisionTimeWithOther(mBalls[j]);
-			if (futureC >= time) // if a collision was found and collision occurs after current time
+			std::pair<double,double> futureC = mBalls[i].getCollisionTimeWithOther(mBalls[j]);
+
+			double midt = (futureC.first + futureC.second) * 0.5;
+
+			if ((midt >= time)  && (futureC.first> mPreviousTime)) // if a collision was found and collision occurs after current time
 			{
+				if (futureC.first < time) // need more tests
+				{
+					double collision_duration = (futureC.second - futureC.first);
+					v2f DS(mBalls[i].GetSpeed()- mBalls[j].GetSpeed());
+					DS *= collision_duration;
+					float norm = Norm(DS);
+					if ((norm < mBalls[i].GetRadius()) && (norm < mBalls[j].GetRadius())) // not a bounce, just already interpenetrating balls
+					{
+						break;
+					}
+				}
+
 				// add this collision to future collision list
-				collisionStruct toAdd = { futureC , &mBalls[i] ,&mBalls[j],nullptr }; // collision with two balls
+				collisionStruct toAdd = { futureC.first , &mBalls[i] ,&mBalls[j],nullptr }; // collision with two balls
 				mFutureCollisions.push_back(toAdd);
 			}
 		}
@@ -138,6 +154,7 @@ void	boules::FindFutureCollisions(double time)
 	);
 }
 
+
 // test if collision occurs "before" currentTime
 bool	boules::computeNewTrajectories(double currentTime)
 {
@@ -149,7 +166,7 @@ bool	boules::computeNewTrajectories(double currentTime)
 	if (currentTime >= mFutureCollisions[0].mCollisionTime) // a collision occured
 	{
 		double firstCollisionTime = mFutureCollisions[0].mCollisionTime; // get collision time
-
+		
 		int collindex = 0;
 		while (mFutureCollisions[collindex].mCollisionTime <= firstCollisionTime) // in case several collisions occurs at exactly the same time, change them all
 		{

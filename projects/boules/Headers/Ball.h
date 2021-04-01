@@ -22,9 +22,9 @@ protected:
 public:
 
 	// return time to the next collision with the other ball or -1 if no collision found in the future 
-	double	getCollisionTimeWithOther(const Ball& other);
+	std::pair<double, double>	getCollisionTimeWithOther(const Ball& other);
 	// return time to the next collision with the given wall
-	double	getCollisionTimeWithWall(const Wall& other);
+	double						getCollisionTimeWithWall(const Wall& other);
 
 	// update display pos
 	void	Update(double time);

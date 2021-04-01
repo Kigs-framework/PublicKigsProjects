@@ -28,7 +28,7 @@ protected:
 
 	// simulation time management
 	double					mFirstTime=-1.0;
-
+	double					mPreviousTime = -1.0;
 	// search all possible future collisions with current trajectories
 	void	FindFutureCollisions(double time);
 
@@ -36,7 +36,6 @@ protected:
 	// else return false
 	bool	computeNewTrajectories(double currentTime);
 
-	// reset all
 	void	resetAll(double currentTime);
 
 	// structure to hold collisions

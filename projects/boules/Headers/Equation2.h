@@ -7,22 +7,22 @@ class Equation2
 {
 protected:
 	// three coefficients
-	float	mA;
-	float	mB;
-	float	mC;
+	double	mA;
+	double	mB;
+	double	mC;
 
 	// compute delta for given Y
-	float delta(float Y);
+	double delta(double Y);
 
 public:
 	// init equation
-	Equation2(float a, float b, float c) : mA(a), mB(b), mC(c)
+	Equation2(double a, double b, double c) : mA(a), mB(b), mC(c)
 	{
 
 	}
 
 	// change coeffs
-	void Set(float a, float b, float c)
+	void Set(double a, double b, double c)
 	{
 		mA = a;
 		mB = b;
@@ -30,5 +30,5 @@ public:
 	}
 
 	// solve equation for given Y and return vector of solutions
-	std::vector<float>	Solve(float forY = 0.0f);
+	std::vector<double>	Solve(double forY = 0.0);
 };
