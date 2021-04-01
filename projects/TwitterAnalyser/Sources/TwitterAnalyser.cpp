@@ -336,7 +336,7 @@ void	TwitterAnalyser::ProtectedInit()
 				mFollowersNextCursor = currentP["next-cursor"];
 			}
 
-			if (mFollowersNextCursor != "-1")
+			if ((mFollowersNextCursor != "-1") && (mTweetsPosters.size()<100))
 			{
 				mState = GET_HASHTAG_CONTINUE;
 			}
@@ -454,6 +454,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
 					mAnswer->Init();
 					myRequestCount++;
+					mState = WAIT_STATE;
 					RequestLaunched(5.1);
 				}
 			}
@@ -602,7 +603,30 @@ void	TwitterAnalyser::ProtectedUpdate()
 			}
 			else // treat next tweet
 			{
-				mState = GET_FOLLOWERS_CONTINUE;
+				if (mHashTag.length())
+				{
+					// load next-cursor
+					std::string currentUserProgress = "Cache/";
+					currentUserProgress += "HashTag/";
+					currentUserProgress += getHashtagFilename() + ".json";
+					CoreItemSP currentP = LoadJSon(currentUserProgress);
+					if (!currentP["next-cursor"].isNil())
+					{
+						mFollowersNextCursor = currentP["next-cursor"];
+					}
+					if (mFollowersNextCursor != "-1")
+					{
+						mState = GET_HASHTAG_CONTINUE;
+					}
+					else
+					{
+						mState = EVERYTHING_DONE;
+					}
+				}
+				else
+				{
+					mState = GET_FOLLOWERS_CONTINUE;
+				}
 			}
 			break;
 		}
@@ -849,8 +873,8 @@ void	TwitterAnalyser::ProtectedUpdate()
 						mAnswer->AddDynamicAttribute<maBool, bool>("RequestThumb", false);
 						mAnswer->Init();
 						myRequestCount++;
-						RequestLaunched(1.1);
 						mState = WAIT_USER_ID;
+						RequestLaunched(1.1);
 					}
 				}
 				else
@@ -884,6 +908,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 		}
 		break;
 		case WAIT_USER_DETAILS_FOR_CHECK: // wait for 
+		case WAIT_USER_DETAILS:
 #ifdef LOG_ALL
 			writelog("WAIT_USER_DETAILS_FOR_CHECK ");
 #endif
@@ -910,8 +935,10 @@ void	TwitterAnalyser::ProtectedUpdate()
 					myRequestCount++;
 					mUserDetailsAsked.pop_back();
 					RequestLaunched(1.1);
-					if((mState== GET_USER_DETAILS_FOR_CHECK) || mUseLikes) // if state is 
+					if ((mState == GET_USER_DETAILS_FOR_CHECK) || mUseLikes) // if state is 
 						mState = WAIT_USER_DETAILS_FOR_CHECK;
+					else
+						mState = WAIT_USER_DETAILS;
 				}
 			}
 			else
@@ -1530,7 +1557,7 @@ DEFINE_METHOD(TwitterAnalyser, getHashTagsTweets)
 			nextStr = "-1";
 		}
 
-		if (mUseLikes && (mTweets.size()<100))
+		if (mUseLikes && (mTweets.size() < (mCurrentTreatedTweetIndex+100)))
 		{
 			mFollowersNextCursor = nextStr;
 		}
@@ -1546,7 +1573,7 @@ DEFINE_METHOD(TwitterAnalyser, getHashTagsTweets)
 		std::string filename = "Cache/HashTag/";
 		filename += getHashtagFilename() + ".json";
 		CoreItemSP currentUserJson = LoadJSon(filename);
-		currentUserJson->set("next-cursor", mFollowersNextCursor);
+		currentUserJson->set("next-cursor", nextStr);
 
 		if (mTweetsPosters.size())
 		{
@@ -1597,11 +1624,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			mUserID = json["id"];
 			pUser = &mCurrentUser;
 		}
-		else if(mState== GET_USER_DETAILS)
-		{
-			pUser = &mFollowersFollowingCount[currentID].second;
-		}
-		else if(mFollowersFollowingCount.find(currentID) != mFollowersFollowingCount.end())
+		else 
 		{
 			pUser = &mFollowersFollowingCount[currentID].second;
 		}
@@ -1647,6 +1670,10 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		{
 			mState = GET_USER_DETAILS_FOR_CHECK;
 		}
+		else if (mState == WAIT_USER_DETAILS)
+		{
+			mState = GET_USER_DETAILS;
+		}
 		
 	}
 	else if(!mWaitQuota)
@@ -1676,7 +1703,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		{
 			mState = EVERYTHING_DONE;
 		}
-		else if (mState == GET_USER_DETAILS) // ask user details but user was suspended
+		else if (mState == WAIT_USER_DETAILS) // ask user details but user was suspended
 		{
 			mState = CHECK_INACTIVES;
 		}
@@ -2130,20 +2157,16 @@ void	TwitterAnalyser::refreshAllThumbs()
 					return (a1.first > a2.first);
 				}
 
-				/*if (mUseLikes) // TODO for likes + normalize
-				{
-					if (a1.first == a2.first)
-					{
-						return a1.second > a2.second;
-					}
-					return (a1.first > a2.first);
-				}*/
-
 				auto& a1User = mFollowersFollowingCount[a1.second];
 				auto& a2User = mFollowersFollowingCount[a2.second];
 
-				float A1_w = ((float)a1.first / logf((float)a1User.second.mFollowersCount) );
-				float A2_w = ((float)a2.first / logf((float)a2User.second.mFollowersCount) );
+				float a1fcount = (a1User.second.mFollowersCount < 10) ? logf(10.0f) : logf((float)a1User.second.mFollowersCount);
+				float a2fcount = (a2User.second.mFollowersCount < 10) ? logf(10.0f) : logf((float)a2User.second.mFollowersCount);
+
+
+
+				float A1_w = ((float)a1.first / a1fcount);
+				float A2_w = ((float)a2.first / a2fcount);
 				if (A1_w == A2_w)
 				{
 					return a1.second > a2.second;
@@ -2215,7 +2238,8 @@ void	TwitterAnalyser::refreshAllThumbs()
 		}
 
 		auto& toPlace = mFollowersFollowingCount[toS.second];
-		NormalizeFollowersCountForShown = logf((float)toPlace.second.mFollowersCount);
+		float toplacefcount = (toPlace.second.mFollowersCount < 10) ? logf(10.0f) : logf((float)toPlace.second.mFollowersCount);
+		NormalizeFollowersCountForShown = toplacefcount;
 		break;
 	}
 	
@@ -2290,7 +2314,8 @@ void	TwitterAnalyser::refreshAllThumbs()
 				if (mCurrentMeasure == Normalized)
 				{
 					float fpercent = (float)toPlace.first / (float)mValidFollowerCount;
-					fpercent *= NormalizeFollowersCountForShown /logf((float)toPlace.second.mFollowersCount);
+					float toplacefcount = (toPlace.second.mFollowersCount < 10) ? logf(10.0f) : logf((float)toPlace.second.mFollowersCount);
+					fpercent *= NormalizeFollowersCountForShown / toplacefcount;
 					
 					percent = (int)(100.0f * fpercent);
 				}
@@ -2927,7 +2952,7 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 		if (alreadyfound != mFollowersFollowingCount.end())
 		{
 			(*alreadyfound).second.first++;
-			if ((*alreadyfound).second.first == 3)
+			if ((*alreadyfound).second.first == (mUserPanelSize/50))
 			{
 				if (!LoadUserStruct(f.first, (*alreadyfound).second.second, false))
 				{
@@ -2985,7 +3010,6 @@ void		TwitterAnalyser::UpdateLikesStatistics()
 
 void		TwitterAnalyser::UpdateStatistics()
 {
-
 	mUserDetailsAsked.clear();
 	for (auto f : mCurrentFollowing)
 	{
@@ -2993,7 +3017,7 @@ void		TwitterAnalyser::UpdateStatistics()
 		if (alreadyfound != mFollowersFollowingCount.end())
 		{
 			(*alreadyfound).second.first++;
-			if ((*alreadyfound).second.first == 3)
+			if ((*alreadyfound).second.first == (mUserPanelSize / 50))
 			{
 				if (!LoadUserStruct(f, (*alreadyfound).second.second, false))
 				{

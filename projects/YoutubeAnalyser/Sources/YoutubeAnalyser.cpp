@@ -744,7 +744,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 		return;
 	}
 
-	if (mShowInfluence) // normalize according to follower count
+	if (mCurrentMeasure == Similarity) // Jaccard 
 	{
 		std::sort(toShow.begin(), toShow.end(), [this](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
 			{
@@ -788,13 +788,28 @@ void	YoutubeAnalyser::refreshAllThumbs()
 	}
 	else
 	{
-		std::sort(toShow.begin(), toShow.end(), [](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
+		std::sort(toShow.begin(), toShow.end(), [&](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
 			{
-				if (a1.first->mSubscribersCount == a2.first->mSubscribersCount)
+				if (mCurrentMeasure != Normalized)
+				{
+					if (a1.first->mSubscribersCount == a2.first->mSubscribersCount)
+					{
+						return a1.second > a2.second;
+					}
+					return (a1.first->mSubscribersCount > a2.first->mSubscribersCount);
+				}
+
+				float a1fcount = (a1.first->mTotalSubscribers < 10) ? logf(10.0f) : logf((float)a1.first->mTotalSubscribers);
+				float a2fcount = (a2.first->mTotalSubscribers < 10) ? logf(10.0f) : logf((float)a2.first->mTotalSubscribers);
+
+				float A1_w = ((float)a1.first->mSubscribersCount / a1fcount);
+				float A2_w = ((float)a2.first->mSubscribersCount / a2fcount);
+				if (A1_w == A2_w)
 				{
 					return a1.second > a2.second;
 				}
-				return (a1.first->mSubscribersCount > a2.first->mSubscribersCount);
+				return (A1_w > A2_w);
+				
 			}
 		);
 	}
@@ -850,6 +865,18 @@ void	YoutubeAnalyser::refreshAllThumbs()
 	float ray = 0.15f;
 	float dray = 0.0117f;
 	toShowCount = 0;
+	float NormalizeSubscriberCountForShown = 1.0f;
+
+	for (const auto& toPlace : toShow)
+	{
+		auto found = mShowedChannels.find(toPlace.second);
+		if (found != mShowedChannels.end())
+		{
+			NormalizeSubscriberCountForShown = (toPlace.first->mTotalSubscribers < 10) ? logf(10.0f) : logf((float)toPlace.first->mTotalSubscribers);
+			break;
+		}
+	}
+
 	for (const auto& toPlace : toShow)
 	{
 		auto found=mShowedChannels.find(toPlace.second);
@@ -864,7 +891,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 			dray *= 0.98f;
 			toSetup["ChannelName"]("Text") = toPlace.first->mName;
 			float prescale = 1.0f;
-			if (mShowInfluence) // normalize according to follower count
+			if (mCurrentMeasure == Similarity) // Jaccard 
 			{
 				
 				// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
@@ -884,7 +911,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 				{
 					k = 0.0f;
 				}
-				toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + "sc";
+				toSetup["ChannelPercent"]("Text") = std::to_string((int)(k)) + mUnity[mCurrentMeasure];
 
 				prescale = 1.5f * k / 100.0f;
 				
@@ -892,7 +919,19 @@ void	YoutubeAnalyser::refreshAllThumbs()
 			else
 			{
 				int percent = (int)(100.0f * ((float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters));
-				toSetup["ChannelPercent"]("Text") = std::to_string(percent) + "%";
+
+				if (mCurrentMeasure == Normalized)
+				{
+					float fpercent = (float)toPlace.first->mSubscribersCount / (float)mySubscribedWriters;
+
+					float toplacefcount = (toPlace.first->mTotalSubscribers < 10) ? logf(10.0f) : logf((float)toPlace.first->mTotalSubscribers);
+					fpercent *= NormalizeSubscriberCountForShown / toplacefcount;
+
+					percent = (int)(100.0f * fpercent);
+				}
+
+
+				toSetup["ChannelPercent"]("Text") = std::to_string(percent) + mUnity[mCurrentMeasure];
 
 				prescale = percent / 100.0f;
 			}
@@ -2175,7 +2214,7 @@ void	YoutubeAnalyser::switchDisplay()
 	mMainInterface["switchForce"]("IsHidden") = true;
 	mMainInterface["switchForce"]("IsTouchable") = false;
 
-	mShowInfluence = !mShowInfluence;
+	mCurrentMeasure = (Measure)((mCurrentMeasure + 1) % MEASURE_COUNT);
 }
 
 void	YoutubeAnalyser::switchForce()

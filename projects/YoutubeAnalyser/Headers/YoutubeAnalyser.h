@@ -221,7 +221,16 @@ protected:
 	// if a file is older ( in seconds ) than this limit, then it's considered as not existing ( to recreate )
 	double		mOldFileLimit=0.0;
 
-	
-	// test
-	bool		mShowInfluence=false;
+	enum Measure
+	{
+		Percent = 0,
+		Similarity = 1,
+		Normalized = 2,
+		MEASURE_COUNT = 3
+	};
+
+	const std::string	mUnity[MEASURE_COUNT] = { "\%","sc","n" };
+
+
+	Measure		mCurrentMeasure = Percent;
 };
