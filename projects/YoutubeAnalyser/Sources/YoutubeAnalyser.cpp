@@ -790,6 +790,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 	{
 		std::sort(toShow.begin(), toShow.end(), [&](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
 			{
+
 				if (mCurrentMeasure != Normalized)
 				{
 					if (a1.first->mSubscribersCount == a2.first->mSubscribersCount)
@@ -798,7 +799,18 @@ void	YoutubeAnalyser::refreshAllThumbs()
 					}
 					return (a1.first->mSubscribersCount > a2.first->mSubscribersCount);
 				}
-
+				if (a1.first->mTotalSubscribers == 0)
+				{
+					if (a2.first->mTotalSubscribers == 0)
+					{
+						return a1.second > a2.second;
+					}
+					return false;
+				}
+				else if (a2.first->mTotalSubscribers == 0)
+				{
+					return true;
+				}
 				float a1fcount = (a1.first->mTotalSubscribers < 10) ? logf(10.0f) : logf((float)a1.first->mTotalSubscribers);
 				float a2fcount = (a2.first->mTotalSubscribers < 10) ? logf(10.0f) : logf((float)a2.first->mTotalSubscribers);
 
