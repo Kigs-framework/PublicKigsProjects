@@ -1,0 +1,14 @@
+{
+   "TwitterBear1" : "put your bearer here",
+   "UserName" : "",
+   "HashTag" : "",
+   "UserPanelSize" : 500,
+   "MaxUserCount" : 45,
+   "ValidUserPercent" : 0.02,
+   "OldFileLimitInDays" : 20,
+   "WantedTotalPanelSize" : 50000,
+   "UseLikes" : 0,
+   "DetailedLikeStats" : 0,
+   "MaxLikersPerTweet" : 10,
+   "DailyStats" : 0
+}

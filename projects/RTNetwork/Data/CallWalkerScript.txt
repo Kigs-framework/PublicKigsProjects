@@ -1,0 +1,2 @@
+walk(document.querySelector('[aria-label="Fil d\'actualités : Aimé par"]'));
+window.chrome.webview.postMessage("scriptDone");
