@@ -93,6 +93,19 @@ HRESULT WebViewHandler::receiveWebMessage(ICoreWebView2* webview, ICoreWebView2W
 
 HRESULT WebViewHandler::navigationCompleted(ICoreWebView2* sender, ICoreWebView2NavigationCompletedEventArgs* args)
 {
+	wil::unique_cotaskmem_string uri;
+	sender->get_Source(&uri);
+
+	if (wcscmp(uri.get(), L"about:blank") == 0)
+	{
+		uri = wil::make_cotaskmem_string(L"");
+	}
+	
+	std::wstring	converted(uri.get());
+	std::string		s(converted.begin(), converted.end());
+
+	mUrl = s;
+
 	EmitSignal(Signals::navigationComplete, this);
 	
 	return S_OK;
