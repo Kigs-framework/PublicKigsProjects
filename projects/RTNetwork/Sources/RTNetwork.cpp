@@ -123,6 +123,7 @@ void	RTNetwork::ProtectedInit()
 	SetMemberFromParam(mFromDate, "FromDate");
 	SetMemberFromParam(mToDate, "ToDate");
 
+
 	if ((mFromDate == "") || (mToDate == "") || (mStartUserName == ""))
 	{
 		mNeedExit = true;
@@ -140,6 +141,23 @@ void	RTNetwork::ProtectedInit()
 	pathManager->AddToPath(".", "json");
 
 	CoreCreateModule(HTTPRequestModule, 0);
+
+
+	// youtube video management
+	SetMemberFromParam(mYoutubeKey, "GoogleKey");
+
+	if (mYoutubeKey != "")
+	{
+
+		mYoutubeKey = std::string("&key=") + mYoutubeKey;
+
+		// init google api connection
+		mGoogleConnect = KigsCore::GetInstanceOf("googleConnect", "HTTPConnect");
+		mGoogleConnect->setValue("HostName", "www.googleapis.com");
+		mGoogleConnect->setValue("Type", "HTTPS");
+		mGoogleConnect->setValue("Port", "443");
+		mGoogleConnect->Init();
+	}
 
 	// init twitter connection
 	mTwitterConnect = KigsCore::GetInstanceOf("TwitterConnect", "HTTPConnect");
@@ -348,12 +366,61 @@ void	RTNetwork::ProtectedUpdate()
 			}
 			else
 			{
+				
 				mCurrentTreatedAccount->updateUserNameRequest();
+
 				mState.back() = TREAT_USERNAME_REQUEST;
+
+				if (mCurrentTreatedAccount->mYoutubeVideoList.size())
+				{
+					mState.push_back(GET_YOUTUBE_URL_CHANNEL);
+				}
+
 			}
 		}
 		break;
 
+		case GET_YOUTUBE_URL_CHANNEL:
+		{
+			if (mCurrentTreatedAccount->mYoutubeVideoList.size())
+			{
+				std::string currentYTURL = *(mCurrentTreatedAccount->mYoutubeVideoList.begin());
+
+				CoreItemSP guidfile = mCurrentTreatedAccount->loadYoutubeFile(currentYTURL);
+
+				if (guidfile.isNil())
+				{
+					std::string url = "/youtube/v3/videos?part=snippet&id=";
+					std::string request = url + currentYTURL + mYoutubeKey;
+					mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelID", this);
+					mAnswer->Init();
+					mState.push_back(WAIT_STATE);
+				}
+				else
+				{
+					std::string ChannelGUID = guidfile["GUID"];
+					std::string uname = getWebToTwitterUser(ChannelGUID);
+					if (uname != "")
+					{
+						CoreItemSP currentUserJson = mCurrentTreatedAccount->loadUserID(uname);
+						if (currentUserJson.isNil())
+						{
+							mCurrentTreatedAccount->mUserNameRequestList.insert(uname);
+						}
+						else
+						{
+							updateUserNameAndIDMaps(uname, currentUserJson["id"]);
+						}
+					}
+					mCurrentTreatedAccount->mYoutubeVideoList.erase(mCurrentTreatedAccount->mYoutubeVideoList.begin());
+				}
+			}
+			else
+			{
+				mState.pop_back();
+			}
+		}
+		break;
 		case TREAT_USERNAME_REQUEST:
 		{
 			if (mCurrentTreatedAccount->mUserNameRequestList.size())
@@ -465,6 +532,7 @@ void	RTNetwork::ProtectedClose()
 	DataDrivenBaseApplication::ProtectedClose();
 	clearUsers();
 	mTwitterConnect = nullptr;
+	mGoogleConnect = nullptr;
 	mAnswer = nullptr;
 }
 
@@ -503,13 +571,26 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 	// check for ex aequo (5% margin) in start account
 	auto network = mAnalysedAccountList[0]->getSortedNetwork();
 
-	u32 sumcoef = network[0].second.first + network[0].second.second;
+	u32 coefHas = network[0].second.first;
+	u32 coefWas = network[0].second.second;
 
-	u32 score = sumcoef - (sumcoef *5)/100;
+
+	for (const auto& b : network)
+	{
+		if (b.second.first > coefHas)
+			coefHas = b.second.first;
+
+		if (b.second.second > coefWas)
+			coefWas = b.second.second;
+	}
+
+
+	u32 scoreHas = coefHas - (coefHas *5)/100;
+	u32 scoreWas = coefWas - (coefWas * 5) / 100;
 	for (auto n : network)
 	{
-		sumcoef = n.second.first + n.second.second;
-		if (sumcoef >= score)
+		
+		if ( (n.second.first >= scoreHas) || (n.second.second >= scoreWas))
 		{
 			if (analysedAccount.find(n.first) == analysedAccount.end())
 			{
@@ -519,16 +600,15 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 				return user;
 			}
 		}
-		else
-			break;
+		
 	}
 
-	std::map<std::pair<u64, u64>, u32>					matchedPair;
+	std::map<std::pair<u64, u64>, std::pair<u32, u32>>					matchedPair;
 	std::vector<std::pair<u64, std::pair<u32,u32>>>		sortedFullV;
 
-	// ID, ref count, score
-	std::unordered_map<u64, std::pair<u32,u32>>			coefs;
-
+	// ID, ref count, score has, score was
+	std::unordered_map<u64, std::pair<u32,std::pair<u32,u32>>>			coefs;
+	
 	// for each analysed account
 	for (auto a : mAnalysedAccountList)
 	{
@@ -538,7 +618,7 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 		for (auto n : network)
 		{
 			u64 nID = n.first;
-			sumcoef = n.second.first + n.second.second;
+			
 			std::pair<u64, u64> idpair(aID,nID);
 			if (aID > nID)
 			{
@@ -548,22 +628,24 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 
 			if (coefs.find(nID) == coefs.end())
 			{
-				coefs.insert({ nID ,{ 1,sumcoef} });
+				coefs.insert({ nID ,{ 1,n.second} });
 			}
 			else
 			{
 				coefs[nID].first++;
-				coefs[nID].second += sumcoef;
+				coefs[nID].second.first += n.second.first;
+				coefs[nID].second.second += n.second.second;
 			}
 
 			if (matchedPair.find(idpair) != matchedPair.end()) // was already matched
 			{
 				coefs[nID].first--;
-				coefs[nID].second -= (sumcoef > matchedPair[idpair]) ? matchedPair[idpair] : sumcoef;
+				coefs[nID].second.first -= (n.second.first > matchedPair[idpair].first) ? matchedPair[idpair].first : n.second.first;
+				coefs[nID].second.second -= (n.second.second > matchedPair[idpair].second) ? matchedPair[idpair].second : n.second.second;
 			}
 			else
 			{
-				matchedPair[idpair] = sumcoef;
+				matchedPair[idpair] = n.second;
 			}
 			
 		}
@@ -594,7 +676,7 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 
 					if ( (bestd == 0) || ((bestd==1) && mAnalysedAccountList[0]->getLinkCoef(n.first)))// at least one direct link to main account
 					{
-						float score = (n.second.second / n.second.first);
+						float score = ((n.second.second.first+ n.second.second.second) / n.second.first);
 						score *= sqrtf(n.second.first);
 						score /= (float)(bestd + 1);
 
@@ -856,7 +938,57 @@ DEFINE_METHOD(RTNetwork, getRetweetAuthors)
 
 
 
+DEFINE_METHOD(RTNetwork, getChannelID)
+{
+	auto json = RetrieveJSON(sender);
 
+	if (!json.isNil())
+	{
+		CoreItemSP snippet = json["items"][0]["snippet"];
+
+		std::string channelID = "";
+		if (!snippet.isNil())
+		{
+			CoreItemSP ChannelID = snippet["channelId"];
+			CoreItemSP ChannelTitle = snippet["channelTitle"];
+			channelID = ChannelID;
+			std::string account;
+			if (mWebToTwitterMap.find(ChannelID) == mWebToTwitterMap.end())
+			{
+				std::cout << "Enter account for Youtube Channel : " << (std::string)ChannelTitle << std::endl;
+
+				
+				std::cin >> account;
+				if (account.length() < 4)
+					account = "";
+
+				mWebToTwitterMap[ChannelID] = account;
+
+				saveWebToAccountFile();
+			}
+
+			if (account!="")
+			{
+				CoreItemSP currentUserJson = mCurrentTreatedAccount->loadUserID(account);
+				if (currentUserJson.isNil())
+				{
+					mCurrentTreatedAccount->mUserNameRequestList.insert(account);
+				}
+				else
+				{
+					updateUserNameAndIDMaps(account, currentUserJson["id"]);
+				}
+			}
+		}
+
+		mCurrentTreatedAccount->saveYoutubeFile(*(mCurrentTreatedAccount->mYoutubeVideoList.begin()), channelID);
+		mCurrentTreatedAccount->mYoutubeVideoList.erase(mCurrentTreatedAccount->mYoutubeVideoList.begin());
+
+		mState.pop_back();
+	}
+	
+	return true;
+}
 
 
 DEFINE_METHOD(RTNetwork, getUserDetails)
@@ -1366,7 +1498,7 @@ std::vector<std::pair<RTNetwork::displayThumb*, u32>> RTNetwork::getValidLinks(u
 		if (a->mAccount->mID != uID)
 		{
 			u32 totalcoef = a->mAccount->getConnectionCount();
-			u32 totalcoef_pc[2] = { (totalcoef * 2) / 100,(totalcoef * 5) / 100 };
+			u32 totalcoef_pc[2] = { (totalcoef * 1) / 100,(totalcoef * 5) / 100 };
 			int d = a->mAccount->getDepth();
 			if ((d >= 0) && (d < 2))
 			{
@@ -1609,15 +1741,39 @@ std::string	RTNetwork::getTwitterAccountForURL(const std::string& url)
 			hostname = hostname.substr(dotpos + 1);
 		}
 
-		// special case for YouTube TODO
+		// special case for YouTube 
 
-		if (hostname == "youtube.com")
+		if (hostname.find("youtube") != std::string::npos)
+		{
+			size_t watchpos = url.find("/watch?v=");
+			if (watchpos != std::string::npos)
+			{
+				size_t	endpos = url.find("&", watchpos+9);
+				size_t lenght = std::string::npos;
+				if (endpos != std::string::npos)
+				{
+					lenght = endpos - (watchpos + 9);
+				}
+				
+				return std::string("YT:")+url.substr(watchpos + 9, lenght);
+				
+			}
 			return "";
-
-		// special case for Twitter TODO
-		if (hostname == "twitter.com")
+		}
+		// special case for Twitter
+		if (hostname.find("twitter") != std::string::npos)
+		{
+			size_t statuspos = url.find("/status");
+			if (statuspos != std::string::npos)
+			{
+				size_t	userpos= url.rfind("/", statuspos-1);
+				if (userpos != std::string::npos)
+				{
+					return url.substr(userpos+1, statuspos-userpos-1);
+				}
+			}
 			return "";
-
+		}
 		if (mWebToTwitterMap.find(hostname) != mWebToTwitterMap.end())
 		{
 			return mWebToTwitterMap[hostname];
@@ -1627,7 +1783,7 @@ std::string	RTNetwork::getTwitterAccountForURL(const std::string& url)
 	
 		std::string account;
 		std::cin >> account;
-		if (account.length() < 4)
+		if (account.length() < 3)
 			account = "";
 
 		mWebToTwitterMap[hostname] = account;

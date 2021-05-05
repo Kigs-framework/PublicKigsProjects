@@ -35,6 +35,16 @@ public:
 
 	std::string	getTwitterAccountForURL(const std::string& url);
 
+
+	std::string	getWebToTwitterUser(const std::string& hostname)
+	{
+		if (mWebToTwitterMap.find(hostname) != mWebToTwitterMap.end())
+		{
+			return mWebToTwitterMap[hostname];
+		}
+		return "";
+	}
+
 protected:
 
 	SP<HTTPConnect>									mTwitterConnect = nullptr;
@@ -45,10 +55,11 @@ protected:
 	void	ProtectedClose() override;
 
 	DECLARE_METHOD(getTweets);
+	DECLARE_METHOD(getChannelID);
 	DECLARE_METHOD(getTweetAuthor);
 	DECLARE_METHOD(getUserDetails);
 	DECLARE_METHOD(getRetweetAuthors);
-	COREMODIFIABLE_METHODS(getTweets,  getUserDetails, getTweetAuthor, getRetweetAuthors);
+	COREMODIFIABLE_METHODS(getTweets,  getUserDetails, getTweetAuthor, getRetweetAuthors, getChannelID);
 
 	void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
 	void	webscrapperNavigationComplete(CoreModifiable* sender);
@@ -63,6 +74,10 @@ protected:
 	static void			SaveJSon(const std::string& fname,const CoreItemSP& json, bool utf16 = false);
 
 	std::vector<std::string>	mTwitterBear;
+	// to check youtube channels
+	std::string					mYoutubeKey;
+	SP<HTTPConnect>				mGoogleConnect = nullptr;
+
 	unsigned int				mCurrentBearer = 0;
 	unsigned int				NextBearer()
 	{
@@ -90,6 +105,7 @@ protected:
 		TREAT_RETWEETERS =				5,
 		TREAT_USERNAME_REQUEST =		6,
 		RESOLVE_URL =					7,
+		GET_YOUTUBE_URL_CHANNEL =		8,
 		EVERYTHING_DONE =				17
 	};
 	// current application state 
@@ -179,7 +195,6 @@ protected:
 
 	bool		LoadTweetsFile(const std::string& fname = "");
 	void		SaveTweetsFile(const std::string& fname = "");
-
 
 	std::vector<u64>		LoadIDVectorFile(const std::string& filename);
 	void					SaveIDVectorFile(const std::vector<u64>& v, const std::string& filename);
@@ -284,6 +299,7 @@ protected:
 	SP<CoreModifiable>	 mWebScraper = nullptr;
 
 	std::map<std::string, std::string>	mWebToTwitterMap;
+
 
 	void		saveWebToAccountFile();
 	void		loadWebToAccountFile();

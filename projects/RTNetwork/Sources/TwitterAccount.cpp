@@ -70,7 +70,12 @@ void		TwitterAccount::updateTweetList(CoreItemSP currentTwt)
 			{
 				toadd.mReferences.push_back( r["id"] );
 				needAdd = true;
-				searchHttps = false;
+				searchHttps = false;	// search url references only if not quoted or retweet
+			}
+			else if(type == "replied_to")
+			{
+				if(toadd.mRTCount + toadd.mQuoteCount) // also include replies that where retweeted
+					needAdd = true;
 			}
 		}
 	}
@@ -166,6 +171,23 @@ void		TwitterAccount::saveURL(const std::string& shortURL, const std::string& fu
 }
 
 
+CoreItemSP		TwitterAccount::loadYoutubeFile(const std::string& videoID)
+{
+	std::string filename = "Cache/YTVideoID/" + videoID.substr(0, 4) + "/" + videoID + ".json";
+	return RTNetwork::LoadJSon(filename, false, false);
+}
+void			TwitterAccount::saveYoutubeFile(const std::string& videoID, const std::string& channelID)
+{
+	std::string filename = "Cache/YTVideoID/" + videoID.substr(0, 4) + "/" + videoID + ".json";
+
+	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
+	CoreItemSP channel = CoreItemSP::getCoreItemOfType<CoreValue<std::string>>();
+	channel = channelID;
+	initP->set("GUID", channel);
+	RTNetwork::SaveJSon(filename, initP, false);
+}
+
+
 CoreItemSP	TwitterAccount::loadUserID(const std::string& uname)
 {
 	std::string filename = "Cache/Tweets/" + uname.substr(0, 4) + "/" + uname + ".json";
@@ -227,7 +249,7 @@ void		TwitterAccount::updateEmbeddedURLList()
 	std::set<std::string>	alreadyAsked;
 
 
-	for (auto t : mTweetList)
+	for (const auto& t : mTweetList)
 	{
 		if ((t.mReferences.size()) && (t.mRTedUser.length() == 0)) // quoted reference ?
 		{
@@ -235,7 +257,7 @@ void		TwitterAccount::updateEmbeddedURLList()
 		}
 		else if (t.mURLs.size())
 		{
-			for (auto url : t.mURLs)
+			for (const auto& url : t.mURLs)
 			{
 				CoreItemSP urlfile = loadURL(url);
 
@@ -307,7 +329,8 @@ void		TwitterAccount::updateRetweeterList()
 void		TwitterAccount::updateUserNameRequest()
 {
 	mUserNameRequestList.clear();
-	for (auto t : mTweetList)
+	mYoutubeVideoList.clear();
+	for (const auto& t : mTweetList)
 	{
 		if (t.mRTedUser.length()) // user name found
 		{
@@ -323,7 +346,7 @@ void		TwitterAccount::updateUserNameRequest()
 		}
 		else if (t.mReferences.size())
 		{
-			for (auto u : t.mReferences)
+			for (auto u : t.mReferences) // quoted
 			{
 				CoreItemSP user = loadTweetUserFile(u);
 				if (!user.isNil())
@@ -346,7 +369,7 @@ void		TwitterAccount::updateUserNameRequest()
 		}
 		else if (t.mURLs.size())
 		{
-			for (auto url : t.mURLs)
+			for (auto& url : t.mURLs)
 			{
 				CoreItemSP urlfile = loadURL(url);
 				if (!urlfile.isNil())
@@ -355,14 +378,21 @@ void		TwitterAccount::updateUserNameRequest()
 					std::string uname = mSettings->getTwitterAccountForURL(wurl);
 					if (uname != "")
 					{
-						CoreItemSP currentUserJson = loadUserID(uname);
-						if (currentUserJson.isNil())
+						if (uname.substr(0, 3) == "YT:")
 						{
-							mUserNameRequestList.insert(uname);
+							mYoutubeVideoList.insert(uname.substr(3));
 						}
 						else
 						{
-							mSettings->updateUserNameAndIDMaps(uname, currentUserJson["id"]);
+							CoreItemSP currentUserJson = loadUserID(uname);
+							if (currentUserJson.isNil())
+							{
+								mUserNameRequestList.insert(uname);
+							}
+							else
+							{
+								mSettings->updateUserNameAndIDMaps(uname, currentUserJson["id"]);
+							}
 						}
 					}
 				}
@@ -520,7 +550,47 @@ void		TwitterAccount::updateStats()
 	std::map<u64, std::string>& lUserIDToNameMap = mSettings->getUserIDToNameMap();
 	std::map<std::string, u64>&	lNameToUserIDMap = mSettings->getNameToUserIDMap();
 	
-	for (auto t : mTweetList)
+	auto registerWASRT = [&](const tweet& t) {
+
+		if (t.mRTCount + t.mQuoteCount) // if this tweet was retweeted or quoted 
+		{
+			bool wasReallyRT = false;
+			bool wasRTByMe = false;
+			CoreItemSP users = loadRetweeters(t.mID);
+			CoreItemSP ids = users["ids"];
+			for (auto i : ids)
+			{
+				u64 id = i;
+				if (id && (id != mID))  // don't count myself
+				{
+					if (mCountWasRT.find(id) == mCountWasRT.end())
+					{
+						mCountWasRT[id] = 1;
+					}
+					else
+					{
+						mCountWasRT[id]++;
+					}
+					wasReallyRT = true;
+				}
+				else if (id == mID)
+				{
+					wasRTByMe = true;
+				}
+			}
+			if (wasReallyRT)
+				mWasRetweetCount++;
+			else if (wasRTByMe)
+				mOwnRetweetCount++;
+		}
+		else
+		{
+			mNotRetweetCount++;
+		}
+	};
+
+
+	for (const auto & t : mTweetList)
 	{
 		if (t.mRTedUser.length()) // retweet by this
 		{
@@ -548,7 +618,7 @@ void		TwitterAccount::updateStats()
 		else if(t.mReferences.size() == 0)
 		{
 			// same as quoted
-			bool isQuoted = false;
+			
 			if (t.mURLs.size())
 			{
 				for (auto url : t.mURLs)
@@ -560,29 +630,48 @@ void		TwitterAccount::updateStats()
 						std::string uname = mSettings->getTwitterAccountForURL(wurl);
 						if (uname != "")
 						{
-							if (lNameToUserIDMap.find(uname) == lNameToUserIDMap.end())
+							if (uname.substr(0, 3) == "YT:")
 							{
-								KIGS_ERROR("should not be here", 2);
-							}
-							else
-							{
-								isQuoted = true;
-								u64 id = lNameToUserIDMap[uname];
-								if (id && (id != mID))
+								CoreItemSP YTfile = loadYoutubeFile(uname.substr(3));
+
+								if (YTfile.isNil())
 								{
-									if (mCountHasRT.find(id) == mCountHasRT.end())
-									{
-										mCountHasRT[id] = 1;
-									}
-									else
-									{
-										mCountHasRT[id]++;
-									}
-									mHasRetweetCount++;
+									KIGS_ERROR("should not be here", 2);
 								}
-								else if (id == mID)
+								else
 								{
-									mOwnRetweetCount++;
+									std::string ChannelGUID = YTfile["GUID"];
+									uname = mSettings->getWebToTwitterUser(ChannelGUID);
+								}
+
+							}
+
+							if(uname!="")
+							{
+								if (lNameToUserIDMap.find(uname) == lNameToUserIDMap.end())
+								{
+									KIGS_ERROR("should not be here", 2);
+								}
+								else
+								{
+
+									u64 id = lNameToUserIDMap[uname];
+									if (id && (id != mID))
+									{
+										if (mCountHasRT.find(id) == mCountHasRT.end())
+										{
+											mCountHasRT[id] = 1;
+										}
+										else
+										{
+											mCountHasRT[id]++;
+										}
+										mHasRetweetCount++;
+									}
+									else if (id == mID)
+									{
+										mOwnRetweetCount++;
+									}
 								}
 							}
 						}
@@ -590,42 +679,8 @@ void		TwitterAccount::updateStats()
 				}
 			}
 
+			registerWASRT(t);
 
-			if (!isQuoted && (t.mRTCount + t.mQuoteCount)) // if this tweet was retweeted or quoted 
-			{
-				bool wasReallyRT = false;
-				bool wasRTByMe = false;
-				CoreItemSP users = loadRetweeters(t.mID);
-				CoreItemSP ids = users["ids"];
-				for (auto i : ids)
-				{
-					u64 id = i;
-					if (id && (id != mID))  // don't count myself
-					{
-						if (mCountWasRT.find(id) == mCountWasRT.end())
-						{
-							mCountWasRT[id] = 1;
-						}
-						else
-						{
-							mCountWasRT[id]++;
-						}
-						wasReallyRT = true;
-					}
-					else if(id == mID)
-					{
-						wasRTByMe = true;						
-					}
-				}
-				if(wasReallyRT)
-					mWasRetweetCount++;
-				else if(wasRTByMe)
-					mOwnRetweetCount++;
-			}
-			else if(!isQuoted)
-			{
-				mNotRetweetCount++;
-			}
 		}
 		else  // quoted
 		{
@@ -669,6 +724,7 @@ void		TwitterAccount::updateStats()
 					}
 				}
 			}
+			registerWASRT(t);
 		}
 	}
 

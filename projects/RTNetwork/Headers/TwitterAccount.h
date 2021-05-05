@@ -46,6 +46,8 @@ protected:
 
 	std::vector<u64>			mTweetToRequestList;
 	std::set<std::string>		mUserNameRequestList;
+	std::set<std::string>		mYoutubeVideoList;
+
 	
 	std::map<u64, u32>	mCountHasRT; // users retweeted by this account
 	std::map<u64, u32>	mCountWasRT; // users who retweeted a tweet from this account
@@ -76,6 +78,9 @@ protected:
 
 	CoreItemSP	loadURL(const std::string& shortURL);
 	void		saveURL(const std::string& shortURL, const std::string& fullURL);
+
+	CoreItemSP		loadYoutubeFile(const std::string& videoID);
+	void			saveYoutubeFile(const std::string& videoID, const std::string& channelID);
 
 	void		updateTweetList(CoreItemSP currentTwt);
 
