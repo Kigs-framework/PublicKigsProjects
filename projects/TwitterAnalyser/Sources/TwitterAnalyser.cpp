@@ -368,7 +368,7 @@ void	TwitterAnalyser::ProtectedInit()
 #endif
 
 			// check classic User Cache
-			std::string url = "1.1/users/show.json?screen_name=" + mUserName;
+			std::string url = "2/users/by/username/" + mUserName + "?user.fields=created_at,public_metrics,profile_image_url";  
 			mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 			mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 			mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
@@ -866,7 +866,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 				{
 					if (CanLaunchRequest())
 					{
-						std::string url = "1.1/users/show.json?screen_name=" + user;
+						std::string url = "2/users/by/username/" + user + "?user.fields=created_at,public_metrics,profile_image_url";
 						mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 						mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 						mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
@@ -926,7 +926,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			{
 				if (CanLaunchRequest())
 				{
-					std::string url = "1.1/users/show.json?user_id=" + GetIDString(mUserDetailsAsked.back());
+					std::string url = "2/users/" + std::to_string(mUserDetailsAsked.back()) + "?user.fields=created_at,public_metrics,profile_image_url";
 					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 					mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
@@ -1597,8 +1597,10 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 
 	if (!json.isNil())
 	{
+		CoreItemSP	data = json["data"];
+		CoreItemSP	public_m = data["public_metrics"];
 
-		u64 currentID= json["id"];
+		u64 currentID= data["id"];
 
 #ifdef LOG_ALL
 		writelog("getUserDetails " + std::to_string(currentID) + " ok");
@@ -1613,15 +1615,15 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			JSonFileParser L_JsonParser;
 			CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
 			CoreItemSP idP = CoreItemSP::getCoreItemOfType<CoreValue<u64>>();
-			idP = json["id"];
+			idP = currentID;
 			initP->set("id", idP);
-			std::string user= json["screen_name"];
+			std::string user= data["username"];
 			std::string filename = "Cache/Tweets/" + user.substr(0, 4) + "/" + user + ".json";
 			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
 		}
-		else if (json["screen_name"] == mUserName)
+		else if (data["username"] == mUserName)
 		{
-			mUserID = json["id"];
+			mUserID = currentID;
 			pUser = &mCurrentUser;
 		}
 		else 
@@ -1629,12 +1631,12 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			pUser = &mFollowersFollowingCount[currentID].second;
 		}
 
-		pUser->mName = json["screen_name"];
-		pUser->mFollowersCount = json["followers_count"];
-		pUser->mFollowingCount = json["friends_count"];
-		pUser->mStatuses_count = json["statuses_count"];
-		pUser->UTCTime = json["created_at"];
-		pUser->mThumb.mURL = CleanURL(json["profile_image_url_https"]);
+		pUser->mName = data["username"];
+		pUser->mFollowersCount = public_m["followers_count"];
+		pUser->mFollowingCount = public_m["following_count"];
+		pUser->mStatuses_count = public_m["tweet_count"];
+		pUser->UTCTime = data["created_at"];
+		pUser->mThumb.mURL = CleanURL(data["profile_image_url"]);
 
 		SaveUserStruct(currentID, *pUser);
 		bool requestThumb;
@@ -1650,7 +1652,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		{
 			mState = GET_USER_ID;
 		}
-		else if (json["screen_name"] == mUserName)
+		else if (data["username"] == mUserName)
 		{
 			// save user
 			JSonFileParser L_JsonParser;

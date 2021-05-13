@@ -55,6 +55,7 @@ protected:
 	u32					mWasRetweetCount=0;
 	u32					mNotRetweetCount=0;
 	u32					mOwnRetweetCount = 0;
+	u32					mAllTweetCount = 0;
 	u32					mConnectionCount =0; // interaction count
 	float				mSourceCoef=0.0f;
 
@@ -73,8 +74,8 @@ protected:
 	CoreItemSP	loadRetweeters(u64 twtid);
 	void		saveRetweeters(u64 twtid, CoreItemSP tosave);
 
-	CoreItemSP	loadUserID(const std::string& uname);
-	void		saveUserID(const std::string& uname, u64 id);
+	static CoreItemSP	loadUserID(const std::string& uname);
+	static void		saveUserID(const std::string& uname, u64 id);
 
 	CoreItemSP	loadURL(const std::string& shortURL);
 	void		saveURL(const std::string& shortURL, const std::string& fullURL);
@@ -123,6 +124,11 @@ public:
 	u32		getHasRTCount()
 	{
 		return mHasRetweetCount;
+	}
+
+	u32		getTweetCount()
+	{
+		return mAllTweetCount;
 	}
 
 	u32		getWasRTCount()

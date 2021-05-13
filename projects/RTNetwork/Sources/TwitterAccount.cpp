@@ -152,6 +152,7 @@ void		TwitterAccount::updateTweetList(CoreItemSP currentTwt)
 	if(needAdd)
 		mTweetList.push_back(toadd);
 
+	mAllTweetCount++;
 }
 
 CoreItemSP	TwitterAccount::loadURL(const std::string& shortURL)
@@ -381,6 +382,14 @@ void		TwitterAccount::updateUserNameRequest()
 						if (uname.substr(0, 3) == "YT:")
 						{
 							mYoutubeVideoList.insert(uname.substr(3));
+						}
+						else if (uname.substr(0, 3) == "FB:")
+						{
+							printf("TODO\n");
+						}
+						else if (uname.substr(0, 3) == "IG:")
+						{
+							printf("TODO\n");
 						}
 						else
 						{
@@ -645,6 +654,16 @@ void		TwitterAccount::updateStats()
 								}
 
 							}
+							else if (uname.substr(0, 3) == "FB:")
+							{
+								printf("TODO\n");
+								uname = "";
+							}
+							else if (uname.substr(0, 3) == "IG:")
+							{
+								printf("TODO\n");
+								uname = "";
+							}
 
 							if(uname!="")
 							{
@@ -729,7 +748,11 @@ void		TwitterAccount::updateStats()
 	}
 
 	mConnectionCount = mHasRetweetCount + mWasRetweetCount;
-	mSourceCoef = (float)mWasRetweetCount / (float)(mTweetList.size()- mOwnRetweetCount);
+	
+	mSourceCoef = 0.0f;
+	if(mConnectionCount>0.0f)
+		mSourceCoef = (float)mWasRetweetCount / (float)(mHasRetweetCount + mWasRetweetCount);
+	
 
 	buildNetworkList();
 }

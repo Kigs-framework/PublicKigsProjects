@@ -259,6 +259,7 @@ protected:
 	public:
 		displayThumb*		mThumbs[2];
 		float				mLength=50.0f;
+		float				mSpringCoef = 0.01f;
 		CMSP				mDisplayedLink;
 	};
 
@@ -285,7 +286,7 @@ protected:
 	
 	void	moveThumbs();
 
-	std::vector<std::pair<displayThumb*, u32>> getValidLinks(u64 uID,bool includeEmpty=true);
+	std::vector<std::pair<displayThumb*, std::pair<u32,u32>>> getValidLinks(u64 uID,bool& foundStrongLink,bool includeEmpty=true);
 
 	void	updateLinks();
 
@@ -297,6 +298,8 @@ protected:
 
 	AnonymousModule*	 mWebScraperModule = nullptr;
 	SP<CoreModifiable>	 mWebScraper = nullptr;
+	u32					 mCountDecodeAttempt = 0;
+
 
 	std::map<std::string, std::string>	mWebToTwitterMap;
 

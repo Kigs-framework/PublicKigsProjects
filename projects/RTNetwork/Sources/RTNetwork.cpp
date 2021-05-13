@@ -12,6 +12,7 @@
 #include "TextureFileManager.h"
 #include "UI/UIImage.h"
 #include "AnonymousModule.h"
+#include "ModuleInput.h"
 #include <iostream>
 
 time_t     RTNetwork::mCurrentTime=0;
@@ -193,14 +194,12 @@ void	RTNetwork::ProtectedInit()
 		AddAutoUpdate(mWebScraper.get());
 	}
 
-	std::string currentUserProgress = "Cache/UserNameRT/";
-	currentUserProgress += mStartUserName + "_"+mFromDate+"_"+mToDate+".json";
-	CoreItemSP currentP = LoadJSon(currentUserProgress,false,false);
+	CoreItemSP currentP = TwitterAccount::loadUserID(mStartUserName);
 	mState.back() = GET_USER_DETAILS;
 
 	if (currentP.isNil()) // new user
 	{
-		std::string url = "1.1/users/show.json?screen_name=" + mStartUserName;
+		std::string url = "2/users/by/username/" + mStartUserName + "?user.fields=created_at,public_metrics,profile_image_url";
 		mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 		mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 		mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
@@ -256,7 +255,7 @@ void	RTNetwork::ProtectedUpdate()
 			{
 				if (CanLaunchRequest())
 				{
-					std::string url = "1.1/users/show.json?user_id=" + std::to_string(mCurrentTreatedAccount->mID);
+					std::string url = "2/users/" + std::to_string(mCurrentTreatedAccount->mID) + "?user.fields=created_at,public_metrics,profile_image_url";
 					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 					mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
@@ -427,7 +426,7 @@ void	RTNetwork::ProtectedUpdate()
 			{
 				if (CanLaunchRequest())
 				{
-					std::string url = "1.1/users/show.json?screen_name=" + *(mCurrentTreatedAccount->mUserNameRequestList.begin());
+					std::string url = "2/users/by/username/" + *(mCurrentTreatedAccount->mUserNameRequestList.begin()) + "?user.fields=created_at,public_metrics,profile_image_url";
 					mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 					mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 					mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
@@ -590,7 +589,7 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 	for (auto n : network)
 	{
 		
-		if ( (n.second.first >= scoreHas) || (n.second.second >= scoreWas))
+		if ( (scoreHas && (n.second.first >= scoreHas)) || (scoreWas && (n.second.second >= scoreWas)))
 		{
 			if (analysedAccount.find(n.first) == analysedAccount.end())
 			{
@@ -604,7 +603,7 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 	}
 
 	std::map<std::pair<u64, u64>, std::pair<u32, u32>>					matchedPair;
-	std::vector<std::pair<u64, std::pair<u32,u32>>>		sortedFullV;
+	std::vector<std::pair<u64, std::pair<u32,u32>>>						sortedFullV;
 
 	// ID, ref count, score has, score was
 	std::unordered_map<u64, std::pair<u32,std::pair<u32,u32>>>			coefs;
@@ -657,14 +656,15 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 		{
 			if (n.second.first > 1) // at least referenced by 2 accounts
 			{
-				auto links = getValidLinks(n.first,false);
-				if (links.size() > 1)
+				bool stronglink = false;
+				auto links = getValidLinks(n.first, stronglink,false);
+				if(links.size())
 				{
 					int bestd = 2;
 					
 					for (auto l : links)
 					{
-						if (l.second)
+						if (l.second.first+ l.second.second)
 						{
 							int d = l.first->mAccount->getDepth();
 							if ((d >= 0) && (d < bestd)) // if valid link with depth 0 or 1
@@ -674,9 +674,20 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 						}
 					}
 
-					if ( (bestd == 0) || ((bestd==1) && mAnalysedAccountList[0]->getLinkCoef(n.first)))// at least one direct link to main account
+					bool can_add = false;
+					if ((bestd <=1) && mAnalysedAccountList[0]->getLinkCoef(n.first) && (links.size() > 1))
 					{
-						float score = ((n.second.second.first+ n.second.second.second) / n.second.first);
+						can_add = true;
+					}
+					else if ( ( bestd == 0 ) && (stronglink))
+					{
+						can_add = true;
+					}
+
+
+					if (can_add)// at least one direct link to main account
+					{
+						float score = ((n.second.second.first+ (n.second.second.second>>2)) / n.second.first);
 						score *= sqrtf(n.second.first);
 						score /= (float)(bestd + 1);
 
@@ -997,16 +1008,18 @@ DEFINE_METHOD(RTNetwork, getUserDetails)
 
 	if (!json.isNil())
 	{
+		CoreItemSP	data = json["data"];
+		CoreItemSP	public_m = data["public_metrics"];
+		u64			currentID= data["id"];
 
-		u64			currentID= json["id"];
-
-		if ((mState.size() > 1) && (mState[mState.size() - 2] == TREAT_USERNAME_REQUEST)) // requested ID from name
+		if ( ((mState.size() > 1) && (mState[mState.size() - 2] == TREAT_USERNAME_REQUEST)) ||
+			(mState.back() == WAIT_STARTUSERID) )// requested ID from name
 		{
 			mCurrentTreatedAccount->saveUserID(*(mCurrentTreatedAccount->mUserNameRequestList.begin()), currentID);
 			mCurrentTreatedAccount->mUserNameRequestList.erase(mCurrentTreatedAccount->mUserNameRequestList.begin());
 		}
 
-		std::string user = json["screen_name"];
+		std::string user = data["username"];
 
 		updateUserNameAndIDMaps(user, currentID);
 
@@ -1019,11 +1032,11 @@ DEFINE_METHOD(RTNetwork, getUserDetails)
 
 		current->mUserStruct.mName = user;
 		current->mID = currentID;
-		current->mUserStruct.mFollowersCount = json["followers_count"];
-		current->mUserStruct.mFollowingCount = json["friends_count"];
-		current->mUserStruct.mStatuses_count = json["statuses_count"];
-		current->mUserStruct.UTCTime = json["created_at"];
-		current->mUserStruct.mThumb.mURL = CleanURL(json["profile_image_url_https"]);
+		current->mUserStruct.mFollowersCount = public_m["followers_count"];
+		current->mUserStruct.mFollowingCount = public_m["following_count"];
+		current->mUserStruct.mStatuses_count = public_m["tweet_count"];
+		current->mUserStruct.UTCTime = data["created_at"];
+		current->mUserStruct.mThumb.mURL = CleanURL(data["profile_image_url"]);
 
 		SaveUserStruct(currentID, current->mUserStruct);
 
@@ -1041,13 +1054,6 @@ DEFINE_METHOD(RTNetwork, getUserDetails)
 		if (mState.back() == WAIT_STARTUSERID)
 		{
 			mStartUserID = currentID;
-			JSonFileParser L_JsonParser;
-			CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
-			CoreItemSP idP = CoreItemSP::getCoreItemOfType<CoreValue<u64>>();
-			idP = currentID;
-			initP->set("id", idP);
-			std::string filename = "Cache/UserNameRT/" + mStartUserName + "_" + mFromDate + "_" + mToDate + ".json";
-			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
 		}
 
 		mState.pop_back();
@@ -1408,14 +1414,12 @@ v3f RTNetwork::getRandomColor()
 		for (auto c : mAlreadyFoundColors)
 		{
 			v3f diff(c - result);
-			if (Norm(diff) < 0.15f)
+			if (Norm(diff) < 0.25f)
 			{
 				foundColorOK = false;
 				break;
 			}
 		}
-
-
 
 		countLoop++;
 
@@ -1464,8 +1468,10 @@ RTNetwork::displayThumb* RTNetwork::setupThumb(TwitterAccount* account)
 
 	newThumb.mThumb["ChannelName"]->setValue("PreScaleX", 1.0f/radiuscoef);
 	newThumb.mThumb["ChannelName"]->setValue("PreScaleY", 1.0f/radiuscoef);
-	newThumb.mThumb["ChannelPercent"]->setValue("PreScaleX", 1.0f / radiuscoef);
-	newThumb.mThumb["ChannelPercent"]->setValue("PreScaleY", 1.0f / radiuscoef);
+	newThumb.mThumb["HasRetweet"]->setValue("PreScaleX", 1.0f / radiuscoef);
+	newThumb.mThumb["HasRetweet"]->setValue("PreScaleY", 1.0f / radiuscoef);
+	newThumb.mThumb["TweetCount"]->setValue("PreScaleX", 1.0f / radiuscoef);
+	newThumb.mThumb["TweetCount"]->setValue("PreScaleY", 1.0f / radiuscoef);
 
 	if (mainAccount == account)
 		newThumb.mBackColor.Set(0.368f, 0.663f, 0.8666f);
@@ -1476,12 +1482,28 @@ RTNetwork::displayThumb* RTNetwork::setupThumb(TwitterAccount* account)
 
 	v2f pos(0.1f + (rand() % 800) * 0.001f, 0.1f + (rand() % 800) * 0.001f);
 
-	newThumb.mPos.Set(pos.x * 1280.0f, pos.y * 800.0f);
+	newThumb.mPos.Set(pos.x * 1920.0f, pos.y * 1080.0f);
 	newThumb.mThumb->setValue("Dock", pos);
 	newThumb.mThumb["ChannelName"]("Text") = account->mUserStruct.mName;
-	newThumb.mThumb["ChannelPercent"]("Text") = std::to_string((int)(account->mSourceCoef*100.0f)) + "\%";
+	newThumb.mThumb["HasRetweet"]("Text") = "RT:" + std::to_string(account->getHasRTCount());
+	newThumb.mThumb["TweetCount"]("Text") = "Twt:" + std::to_string(account->getTweetCount());
 	newThumb.mThumb->addItem(account->mUserStruct.mThumb.mTexture);
 	mMainInterface["background"]->addItem(newThumb.mThumb);
+
+	ModuleInput* theInputModule = (ModuleInput*)KigsCore::GetModule("ModuleInput");
+	theInputModule->getTouchManager()->registerEvent(newThumb.mThumb.get(), "ManageClickEvent", Click, EmptyFlag);
+	
+	newThumb.mThumb->InsertFunction("ManageClickEvent", [&newThumb](ClickEvent& event) -> bool
+			{
+			if (static_cast<UIItem*>(event.item)->CanInteract(event.position.xy))
+			{
+				v2f pos(0.1f + (rand() % 800) * 0.001f, 0.1f + (rand() % 800) * 0.001f);
+
+				newThumb.mPos.Set(pos.x * 1920.0f, pos.y * 1080.0f);
+
+				return true;
+			}
+			});
 
 	mThumbs.push_back(&newThumb);
 
@@ -1489,47 +1511,58 @@ RTNetwork::displayThumb* RTNetwork::setupThumb(TwitterAccount* account)
 }
 
 
-std::vector<std::pair<RTNetwork::displayThumb*, u32>> RTNetwork::getValidLinks(u64 uID, bool includeEmpty)
+std::vector<std::pair<RTNetwork::displayThumb*, std::pair<u32,u32>>> RTNetwork::getValidLinks(u64 uID, bool& foundStrongLink, bool includeEmpty)
 {
-	
-	std::vector<std::pair<displayThumb*, u32>> links;
+	foundStrongLink = false;
+	std::vector<std::pair<displayThumb*, std::pair<u32, u32>>> links;
 	for (auto a : mThumbs)
 	{
 		if (a->mAccount->mID != uID)
 		{
-			u32 totalcoef = a->mAccount->getConnectionCount();
-			u32 totalcoef_pc[2] = { (totalcoef * 1) / 100,(totalcoef * 5) / 100 };
+			u32 totalHasCoef = a->mAccount->getHasRTCount();
+			u32 totalWasCoef = a->mAccount->getWasRTCount();
+
+			u32 totalHasCoef_pc[2] = { (totalHasCoef * 2) / 100,(totalHasCoef * 4) / 100 };
+			u32 totalWasCoef_pc[2] = { (totalWasCoef * 5) / 100,(totalWasCoef * 20) / 100 };
+
 			int d = a->mAccount->getDepth();
+
 			if ((d >= 0) && (d < 2))
 			{
-				u32 lcoef = a->mAccount->getLinkCoef(uID);
-				if (lcoef > totalcoef_pc[d])
+				u32 lHascoef = a->mAccount->getHasRTCoef(uID);
+				u32 lWascoef = a->mAccount->getWasRTCoef(uID);
+				if ((lHascoef > totalHasCoef_pc[d]) ||((lWascoef > totalWasCoef_pc[d])))
 				{
-					links.push_back({ a,lcoef });
+					if ((d == 0) && (lHascoef > totalHasCoef_pc[1]))
+					{
+						foundStrongLink = true;
+					}
+
+					links.push_back({ a,{lHascoef,lWascoef} });
 				}
 				else
 				{
 					if(includeEmpty)
-						links.push_back({ a, 0 });
+						links.push_back({ a, {0,0} });
 				}
 			}
 			else
 			{
 				if (includeEmpty)
-					links.push_back({ a, 0 });
+					links.push_back({ a,  {0,0} });
 			}
 		}
 	}
 
 	if (links.size())
 	{
-		std::sort(links.begin(), links.end(), [](const std::pair<displayThumb*, u32>& a1, const std::pair<displayThumb*, u32>& a2)
+		std::sort(links.begin(), links.end(), [](const std::pair<displayThumb*, std::pair<u32,u32>>& a1, const std::pair<displayThumb*, std::pair<u32, u32>>& a2)
 			{
-				if (a1.second == a2.second)
+				if ((a1.second.first + (a1.second.second >> 2)) == (a2.second.first + (a2.second.second >> 2)))
 				{
 					return a1.first > a2.first;
 				}
-				return (a1.second > a2.second);
+				return ((a1.second.first+(a1.second.second>>2)) > (a2.second.first + (a2.second.second >> 2)));
 			}
 		);
 	}
@@ -1546,8 +1579,8 @@ void	RTNetwork::setupLinks(displayThumb* account)
 	};
 
 	u64 nID = account->mAccount->mID;
-
-	std::vector<std::pair<displayThumb*, u32>> links = getValidLinks(nID,true);
+	bool stronglink = false;
+	std::vector<std::pair<displayThumb*,  std::pair<u32,u32>>> links = getValidLinks(nID, stronglink,true);
 	
 	if (links.size())
 	{
@@ -1555,31 +1588,34 @@ void	RTNetwork::setupLinks(displayThumb* account)
 		for (auto l : links)
 		{
 			thumbLink toAdd;
-			toAdd.mThumbs[0] = l.first;
-			toAdd.mThumbs[1] = account;
-			toAdd.mLength = l.second;
+	
+			toAdd.mLength = l.second.first+(l.second.second>>2);
 
 			u64 oID = l.first->mAccount->mID;
+
+			std::pair<displayThumb*, displayThumb*> accountPair(account, l.first);
 
 			std::pair<u64, u64> k(nID, oID);
 			if (nID > oID)
 			{
 				k.first = oID;
+				accountPair.first = l.first;
 				k.second = nID;
+				accountPair.second = account;
 			}
+
+			toAdd.mThumbs[0] = accountPair.first;
+			toAdd.mThumbs[1] = accountPair.second;
 
 			if (toAdd.mLength > 0.0f)
 			{
-				toAdd.mDisplayedLink = KigsCore::GetInstanceOf("link", "UIPanel");
-				toAdd.mDisplayedLink->setValue("SizeX", 50);
-				toAdd.mDisplayedLink->setValue("SizeY", sqrtf(toAdd.mLength));
-				toAdd.mDisplayedLink->setValue("Priority", 5);
-				toAdd.mDisplayedLink->setValue("Anchor", v2f(0.0,0.5));
-				toAdd.mDisplayedLink->setValue("Dock", v2f(0.0, 0.0));
+				CMSP displayL = CoreModifiable::Import("Link.xml", false, false, nullptr);
+				toAdd.mDisplayedLink = displayL;
+				displayL("SizeX") = 50;
+				displayL("SizeY") = 50;
+				displayL["link1"]("Color") = accountPair.first->mBackColor;
+				displayL["link2"]("Color") = accountPair.second->mBackColor;
 
-				v3f randcolor(0.5f + normalizeRand() * 0.5, normalizeRand() * 0.6, normalizeRand() * 0.6);
-
-				toAdd.mDisplayedLink->setValue("Color", randcolor);
 				mMainInterface["background"]->addItem(toAdd.mDisplayedLink);
 			}
 
@@ -1614,13 +1650,30 @@ void	RTNetwork::moveThumbs()
 		f.Set(0.0f, 0.0f);
 	}
 
+
+	auto getIndex = [this](u64 id)->u32
+	{
+		u32 index = 0;
+		for (auto t : mThumbs)
+		{
+			if (t->mAccount->mID == id)
+			{
+				return index;
+			}
+			index++;
+		}
+		return (u32)-1;
+	};
+
 	size_t findex = 0;
 	for (auto t : mThumbs)
 	{
+		std::set<thumbLink*> thisThumbLinks;
+
 		// compute forces
 		for (auto& l : t->mLink)
 		{
-			
+			thisThumbLinks.insert(l);
 			displayThumb* other = l->mThumbs[0];
 			if (other == t)
 			{
@@ -1634,17 +1687,70 @@ void	RTNetwork::moveThumbs()
 
 			if (l->mLength > 0.0f) // spring
 			{
-				float llen = t->mRadius + other->mRadius + 30.0f + 5000.0f / (10.0f + l->mLength);
-				forces[findex] += posdiff * (dist - llen) * 0.01f;
+				float llen = t->mRadius + other->mRadius + l->mLength;
+				forces[findex] += posdiff * (dist - llen) * l->mSpringCoef;
 			}
 			else // just repel
 			{
-				forces[findex] -= posdiff * 10000.0f / (dist * dist);
+				dist -= t->mRadius + other->mRadius;
+				if (dist < 1.0f)
+					dist = 1.0f;
+
+				forces[findex] -= posdiff * 10000.0f / (10.0f+dist * dist);
+			}
+		}
+
+		// check if must be pushed from a link
+		for (auto& alllinks : mLinks)
+		{
+			if (thisThumbLinks.find(&alllinks.second) == thisThumbLinks.end()) // this link is not linked to me
+			{
+				if (alllinks.second.mLength > 0.0f) // this is a visible link
+				{
+					v2f linkvector(alllinks.second.mThumbs[1]->mPos - alllinks.second.mThumbs[0]->mPos);
+					float linkvectorNorm = Norm(linkvector);
+					if(linkvectorNorm>0.0f)
+						linkvector *= 1.0f / linkvectorNorm;
+
+					v2f thumbvector(t->mPos - alllinks.second.mThumbs[0]->mPos);
+
+					float dotp = Dot(linkvector, thumbvector);
+
+					if ((dotp <= 0.0f) || (dotp >= linkvectorNorm)) // don't overlap vector
+						continue;
+
+					v2f projpos = alllinks.second.mThumbs[0]->mPos + linkvector * dotp;
+					v2f projtovector = projpos-t->mPos;
+
+					float normprojpos = Norm(projtovector);
+
+					if (normprojpos < t->mRadius * 1.5f)
+					{
+						if (normprojpos == 0.0f)
+						{
+							forces[findex] += v2f(((rand() % 100)-50.0f) / 1000.0f, ((rand() % 100)-50.0f) / 1000.0f);
+						}
+						else
+						{
+							projtovector *= 1.0f / normprojpos;
+
+							v2f localf = projtovector * 10000.0f / (normprojpos * normprojpos);
+							forces[findex] -= localf;
+
+							u32 firstIndex = getIndex(alllinks.first.first);
+							u32 secondIndex = getIndex(alllinks.first.second);
+
+							forces[firstIndex] += localf*(1.0f- dotp/ linkvectorNorm);
+							forces[secondIndex] += localf * (dotp / linkvectorNorm);
+						}
+						
+					}
+				}
 			}
 		}
 
 		// friction
-		forces[findex] -= t->mSpeed * 0.1f;
+		forces[findex] -= t->mSpeed * 0.2f;
 
 		findex++;
 	}
@@ -1667,19 +1773,19 @@ void	RTNetwork::moveThumbs()
 
 	bary /= (float)mThumbs.size();
 
-	bary -= {1280.0f / 2.0f, 800.0f / 2.0f};
+	bary -= {1920.0f / 2.0f, 1080.0f / 2.0f};
 
 	for (auto t : mThumbs)
 	{
 		t->mPos -= bary;
-		t->mThumb->setValue("Dock", v2f(t->mPos.x/1280.0f, t->mPos.y/800.0f));
+		t->mThumb->setValue("Dock", v2f(t->mPos.x/1920.0f, t->mPos.y/1080.0f));
 	}
 
 }
 
 void	RTNetwork::updateLinks()
 {
-	for (auto l : mLinks)
+	for (auto& l : mLinks)
 	{
 		if (!l.second.mDisplayedLink.isNil())
 		{
@@ -1687,14 +1793,92 @@ void	RTNetwork::updateLinks()
 			v2f p1 = l.second.mThumbs[0]->mPos;
 			v2f p2 = l.second.mThumbs[1]->mPos;
 
+			std::pair<displayThumb*, displayThumb*> accountPair(l.second.mThumbs[0], l.second.mThumbs[1]);
+
+			float hasRTTotal[2] = { accountPair.first->mAccount->getHasRTCount(),accountPair.second->mAccount->getHasRTCount() };
+			float wasRTTotal[2] = { accountPair.first->mAccount->getWasRTCount(),accountPair.second->mAccount->getWasRTCount() };
+			float hasRT[2] = { accountPair.first->mAccount->getHasRTCoef(accountPair.second->mAccount->mID),accountPair.second->mAccount->getHasRTCoef(accountPair.first->mAccount->mID) };
+			float wasRT[2] = { accountPair.first->mAccount->getWasRTCoef(accountPair.second->mAccount->mID),accountPair.second->mAccount->getWasRTCoef(accountPair.first->mAccount->mID) };
+
+			CMSP displayL = l.second.mDisplayedLink;
 			v2f dp(p2 - p1);
 			float dist = Norm(dp);
+
+			float offsetxStart = l.second.mThumbs[0]->mRadius / dist;
+			float offsetxEnd = l.second.mThumbs[1]->mRadius / dist;
+
+			CoreItemSP	poly1 = CoreItemSP::getCoreVector();
+
+			float newLength = 0.0f;
+			float newLengthMult = 0.0f;
+
+			if ((hasRT[0] > 0.0f) || (wasRT[1] > 0.0f))
+			{
+				float offsetStartY = (hasRTTotal[0] > 0.0f) ? (0.495 - sqrtf(0.5f * hasRT[0] / hasRTTotal[0])) : 0.495;
+				float offsetEndY = (wasRTTotal[1] > 0.0f) ? (0.495 - sqrtf(0.5f * wasRT[1] / wasRTTotal[1])) : 0.495;
+
+				poly1->set("", v2f(offsetxStart * 0.8, offsetStartY));
+				poly1->set("", v2f(1.0f - offsetxEnd * 0.8, offsetEndY));
+				poly1->set("", v2f(1.0f - offsetxEnd, 0.5));
+				poly1->set("", v2f(offsetxStart, 0.5));
+
+				displayL["link1"]["shape"]("Vertices") = poly1.get();
+
+				newLength = (-(0.495 - offsetStartY) - -(0.495 - offsetEndY)) * 10.0f;
+				newLengthMult += 1.0f;
+			}
+			else
+			{
+				if(!displayL["link1"].isNil())
+					displayL->removeItem(displayL["link1"]);
+			}
+
+			poly1 = nullptr;
+
+			poly1 = CoreItemSP::getCoreVector();
+
+
+			if ((hasRT[1] > 0.0f) || (wasRT[0] > 0.0f))
+			{
+				float offsetStartY = (hasRTTotal[1] > 0.0f) ? (0.505 + sqrtf(0.5f * hasRT[1] / hasRTTotal[1])) : 0.505;
+				float offsetEndY = (wasRTTotal[0] > 0.0f) ? (0.505 + sqrtf(0.5f * wasRT[0] / wasRTTotal[0])) : 0.505;
+
+				poly1->set("", v2f(1.0f - offsetxEnd * 0.8, offsetStartY));
+				poly1->set("", v2f(1.0f - offsetxEnd, 0.5));
+				poly1->set("", v2f(offsetxStart, 0.5));
+				poly1->set("", v2f(offsetxStart * 0.8, offsetEndY));
+
+				displayL["link2"]["shape"]("Vertices") = poly1.get();
+
+				newLength += ((offsetStartY-0.505) + (offsetEndY-0.505)) * 10.0f;
+				newLengthMult += 1.0f;
+			}
+			else
+			{
+				if (!displayL["link2"].isNil())
+					displayL->removeItem(displayL["link2"]);
+			}
+
+			if (newLengthMult > 1.1f)
+			{
+				l.second.mSpringCoef = 0.1f;
+			}
+			else
+			{
+				l.second.mSpringCoef = 0.01f;
+			}
+
+			l.second.mLength = powf(newLength,newLengthMult)*6.0f;
+			if (l.second.mLength > 300.0f)
+				l.second.mLength = 300.0f;
+			l.second.mLength = 330.0f - l.second.mLength;
+
 
 			float rotate = atan2f(dp.y, dp.x);
 
 			l.second.mDisplayedLink->setValue("SizeX", dist);
 			l.second.mDisplayedLink->setValue("RotationAngle", rotate);
-			l.second.mDisplayedLink->setValue("Dock", v2f(l.second.mThumbs[0]->mPos.x / 1280.0f, l.second.mThumbs[0]->mPos.y / 800.0f) );
+			l.second.mDisplayedLink->setValue("Dock", v2f(l.second.mThumbs[0]->mPos.x / 1920.0f, l.second.mThumbs[0]->mPos.y / 1080.0f) );
 		}
 	}
 }
@@ -1706,8 +1890,14 @@ void	RTNetwork::webscrapperNavigationComplete(CoreModifiable* sender)
 
 	if (geturl.find("https://t.co") != std::string::npos) // not decoded
 	{
-		return;
+		if (mCountDecodeAttempt==0)
+		{
+			mCountDecodeAttempt++;
+			return;
+		}
 	}
+
+	mCountDecodeAttempt = 0;
 
 	std::string encoded = sender->getValue<std::string>("encodedURL");
 
@@ -1774,6 +1964,34 @@ std::string	RTNetwork::getTwitterAccountForURL(const std::string& url)
 			}
 			return "";
 		}
+		if (hostname.find("facebook") != std::string::npos)
+		{
+			size_t postspos = url.find("posts");
+			if (postspos != std::string::npos)
+			{
+				size_t	facebookpos = url.rfind("www.facebook.com", postspos - 1);
+				if (facebookpos != std::string::npos)
+				{
+					return "FB:" + url.substr(facebookpos + 16, postspos - facebookpos - 16);
+				}
+			}
+			return "";
+		}
+		if (hostname.find("instagram") != std::string::npos)
+		{
+			size_t statuspos = url.find("/status");
+			if (statuspos != std::string::npos)
+			{
+				size_t	facebookpos = url.rfind("www.facebook.com", statuspos - 1);
+				if (facebookpos != std::string::npos)
+				{
+					return "FB:" + url.substr(facebookpos + 16, statuspos - facebookpos - 16);
+				}
+			}
+			return "";
+		}
+
+
 		if (mWebToTwitterMap.find(hostname) != mWebToTwitterMap.end())
 		{
 			return mWebToTwitterMap[hostname];
