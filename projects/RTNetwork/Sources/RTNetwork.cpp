@@ -14,9 +14,20 @@
 #include "AnonymousModule.h"
 #include "ModuleInput.h"
 #include <iostream>
+#include <iomanip> 
 
 time_t     RTNetwork::mCurrentTime=0;
 double		RTNetwork::mOldFileLimit = 0.0;
+
+
+time_t	getDateAndTime(const std::string& d)
+{
+	std::tm gettm;
+	memset(&gettm, 0, sizeof(gettm));
+	std::istringstream ss(d);
+	ss >> std::get_time(&gettm, "%Y-%m-%dT%H:%M:%S.000Z");
+	return mktime(&gettm);
+}
 
 std::string	GetDate(int fromNowInSeconds)
 {
@@ -126,6 +137,20 @@ void	RTNetwork::ProtectedInit()
 
 
 	if ((mFromDate == "") || (mToDate == "") || (mStartUserName == ""))
+	{
+		mNeedExit = true;
+		return;
+	}
+
+	time_t starttime = getDateAndTime(mFromDate + "T00:00:00.000Z");
+	time_t endtime = getDateAndTime(mToDate + "T00:00:00.000Z");
+
+	double diffseconds = difftime(endtime, starttime);
+
+	mDurationInDays = (u32)(diffseconds / (3600.0 * 24.0));
+	mDurationInDays++;
+
+	if ( (mDurationInDays < 2) || (diffseconds<0.0))
 	{
 		mNeedExit = true;
 		return;
@@ -453,7 +478,12 @@ void	RTNetwork::ProtectedUpdate()
 				}
 
 				displayThumb* thmb=setupThumb(mCurrentTreatedAccount);
-				setupLinks(thmb); // create links with already analysed accounts
+				if (mCurrentTreatedAccount->needAddToNetwork())
+				{
+					setupLinks(thmb); // create links with already analysed accounts
+				}
+
+				addDisplayThumb(thmb);
 
 				mAnalysedAccountList.push_back(mCurrentTreatedAccount);
 				mCurrentTreatedAccount = chooseNextAccountToTreat();
@@ -1463,15 +1493,11 @@ RTNetwork::displayThumb* RTNetwork::setupThumb(TwitterAccount* account)
 
 	newThumb.mRadius = 39.0f * radiuscoef;
 
-	newThumb.mThumb->setValue("PreScaleX", radiuscoef);
-	newThumb.mThumb->setValue("PreScaleY", radiuscoef);
+	newThumb.mThumb->setValue("PreScale", v2f(radiuscoef, radiuscoef));
 
-	newThumb.mThumb["ChannelName"]->setValue("PreScaleX", 1.0f/radiuscoef);
-	newThumb.mThumb["ChannelName"]->setValue("PreScaleY", 1.0f/radiuscoef);
-	newThumb.mThumb["HasRetweet"]->setValue("PreScaleX", 1.0f / radiuscoef);
-	newThumb.mThumb["HasRetweet"]->setValue("PreScaleY", 1.0f / radiuscoef);
-	newThumb.mThumb["TweetCount"]->setValue("PreScaleX", 1.0f / radiuscoef);
-	newThumb.mThumb["TweetCount"]->setValue("PreScaleY", 1.0f / radiuscoef);
+	newThumb.mThumb["ChannelName"]->setValue("PreScale", v2f(1.0f/radiuscoef, 1.0f / radiuscoef));
+	newThumb.mThumb["HasRetweet"]->setValue("PreScale", v2f(1.0f / radiuscoef, 1.0f / radiuscoef));
+	newThumb.mThumb["TweetCount"]->setValue("PreScale", v2f(1.0f / radiuscoef, 1.0f / radiuscoef));
 
 	if (mainAccount == account)
 		newThumb.mBackColor.Set(0.368f, 0.663f, 0.8666f);
@@ -1488,26 +1514,52 @@ RTNetwork::displayThumb* RTNetwork::setupThumb(TwitterAccount* account)
 	newThumb.mThumb["HasRetweet"]("Text") = "RT:" + std::to_string(account->getHasRTCount());
 	newThumb.mThumb["TweetCount"]("Text") = "Twt:" + std::to_string(account->getTweetCount());
 	newThumb.mThumb->addItem(account->mUserStruct.mThumb.mTexture);
-	mMainInterface["background"]->addItem(newThumb.mThumb);
 
-	ModuleInput* theInputModule = (ModuleInput*)KigsCore::GetModule("ModuleInput");
-	theInputModule->getTouchManager()->registerEvent(newThumb.mThumb.get(), "ManageClickEvent", Click, EmptyFlag);
+	if (mainAccount == account)
+	{
+		account->setNeedAddToNetwork(true);
+	}
+
 	
-	newThumb.mThumb->InsertFunction("ManageClickEvent", [&newThumb](ClickEvent& event) -> bool
-			{
-			if (static_cast<UIItem*>(event.item)->CanInteract(event.position.xy))
-			{
-				v2f pos(0.1f + (rand() % 800) * 0.001f, 0.1f + (rand() % 800) * 0.001f);
 
-				newThumb.mPos.Set(pos.x * 1920.0f, pos.y * 1080.0f);
-
-				return true;
-			}
-			});
-
+	
 	mThumbs.push_back(&newThumb);
 
 	return mThumbs.back();
+}
+
+void	RTNetwork::addDisplayThumb(RTNetwork::displayThumb* thmb)
+{
+	if (thmb->mAccount->needAddToNetwork())
+	{
+		mMainInterface["background"]->addItem(thmb->mThumb);
+		ModuleInput* theInputModule = (ModuleInput*)KigsCore::GetModule("ModuleInput");
+		theInputModule->getTouchManager()->registerEvent(thmb->mThumb.get(), "ManageClickEvent", Click, EmptyFlag);
+
+		thmb->mThumb->InsertFunction("ManageClickEvent", [thmb](ClickEvent& event) -> bool
+			{
+				if (static_cast<UIItem*>(event.item)->CanInteract(event.position.xy))
+				{
+					v2f pos(0.1f + (rand() % 800) * 0.001f, 0.1f + (rand() % 800) * 0.001f);
+
+					thmb->mPos.Set(pos.x * 1920.0f, pos.y * 1080.0f);
+
+					return true;
+				}
+			});
+
+	}
+	else
+	{
+		mMainInterface["fixedbackground"]->addItem(thmb->mThumb);
+
+		v2f pos(0.5f + 0.45f * cosf(mCurrentOutNetAngle), 0.5f + 0.46f * sinf(mCurrentOutNetAngle));
+
+		thmb->mPos.Set(pos.x * 1920.0f, pos.y * 1080.0f);
+		mCurrentOutNetAngle += fPI / 12.0f;
+	}
+
+	thmb->mThumb->setValue("Dock", v2f(thmb->mPos.x / 1920.0f, thmb->mPos.y / 1080.0f));
 }
 
 
@@ -1517,6 +1569,7 @@ std::vector<std::pair<RTNetwork::displayThumb*, std::pair<u32,u32>>> RTNetwork::
 	std::vector<std::pair<displayThumb*, std::pair<u32, u32>>> links;
 	for (auto a : mThumbs)
 	{
+
 		if (a->mAccount->mID != uID)
 		{
 			u32 totalHasCoef = a->mAccount->getHasRTCount();
@@ -1582,11 +1635,20 @@ void	RTNetwork::setupLinks(displayThumb* account)
 	bool stronglink = false;
 	std::vector<std::pair<displayThumb*,  std::pair<u32,u32>>> links = getValidLinks(nID, stronglink,true);
 	
+	std::map<std::pair<u64, u64>, std::pair<thumbLink, displayThumb*>>	tmpToAdd;
+
+	bool validAdd=false;
+
 	if (links.size())
 	{
 	
 		for (auto l : links)
 		{
+			if (!l.first->mAccount->needAddToNetwork())
+			{
+				continue;
+			}
+
 			thumbLink toAdd;
 	
 			toAdd.mLength = l.second.first+(l.second.second>>2);
@@ -1617,15 +1679,31 @@ void	RTNetwork::setupLinks(displayThumb* account)
 				displayL["link2"]("Color") = accountPair.second->mBackColor;
 
 				mMainInterface["background"]->addItem(toAdd.mDisplayedLink);
+				validAdd = true;
 			}
 
-			mLinks[k] = toAdd;
+			tmpToAdd[k] = { toAdd,l.first };
 
-			account->mLink.push_back(&mLinks[k]);
-			l.first->mLink.push_back(&mLinks[k]);
 		}
 
 	}	
+
+	if (validAdd || (mAnalysedAccountList.size()==0))
+	{
+		for (auto ta : tmpToAdd)
+		{
+			mLinks[ta.first] = ta.second.first;
+
+			account->mLink.push_back(&mLinks[ta.first]);
+			ta.second.second->mLink.push_back(&mLinks[ta.first]);
+		}
+		
+	}
+	else
+	{
+		account->mAccount->setNeedAddToNetwork(false);
+	}
+	
 
 }
 
@@ -1668,117 +1746,130 @@ void	RTNetwork::moveThumbs()
 	size_t findex = 0;
 	for (auto t : mThumbs)
 	{
-		std::set<thumbLink*> thisThumbLinks;
-
-		// compute forces
-		for (auto& l : t->mLink)
+		if (t->mAccount->needAddToNetwork())
 		{
-			thisThumbLinks.insert(l);
-			displayThumb* other = l->mThumbs[0];
-			if (other == t)
-			{
-				other = l->mThumbs[1];
-			}
-			v2f posdiff = other->mPos;
-			posdiff -= t->mPos;
+			std::set<thumbLink*> thisThumbLinks;
 
-			float dist = Norm(posdiff);
-			posdiff.Normalize();
-
-			if (l->mLength > 0.0f) // spring
+			// compute forces
+			for (auto& l : t->mLink)
 			{
-				float llen = t->mRadius + other->mRadius + l->mLength;
-				forces[findex] += posdiff * (dist - llen) * l->mSpringCoef;
-			}
-			else // just repel
-			{
-				dist -= t->mRadius + other->mRadius;
-				if (dist < 1.0f)
-					dist = 1.0f;
-
-				forces[findex] -= posdiff * 10000.0f / (10.0f+dist * dist);
-			}
-		}
-
-		// check if must be pushed from a link
-		for (auto& alllinks : mLinks)
-		{
-			if (thisThumbLinks.find(&alllinks.second) == thisThumbLinks.end()) // this link is not linked to me
-			{
-				if (alllinks.second.mLength > 0.0f) // this is a visible link
+				thisThumbLinks.insert(l);
+				displayThumb* other = l->mThumbs[0];
+				if (other == t)
 				{
-					v2f linkvector(alllinks.second.mThumbs[1]->mPos - alllinks.second.mThumbs[0]->mPos);
-					float linkvectorNorm = Norm(linkvector);
-					if(linkvectorNorm>0.0f)
-						linkvector *= 1.0f / linkvectorNorm;
+					other = l->mThumbs[1];
+				}
+				v2f posdiff = other->mPos;
+				posdiff -= t->mPos;
 
-					v2f thumbvector(t->mPos - alllinks.second.mThumbs[0]->mPos);
+				float dist = Norm(posdiff);
+				posdiff.Normalize();
 
-					float dotp = Dot(linkvector, thumbvector);
+				if (l->mLength > 0.0f) // spring
+				{
+					float llen = t->mRadius + other->mRadius + l->mLength;
+					forces[findex] += posdiff * (dist - llen) * l->mSpringCoef;
+				}
+				else // just repel
+				{
+					dist -= t->mRadius + other->mRadius;
+					if (dist < 1.0f)
+						dist = 1.0f;
 
-					if ((dotp <= 0.0f) || (dotp >= linkvectorNorm)) // don't overlap vector
-						continue;
+					forces[findex] -= posdiff * 10000.0f / (10.0f + dist * dist);
+				}
+			}
 
-					v2f projpos = alllinks.second.mThumbs[0]->mPos + linkvector * dotp;
-					v2f projtovector = projpos-t->mPos;
-
-					float normprojpos = Norm(projtovector);
-
-					if (normprojpos < t->mRadius * 1.5f)
+			// check if must be pushed from a link
+			for (auto& alllinks : mLinks)
+			{
+				if (thisThumbLinks.find(&alllinks.second) == thisThumbLinks.end()) // this link is not linked to me
+				{
+					if (alllinks.second.mLength > 0.0f) // this is a visible link
 					{
-						if (normprojpos == 0.0f)
+						v2f linkvector(alllinks.second.mThumbs[1]->mPos - alllinks.second.mThumbs[0]->mPos);
+						float linkvectorNorm = Norm(linkvector);
+						if (linkvectorNorm > 0.0f)
+							linkvector *= 1.0f / linkvectorNorm;
+
+						v2f thumbvector(t->mPos - alllinks.second.mThumbs[0]->mPos);
+
+						float dotp = Dot(linkvector, thumbvector);
+
+						if ((dotp <= 0.0f) || (dotp >= linkvectorNorm)) // don't overlap vector
+							continue;
+
+						v2f projpos = alllinks.second.mThumbs[0]->mPos + linkvector * dotp;
+						v2f projtovector = projpos - t->mPos;
+
+						float normprojpos = Norm(projtovector);
+
+						if (normprojpos < t->mRadius * 1.5f)
 						{
-							forces[findex] += v2f(((rand() % 100)-50.0f) / 1000.0f, ((rand() % 100)-50.0f) / 1000.0f);
+							if (normprojpos == 0.0f)
+							{
+								forces[findex] += v2f(((rand() % 100) - 50.0f) / 1000.0f, ((rand() % 100) - 50.0f) / 1000.0f);
+							}
+							else
+							{
+								projtovector *= 1.0f / normprojpos;
+
+								v2f localf = projtovector * 10000.0f / (normprojpos * normprojpos);
+								forces[findex] -= localf;
+
+								u32 firstIndex = getIndex(alllinks.first.first);
+								u32 secondIndex = getIndex(alllinks.first.second);
+
+								forces[firstIndex] += localf * (1.0f - dotp / linkvectorNorm);
+								forces[secondIndex] += localf * (dotp / linkvectorNorm);
+							}
+
 						}
-						else
-						{
-							projtovector *= 1.0f / normprojpos;
-
-							v2f localf = projtovector * 10000.0f / (normprojpos * normprojpos);
-							forces[findex] -= localf;
-
-							u32 firstIndex = getIndex(alllinks.first.first);
-							u32 secondIndex = getIndex(alllinks.first.second);
-
-							forces[firstIndex] += localf*(1.0f- dotp/ linkvectorNorm);
-							forces[secondIndex] += localf * (dotp / linkvectorNorm);
-						}
-						
 					}
 				}
 			}
-		}
 
-		// friction
-		forces[findex] -= t->mSpeed * 0.2f;
+			// friction
+			forces[findex] -= t->mSpeed * 0.2f;
+		}
 
 		findex++;
 	}
 
 	v2f bary(0.0f,0.0f);
 	findex = 0;
+	u32 validbary = 0;
 	for (auto& t : mThumbs)
 	{
-		t->mAcceleration = forces[findex];
-		if (Norm(t->mAcceleration) > 10.0f)
+		if (t->mAccount->needAddToNetwork())
 		{
-			t->mAcceleration.Normalize();
-			t->mAcceleration*=10.0f;
+			t->mAcceleration = forces[findex];
+			if (Norm(t->mAcceleration) > 10.0f)
+			{
+				t->mAcceleration.Normalize();
+				t->mAcceleration *= 10.0f;
+			}
+			t->mSpeed += t->mAcceleration * dt;
+			t->mPos += t->mSpeed * dt;
+			bary += t->mPos;
+			validbary++;
 		}
-		t->mSpeed += t->mAcceleration * dt;
-		t->mPos += t->mSpeed * dt;
-		bary += t->mPos;
 		findex++;
 	}
 
-	bary /= (float)mThumbs.size();
-
+	if (validbary)
+	{
+		bary /= (float)validbary;
+	}
 	bary -= {1920.0f / 2.0f, 1080.0f / 2.0f};
 
 	for (auto t : mThumbs)
 	{
-		t->mPos -= bary;
-		t->mThumb->setValue("Dock", v2f(t->mPos.x/1920.0f, t->mPos.y/1080.0f));
+		if (t->mAccount->needAddToNetwork())
+		{
+			t->mPos -= bary;
+			t->mThumb->setValue("Dock", v2f(t->mPos.x / 1920.0f, t->mPos.y / 1080.0f));
+		}
 	}
 
 }

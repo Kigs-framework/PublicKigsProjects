@@ -15,8 +15,8 @@
 		<Attr N="SizeY" V="0">
 			<Modifier Type="CoreItemOperatorModifier" V="#..->SizeY#"/>
 		</Attr>
-		<Attr N="DesignSizeX" V="1280"/>
-		<Attr N="DesignSizeY" V="800"/>
+		<Attr N="DesignSizeX" V="1920"/>
+		<Attr N="DesignSizeY" V="1080"/>
 		<Attr N="BitsPerZ" V="32"/>
 		<Attr N="Brightness" V="0"/>
 		<Attr N="BackDropColor" V="{0.0,0.0,0.0}"/>

@@ -45,6 +45,11 @@ public:
 		return "";
 	}
 
+	u32	getDurationInDays()
+	{
+		return mDurationInDays;
+	}
+
 protected:
 
 	SP<HTTPConnect>									mTwitterConnect = nullptr;
@@ -307,4 +312,9 @@ protected:
 	void		saveWebToAccountFile();
 	void		loadWebToAccountFile();
 	
+
+	u32					mDurationInDays = 0;
+	float				mCurrentOutNetAngle = -1.0f;
+
+	void	addDisplayThumb(RTNetwork::displayThumb* thmb);
 };

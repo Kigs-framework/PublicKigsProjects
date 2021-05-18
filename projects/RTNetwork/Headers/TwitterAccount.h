@@ -30,12 +30,12 @@ protected:
 
 	struct tweet
 	{
-		u64							mID;
-		u32							mRTCount;
-		u32							mQuoteCount;
-		std::vector<u64>			mReferences;
-		std::string					mRTedUser;
-		std::vector<std::string>	mURLs;
+		u64									mID;
+		u32									mRTCount;
+		u32									mQuoteCount;
+		std::vector<std::pair<u64,u32>>		mReferences;
+		std::string							mRTedUser;
+		std::vector<std::string>			mURLs;
 	};
 
 	UserStruct			mUserStruct;
@@ -94,6 +94,8 @@ protected:
 	bool		mIsMandatory = false;
 
 	std::vector<std::string>	mNeedURLs;
+
+	bool		mAddToNetwork = true;
 
 public:
 
@@ -159,4 +161,14 @@ public:
 
 	u32 getHasRTCoef(u64 otherID);
 	u32 getWasRTCoef(u64 otherID);
+
+	bool	needAddToNetwork()
+	{
+		return mAddToNetwork;
+	}
+
+	void	setNeedAddToNetwork(bool toset)
+	{
+		mAddToNetwork = toset;
+	}
 };

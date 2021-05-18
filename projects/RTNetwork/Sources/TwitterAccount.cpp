@@ -68,7 +68,7 @@ void		TwitterAccount::updateTweetList(CoreItemSP currentTwt)
 			std::string type = r["type"];
 			if ( (type == "quoted") || (type == "retweeted"))
 			{
-				toadd.mReferences.push_back( r["id"] );
+				toadd.mReferences.push_back({ r["id"],(type == "retweeted")?1:0 });
 				needAdd = true;
 				searchHttps = false;	// search url references only if not quoted or retweet
 			}
@@ -139,12 +139,15 @@ void		TwitterAccount::updateTweetList(CoreItemSP currentTwt)
 
 	if (toadd.mReferences.size() == 1) // when retweet, get user directly from txt when possible
 	{
-		if (txt.substr(0, 4) == "RT @")
+		if (toadd.mReferences[0].second == 1)
 		{
-			size_t found = txt.find(':', 4);
-			if (found != std::string::npos)
+			if (txt.substr(0, 4) == "RT @")
 			{
-				toadd.mRTedUser = txt.substr(4, found-4);
+				size_t found = txt.find(':', 4);
+				if (found != std::string::npos)
+				{
+					toadd.mRTedUser = txt.substr(4, found - 4);
+				}
 			}
 		}
 	}
@@ -282,17 +285,17 @@ void		TwitterAccount::updateTweetRequestList()
 	{
 		if ((t.mReferences.size()) && (t.mRTedUser.length() == 0)) // quoted reference ?
 		{
-			for (auto u : t.mReferences)
+			for (const auto& u : t.mReferences)
 			{
-				CoreItemSP user = loadTweetUserFile(u); 
+				CoreItemSP user = loadTweetUserFile(u.first); 
 
 				if (user.isNil()) // and file is not available
 				{
-					if (alreadyAsked.find(u) == alreadyAsked.end())
+					if (alreadyAsked.find(u.first) == alreadyAsked.end())
 					{
-						mTweetToRequestList.push_back(u); // request user for this tweet
+						mTweetToRequestList.push_back(u.first); // request user for this tweet
 					}
-					alreadyAsked.insert(u);
+					alreadyAsked.insert(u.first);
 				}
 			}
 		}
@@ -347,9 +350,9 @@ void		TwitterAccount::updateUserNameRequest()
 		}
 		else if (t.mReferences.size())
 		{
-			for (auto u : t.mReferences) // quoted
+			for (const auto& u : t.mReferences) // quoted
 			{
-				CoreItemSP user = loadTweetUserFile(u);
+				CoreItemSP user = loadTweetUserFile(u.first);
 				if (!user.isNil())
 				{
 					std::string uname = user["Name"];
@@ -703,9 +706,9 @@ void		TwitterAccount::updateStats()
 		}
 		else  // quoted
 		{
-			for (auto u : t.mReferences)
+			for (const auto& u : t.mReferences)
 			{
-				CoreItemSP user = loadTweetUserFile(u);
+				CoreItemSP user = loadTweetUserFile(u.first);
 
 				if (user.isNil() || user["Name"].isNil()) // and file is not available
 				{
@@ -753,6 +756,17 @@ void		TwitterAccount::updateStats()
 	if(mConnectionCount>0.0f)
 		mSourceCoef = (float)mWasRetweetCount / (float)(mHasRetweetCount + mWasRetweetCount);
 	
+	// check for account no to add to network
+	u32 did=mSettings->getDurationInDays();
+	float twtperdays = (float)mAllTweetCount / (float)did;
+	if (twtperdays > 25.0f)
+	{
+		float rtcoef = (float)mHasRetweetCount / (float)mAllTweetCount;
+		if (rtcoef > 0.92f)
+		{
+			mAddToNetwork = false;
+		}
+	}
 
 	buildNetworkList();
 }
