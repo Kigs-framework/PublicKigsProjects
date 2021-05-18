@@ -127,8 +127,7 @@
 				<Attr N="Priority" V="10"/>
 				<Attr N="Dock" V="{0.52,0.44}"/>
 				<Attr N="Anchor" V="{0.5,0.5}"/>
-				<Attr N="PreScaleX" V="1.3"/>
-				<Attr N="PreScaleY" V="1.3"/>
+				<Attr N="PreScale" V="{1.3,1.3}"/>
 				<Inst N="ChannelName" T="UIText">
 					<Attr N="Priority" V="11"/>
 					<Attr N="Text" V="channelName"/>
@@ -149,12 +148,11 @@
 				<Attr N="Priority" V="10"/>
 				<Attr N="Dock" V="{0.95,0.94}"/>
 				<Attr N="Anchor" V="{0.5,0.5}"/>
-				<Attr N="PreScaleX" V="0.6"/>
-				<Attr N="PreScaleY" V="0.6"/>
+				<Attr N="PreScale" V="{0.6,0.6}"/>
 			</Inst>
 			<Inst N="switchV" T="UIText">
 				<Attr N="Priority" V="11"/>
-				<Attr N="Text" V="Switch percent / similarity"/>
+				<Attr N="Text" V="Switch measure"/>
 				<Attr N="Anchor" V="{0.500000,0.500000}"/>
 				<Attr N="Dock" V="{0.050,0.950}"/>
 				<Attr N="Color" V="{0.0, 0.0, 0.4}"/>

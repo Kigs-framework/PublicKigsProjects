@@ -2355,14 +2355,11 @@ void	TwitterAnalyser::refreshAllThumbs()
 				toSetup["ChannelPercent"]("Anchor") = v2f(1.0, 0.5);
 			}
 
-			toSetup("PreScaleX") = 1.44f * prescale;
-			toSetup("PreScaleY") = 1.44f * prescale;
+			toSetup("PreScale") = v2f(1.44f * prescale, 1.44f * prescale);
 
 			toSetup("Radius") = (float)toSetup("SizeX") * 1.44f * prescale * 0.5f;
 
-			toSetup["ChannelName"]("PreScaleX") = 1.0f / (1.44f * prescale);
-			toSetup["ChannelName"]("PreScaleY") = 1.0f / (1.44f * prescale);
-
+			toSetup["ChannelName"]("PreScale") = v2f(1.0f / (1.44f * prescale), 1.0f / (1.44f * prescale));
 
 			toSetup["ChannelPercent"]("FontSize") = 0.6f * 24.0f / prescale;
 			toSetup["ChannelPercent"]("MaxWidth") = 0.6f * 100.0f / prescale;
@@ -2371,8 +2368,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 			{
 				if (mUseLikes)
 				{
-					toSetup["ChannelPercent"]("PreScaleX") = 0.8f;
-					toSetup["ChannelPercent"]("PreScaleY") = 0.8f;
+					toSetup["ChannelPercent"]("PreScale") = v2f(0.8f,0.8f);
 					toSetup["ChannelPercent"]("FontSize") = 0.6f * 24.0f / prescale;
 					toSetup["ChannelPercent"]("MaxWidth") = 0.8f * 100.0f / prescale;
 				}

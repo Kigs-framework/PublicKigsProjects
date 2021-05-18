@@ -972,9 +972,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 				toSetup["ChannelPercent"]("Anchor") = v2f(1.0, 0.5);
 			}
 
-
-			toSetup("PreScaleX") = 1.2f * prescale;
-			toSetup("PreScaleY") = 1.2f * prescale;
+			toSetup("PreScale") = v2f(1.2f * prescale, 1.2f * prescale);
 
 			toSetup("Radius")=(float)toSetup("SizeX")*1.2*prescale*0.5f;
 
