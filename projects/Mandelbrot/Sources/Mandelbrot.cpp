@@ -76,8 +76,7 @@ void	Mandelbrot::ProtectedInitSequence(const kstl::string& sequence)
 	{
 		mBitmap = GetFirstInstanceByName("KigsBitmap", "mandelbrot");
 		mBitmapDisplay = GetFirstInstanceByName("UIImage", "uitexture");
-		mBitmapDisplay->setValue("PreScaleX", 1.4f);
-		mBitmapDisplay->setValue("PreScaleY", 1.4f);
+		mBitmapDisplay->setValue("PreScale", v2f(1.4f,1.4f));
 	}
 }
 void	Mandelbrot::ProtectedCloseSequence(const kstl::string& sequence)
