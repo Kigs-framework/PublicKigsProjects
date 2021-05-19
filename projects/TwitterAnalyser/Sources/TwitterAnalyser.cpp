@@ -2357,7 +2357,7 @@ void	TwitterAnalyser::refreshAllThumbs()
 
 			toSetup("PreScale") = v2f(1.44f * prescale, 1.44f * prescale);
 
-			toSetup("Radius") = (float)toSetup("SizeX") * 1.44f * prescale * 0.5f;
+			toSetup("Radius") = ((v2f)toSetup("Size")).x * 1.44f * prescale * 0.5f;
 
 			toSetup["ChannelName"]("PreScale") = v2f(1.0f / (1.44f * prescale), 1.0f / (1.44f * prescale));
 

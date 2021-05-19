@@ -259,8 +259,7 @@ void	boules::ProtectedInitSequence(const kstl::string& sequence)
 				mMainInterface->addItem(toAdd);
 				b.SetUI(toAdd);
 				toAdd("Color") = v3f(0.5f + ((float)(rand() % 128) / 256.0f), 0.5f + ((float)(rand() % 128) / 256.0f), 0.2f);
-				toAdd("SizeX") = b.GetRadius() * 2.0f;
-				toAdd("SizeY") = b.GetRadius() * 2.0f;
+				toAdd("Size") = v2f(b.GetRadius() * 2.0f,b.GetRadius() * 2.0f);
 				ballindex++;
 			}
 		}

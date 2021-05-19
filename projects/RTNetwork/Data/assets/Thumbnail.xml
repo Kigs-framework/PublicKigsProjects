@@ -9,8 +9,7 @@
 		<Attr N="Text" V="channelName"/>
 		<Attr N="Dock" V="{0.5,1.0}"/>
 		<Attr N="Anchor" V="{0.5,0.7}"/>
-		<Attr N="SizeX" V="-1"/>
-		<Attr N="SizeY" V="-1"/>
+		<Attr N="Size" V="{-1,-1}"/>
 		<Attr N="Font" V="Calibri.ttf"/>
 		<Attr N="FontSize" V="18"/>
 		<Attr N="MaxWidth" V="200"/>		
@@ -19,8 +18,7 @@
 				<Attr N="TextureName" V="FondTexte.png"/>
 				<Attr N="SizeModeX" V="Add"/>
 				<Attr N="SizeModeY" V="Add"/>
-				<Attr N="SizeY" V="4"/>
-				<Attr N="SizeX" V="4"/>
+				<Attr N="Size" V="{4,4}"/>
 				<Attr N="Sliced" V="{6.0,6.0}"/>
 				<Attr N="Priority" V="11"/>
 				<Attr N="Anchor" V="{0.500000,0.500000}"/>
@@ -32,8 +30,7 @@
 			<Attr N="Text" V="Percent"/>
 			<Attr N="Dock" V="{1.0,0.0}"/>
 			<Attr N="Anchor" V="{0.4,0.5}"/>
-			<Attr N="SizeX" V="-1"/>
-			<Attr N="SizeY" V="-1"/>
+			<Attr N="Size" V="{-1,-1}"/>
 			<Attr N="Font" V="Calibri.ttf"/>
 			<Attr N="FontSize" V="18"/>
 			<Attr N="MaxWidth" V="200"/>	
@@ -42,8 +39,7 @@
 				<Attr N="TextureName" V="FondTexte.png"/>
 				<Attr N="SizeModeX" V="Add"/>
 				<Attr N="SizeModeY" V="Add"/>
-				<Attr N="SizeY" V="4"/>
-				<Attr N="SizeX" V="4"/>
+				<Attr N="Size" V="{4,4}"/>
 				<Attr N="Sliced" V="{6.0,6.0}"/>
 				<Attr N="Priority" V="11"/>
 				<Attr N="Anchor" V="{0.500000,0.500000}"/>
@@ -55,8 +51,7 @@
 			<Attr N="Text" V="Percent"/>
 			<Attr N="Dock" V="{0.0,0.0}"/>
 			<Attr N="Anchor" V="{0.6,0.5}"/>
-			<Attr N="SizeX" V="-1"/>
-			<Attr N="SizeY" V="-1"/>
+			<Attr N="Size" V="{-1,-1}"/>
 			<Attr N="Font" V="Calibri.ttf"/>
 			<Attr N="FontSize" V="18"/>
 			<Attr N="MaxWidth" V="200"/>	
@@ -65,8 +60,7 @@
 				<Attr N="TextureName" V="FondTexte.png"/>
 				<Attr N="SizeModeX" V="Add"/>
 				<Attr N="SizeModeY" V="Add"/>
-				<Attr N="SizeY" V="4"/>
-				<Attr N="SizeX" V="4"/>
+				<Attr N="Size" V="{4,4}"/>
 				<Attr N="Sliced" V="{6.0,6.0}"/>
 				<Attr N="Priority" V="11"/>
 				<Attr N="Anchor" V="{0.500000,0.500000}"/>
@@ -80,8 +74,7 @@
 	<Inst N="thumbbackground" T="UIPanel">
 		<Attr N="SizeModeX" V="Add"/>
 		<Attr N="SizeModeY" V="Add"/>
-		<Attr N="SizeY" V="8"/>
-		<Attr N="SizeX" V="8"/>
+		<Attr N="Size" V="{8,8}"/>
 		<Attr N="Priority" V="8"/>
 		<Attr N="Anchor" V="{0.500000,0.500000}"/>
 		<Attr N="Dock" V="{0.500000,0.500000}"/>

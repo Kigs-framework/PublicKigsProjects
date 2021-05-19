@@ -3,16 +3,14 @@
 	<Attr N="Priority" V="4"/>
 	<Attr N="Dock" V="{0.0,0.0}"/>
 	<Attr N="Anchor" V="{0.0,0.5}"/>
-	<Attr N="SizeX" V="50"/>
-	<Attr N="SizeY" V="30"/>
+	<Attr N="Size" V="{50,30}"/>
 	<Inst N="link1" T="UIPanel">
 		<Attr N="Priority" V="5"/>
 		<Attr N="Dock" V="{0.5,0.5}"/>
 		<Attr N="Anchor" V="{0.5,0.5}"/>
 		<Attr N="SizeModeX" V="Add"/>
 		<Attr N="SizeModeY" V="Add"/>
-		<Attr N="SizeX" V="0"/>
-		<Attr N="SizeY" V="0"/>	
+		<Attr N="Size" V="{0,0}"/>
 		<Attr N="Color" V="{0.8, 0.2, 0.2, 1.0}"/>
 		<Inst N="shape" T="UIShapePolygon">
 			<Attr N="Vertices">
@@ -29,8 +27,7 @@
 		<Attr N="Anchor" V="{0.5,0.5}"/>
 		<Attr N="SizeModeX" V="Add"/>
 		<Attr N="SizeModeY" V="Add"/>
-		<Attr N="SizeX" V="0"/>
-		<Attr N="SizeY" V="0"/>		
+		<Attr N="Size" V="{0,0}"/>
 		<Attr N="Color" V="{0.2, 0.8, 0.2, 1.0}"/>
 		<Inst N="shape" T="UIShapePolygon">
 			<Attr N="Vertices">

@@ -1673,8 +1673,7 @@ void	RTNetwork::setupLinks(displayThumb* account)
 			{
 				CMSP displayL = CoreModifiable::Import("Link.xml", false, false, nullptr);
 				toAdd.mDisplayedLink = displayL;
-				displayL("SizeX") = 50;
-				displayL("SizeY") = 50;
+				displayL("Size") = v2f(50,50);
 				displayL["link1"]("Color") = accountPair.first->mBackColor;
 				displayL["link2"]("Color") = accountPair.second->mBackColor;
 
@@ -1967,7 +1966,10 @@ void	RTNetwork::updateLinks()
 
 			float rotate = atan2f(dp.y, dp.x);
 
-			l.second.mDisplayedLink->setValue("SizeX", dist);
+			v2f prevSize =l.second.mDisplayedLink("Size");
+
+
+			l.second.mDisplayedLink->setValue("Size", v2f(dist, prevSize.y));
 			l.second.mDisplayedLink->setValue("RotationAngle", rotate);
 			l.second.mDisplayedLink->setValue("Dock", v2f(l.second.mThumbs[0]->mPos.x / 1920.0f, l.second.mThumbs[0]->mPos.y / 1080.0f) );
 		}

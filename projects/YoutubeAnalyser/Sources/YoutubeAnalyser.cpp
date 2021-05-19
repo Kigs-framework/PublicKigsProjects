@@ -974,7 +974,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 
 			toSetup("PreScale") = v2f(1.2f * prescale, 1.2f * prescale);
 
-			toSetup("Radius")=(float)toSetup("SizeX")*1.2*prescale*0.5f;
+			toSetup("Radius")=((v2f)toSetup("Size")).x*1.2*prescale*0.5f;
 
 			toSetup["ChannelPercent"]("FontSize") = 0.6f* 24.0f / prescale;
 			toSetup["ChannelPercent"]("MaxWidth") = 0.6f * 100.0f / prescale;

@@ -24,16 +24,13 @@
 		</Attr>
 	</Inst>
 	<Inst N="UILayer" T="UI2DLayer">
-	<Attr N="SizeY" V="800"/>
-	<Attr N="SizeX" V="1280"/>
+	<Attr N="Size" V="{1280,800}"/>
 	<Attr N="Priority" V="50"/>
 	<Attr N="RenderingScreen" V="RenderingScreen:theRenderingScreen"/>
 		<Inst N="Interface" T="UIItem">
-			<Attr N="SizeY" V="800"/>
-			<Attr N="SizeX" V="1280"/>
+			<Attr N="Size" V="{1280,800}"/>
 			<Inst N="background" T="UIPanel">
-				<Attr N="SizeY" V="800"/>
-				<Attr N="SizeX" V="1280"/>
+				<Attr N="Size" V="{1280,800}"/>
 				<Attr N="Priority" V="0"/>
 				<Attr N="Anchor" V="{0.500000,0.500000}"/>
 				<Attr N="Dock" V="{0.500000,0.500000}"/>
@@ -44,8 +41,7 @@
 				<Attr N="Text" V="Test"/>
 				<Attr N="Dock" V="{0.02,0.025}"/>
 				<Attr N="Anchor" V="{0.0,0.5}"/>
-				<Attr N="SizeX" V="-1"/>
-				<Attr N="SizeY" V="-1"/>
+				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
 				<Attr N="FontSize" V="16"/>
 				<Attr N="MaxWidth" V="200"/>	
@@ -57,8 +53,7 @@
 				<Attr N="Text" V="Test"/>
 				<Attr N="Dock" V="{0.02,0.05}"/>
 				<Attr N="Anchor" V="{0.0,0.5}"/>
-				<Attr N="SizeX" V="-1"/>
-				<Attr N="SizeY" V="-1"/>
+				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
 				<Attr N="FontSize" V="16"/>
 				<Attr N="MaxWidth" V="300"/>		
@@ -70,8 +65,7 @@
 				<Attr N="Text" V="Test"/>
 				<Attr N="Dock" V="{0.02,0.075}"/>
 				<Attr N="Anchor" V="{0.0,0.5}"/>
-				<Attr N="SizeX" V="-1"/>
-				<Attr N="SizeY" V="-1"/>
+				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
 				<Attr N="FontSize" V="16"/>
 				<Attr N="MaxWidth" V="300"/>		
@@ -83,8 +77,7 @@
 				<Attr N="Text" V="Test"/>
 				<Attr N="Dock" V="{0.02,0.1}"/>
 				<Attr N="Anchor" V="{0.0,0.5}"/>
-				<Attr N="SizeX" V="-1"/>
-				<Attr N="SizeY" V="-1"/>
+				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
 				<Attr N="FontSize" V="16"/>
 				<Attr N="MaxWidth" V="300"/>		
@@ -96,8 +89,7 @@
 				<Attr N="Text" V="Test"/>
 				<Attr N="Dock" V="{0.02,0.125}"/>
 				<Attr N="Anchor" V="{0.0,0.5}"/>
-				<Attr N="SizeX" V="-1"/>
-				<Attr N="SizeY" V="-1"/>
+				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
 				<Attr N="FontSize" V="16"/>
 				<Attr N="MaxWidth" V="300"/>		
@@ -114,8 +106,7 @@
 					<Attr N="Text" V="userName"/>
 					<Attr N="Dock" V="{0.5,1.0}"/>
 					<Attr N="Anchor" V="{0.5,0.0}"/>
-					<Attr N="SizeX" V="-1"/>
-					<Attr N="SizeY" V="-1"/>
+					<Attr N="Size" V="{-1,-1}"/>
 					<Attr N="Font" V="Calibri.ttf"/>
 					<Attr N="FontSize" V="24"/>
 					<Attr N="MaxWidth" V="200"/>	
@@ -147,8 +138,7 @@
 				<Attr N="Anchor" V="{0.500000,0.500000}"/>
 				<Attr N="Dock" V="{0.050,0.950}"/>
 				<Attr N="Color" V="{0.0, 0.0, 0.4}"/>
-				<Attr N="SizeX" V="-1.0"/>
-				<Attr N="SizeY" V="-1.0"/>
+				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
 				<Attr N="FontSize" V="24"/>
 				<Attr N="MaxWidth" V="128"/>
@@ -161,8 +151,7 @@
 					<Attr N="SizeModeY" V="Add"/>
 					<Attr N="Anchor" V="{0.5,0.5}"/>
 					<Attr N="Dock" V="{0.5,0.5}"/>
-					<Attr N="SizeX" V="16"/>
-					<Attr N="SizeY" V="16"/>	
+					<Attr N="Size" V="{16,16}"/>
 					<Connect Si="ClickUp" E="this" Sl="switchDisplay" R="/CoreBaseApplication:TwitterAnalyser"/>
 				</Inst>
 			</Inst>
@@ -172,8 +161,7 @@
 				<Attr N="Anchor" V="{0.500000,0.500000}"/>
 				<Attr N="Dock" V="{0.950,0.050}"/>
 				<Attr N="Color" V="{0.0, 0.0, 0.4}"/>
-				<Attr N="SizeX" V="-1.0"/>
-				<Attr N="SizeY" V="-1.0"/>
+				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
 				<Attr N="FontSize" V="24"/>
 				<Attr N="MaxWidth" V="128"/>
@@ -186,8 +174,7 @@
 					<Attr N="SizeModeY" V="Add"/>
 					<Attr N="Anchor" V="{0.5,0.5}"/>
 					<Attr N="Dock" V="{0.5,0.5}"/>
-					<Attr N="SizeX" V="16"/>
-					<Attr N="SizeY" V="16"/>	
+					<Attr N="Size" V="{16,16}"/>
 					<Connect Si="ClickUp" E="this" Sl="switchForce" R="/CoreBaseApplication:TwitterAnalyser"/>
 				</Inst>
 			</Inst>

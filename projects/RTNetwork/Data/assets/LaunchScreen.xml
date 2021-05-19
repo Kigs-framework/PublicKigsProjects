@@ -1,19 +1,16 @@
 <?xml version="1.0"?>
 <Inst N="UILayer" T="UI2DLayer">
-	<Attr N="SizeY" V="1080"/>
-	<Attr N="SizeX" V="1920"/>
+	<Attr N="Size" V="{1920,1080}"/>
 	<Attr N="Priority" V="0"/>
 	<Attr N="RenderingScreen" V="RenderingScreen:theRenderingScreen"/>
 	<Inst N="InterfaceLaunch" T="UIItem">
-		<Attr N="SizeY" V="1080"/>
-		<Attr N="SizeX" V="1920"/>
+		<Attr N="Size" V="{1920,1080}"/>
 		<Attr N="Opacity" V="0.0"/>
 		<Attr N="Dock" V="{0.500000,0.50000}"/>
 		<Attr N="Anchor" V="{0.500000,0.50000}"/>
 		<Inst N="Logo" T="UIImage">
 			<Attr N="TextureName" V="Logo.png"/>
-			<Attr N="SizeY" V="1080"/>
-			<Attr N="SizeX" V="1920"/>
+			<Attr N="Size" V="{1920,1080}"/>
 			<Attr N="Priority" V="50"/>
 			<Attr N="Dock" V="{0.500000,0.50000}"/>
 			<Attr N="Anchor" V="{0.500000,0.50000}"/>
