@@ -254,7 +254,7 @@ void	TwitterAnalyser::ProtectedInit()
 		}
 	}
 
-	SP<FilePathManager>& pathManager = KigsCore::Singleton<FilePathManager>();
+	SP<FilePathManager> pathManager = KigsCore::Singleton<FilePathManager>();
 	// when a path is given, search the file only with this path
 	pathManager->setValue("StrictPath", true);
 	pathManager->AddToPath(".", "json");
@@ -275,7 +275,7 @@ void	TwitterAnalyser::ProtectedInit()
 	if (mHashTag.length())
 	{
 
-		auto& textureManager = KigsCore::Singleton<TextureFileManager>();
+		auto textureManager = KigsCore::Singleton<TextureFileManager>();
 		mCurrentUser.mThumb.mTexture = textureManager->GetTexture("keyw.png");
 		if (mHashTag[0] == '#')
 		{
@@ -1221,7 +1221,7 @@ void		TwitterAnalyser::SaveJSon(const std::string& fname,const CoreItemSP& json,
 
 bool TwitterAnalyser::checkValidFile(const std::string& fname, SmartPointer<::FileHandle>& filenamehandle,double OldFileLimit)
 {
-	auto& pathManager = KigsCore::Singleton<FilePathManager>();
+	auto pathManager = KigsCore::Singleton<FilePathManager>();
 	filenamehandle = pathManager->FindFullName(fname);
 
 
@@ -1971,7 +1971,7 @@ bool		TwitterAnalyser::LoadThumbnail(u64 id, UserStruct& ch)
 
 		if (checkValidFile(filename, fullfilenamehandle, mOldFileLimit))
 		{
-			auto& textureManager = KigsCore::Singleton<TextureFileManager>();
+			auto textureManager = KigsCore::Singleton<TextureFileManager>();
 			ch.mThumb.mTexture = textureManager->GetTexture(filename);
 			return true;
 		}

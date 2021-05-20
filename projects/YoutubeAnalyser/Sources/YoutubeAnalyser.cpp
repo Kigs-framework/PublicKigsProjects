@@ -68,7 +68,7 @@ void	YoutubeAnalyser::ProtectedInit()
 	// here don't use files olders than three months.
 	mOldFileLimit = 60.0 * 60.0 * 24.0 * 30.0 * 3.0;
 
-	SP<FilePathManager>& pathManager = KigsCore::Singleton<FilePathManager>();
+	SP<FilePathManager> pathManager = KigsCore::Singleton<FilePathManager>();
 	// when a path is given, search the file only with this path
 	pathManager->setValue("StrictPath", true);
 
@@ -1530,7 +1530,7 @@ CoreItemSP	YoutubeAnalyser::RetrieveJSON(CoreModifiable* sender)
 
 CoreItemSP	YoutubeAnalyser::LoadJSon(const std::string& fname,bool utf16)
 {
-	auto& pathManager = KigsCore::Singleton<FilePathManager>();
+	auto pathManager = KigsCore::Singleton<FilePathManager>();
 	SmartPointer<::FileHandle> filenamehandle = pathManager->FindFullName(fname);
 
 	// Windows specific code 
@@ -1906,12 +1906,12 @@ bool		YoutubeAnalyser::LoadChannelStruct(const std::string& id, ChannelStruct& c
 		filename += id;
 		filename += ".jpg";
 
-		auto& pathManager = KigsCore::Singleton<FilePathManager>();
+		auto pathManager = KigsCore::Singleton<FilePathManager>();
 		SmartPointer<::FileHandle> fullfilenamehandle = pathManager->FindFullName(filename);
 
 		if (fullfilenamehandle->mStatus & FileHandle::Exist)
 		{
-			auto& textureManager = KigsCore::Singleton<TextureFileManager>();
+			auto textureManager = KigsCore::Singleton<TextureFileManager>();
 			ch.mThumb.mTexture = textureManager->GetTexture(filename);
 		}
 		else
