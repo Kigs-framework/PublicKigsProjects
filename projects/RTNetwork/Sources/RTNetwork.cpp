@@ -13,6 +13,7 @@
 #include "UI/UIImage.h"
 #include "AnonymousModule.h"
 #include "ModuleInput.h"
+#include "CoreItem.h"
 #include <iostream>
 #include <iomanip> 
 
@@ -119,16 +120,16 @@ void	RTNetwork::ProtectedInit()
 
 		foundBear = initP[(std::string)BearName];
 
-		if (!foundBear.isNil())
+		if (foundBear)
 		{
 			mTwitterBear.push_back("authorization: Bearer " + (std::string)foundBear);
 			
 		}
-	} while (!foundBear.isNil());
+	} while (foundBear);
 
 
 	auto SetMemberFromParam = [&](auto& x, const char* id) {
-		if (!initP[id].isNil()) x = initP[id];
+		if (initP[id]) x = initP[id];
 	};
 
 	SetMemberFromParam(mStartUserName, "UserName");
@@ -222,7 +223,7 @@ void	RTNetwork::ProtectedInit()
 	CoreItemSP currentP = TwitterAccount::loadUserID(mStartUserName);
 	mState.back() = GET_USER_DETAILS;
 
-	if (currentP.isNil()) // new user
+	if (!currentP) // new user
 	{
 		std::string url = "2/users/by/username/" + mStartUserName + "?user.fields=created_at,public_metrics,profile_image_url";
 		mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
@@ -259,8 +260,7 @@ void	RTNetwork::ProtectedUpdate()
 		{
 
 			mWaitQuota = false;
-			mAnswer->GetRef(); 
-			KigsCore::addAsyncRequest(mAnswer.get());
+			KigsCore::addAsyncRequest(mAnswer);
 			mAnswer->Init();
 			RequestLaunched(60.5);
 		}
@@ -412,7 +412,7 @@ void	RTNetwork::ProtectedUpdate()
 
 				CoreItemSP guidfile = mCurrentTreatedAccount->loadYoutubeFile(currentYTURL);
 
-				if (guidfile.isNil())
+				if (!guidfile)
 				{
 					std::string url = "/youtube/v3/videos?part=snippet&id=";
 					std::string request = url + currentYTURL + mYoutubeKey;
@@ -427,7 +427,7 @@ void	RTNetwork::ProtectedUpdate()
 					if (uname != "")
 					{
 						CoreItemSP currentUserJson = mCurrentTreatedAccount->loadUserID(uname);
-						if (currentUserJson.isNil())
+						if (!currentUserJson)
 						{
 							mCurrentTreatedAccount->mUserNameRequestList.insert(uname);
 						}
@@ -465,7 +465,7 @@ void	RTNetwork::ProtectedUpdate()
 			else
 			{
 				
-				if (mMainInterface.isNil() || mCurrentTreatedAccount->mUserStruct.mThumb.mTexture.isNil()) // wait main interface and thumb available 
+				if (!mMainInterface || !(mCurrentTreatedAccount->mUserStruct.mThumb.mTexture)) // wait main interface and thumb available 
 				{
 					break;
 				}
@@ -778,13 +778,13 @@ CoreItemSP	RTNetwork::RetrieveJSON(CoreModifiable* sender)
 			JSonFileParserUTF16 L_JsonParser;
 			CoreItemSP result = L_JsonParser.Get_JsonDictionaryFromString(utf8string);
 
-			if (!result["error"].isNil())
+			if (result["error"])
 			{
 				return nullptr;
 			}
-			if (!result["errors"].isNil())
+			if (result["errors"])
 			{
-				if (!result["errors"][0]["code"].isNil())
+				if (result["errors"][0]["code"])
 				{
 					int code = result["errors"][0]["code"];
 					mApiErrorCode = code;
@@ -902,7 +902,7 @@ DEFINE_METHOD(RTNetwork, getTweets)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 		mCurrentTreatedAccount->addTweets(json,true);
 		mState.pop_back();
@@ -930,16 +930,16 @@ DEFINE_METHOD(RTNetwork, getTweetAuthor)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 
 		CoreItemSP name = json["includes"]["users"][0]["username"];
 		CoreItemSP id = json["includes"]["users"][0]["id"];
-		if (!name.isNil() && !id.isNil())
+		if (name && id)
 		{
 			// check if user exists
 			CoreItemSP useridfile = mCurrentTreatedAccount->loadUserID(name);
-			if (useridfile.isNil())
+			if (!useridfile)
 			{
 				mCurrentTreatedAccount->saveUserID(name, id);
 			}
@@ -966,7 +966,7 @@ DEFINE_METHOD(RTNetwork, getRetweetAuthors)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 		mCurrentTreatedAccount->saveRetweeters(mCurrentTreatedAccount->mTweetToRequestList.back(), json);
 		mCurrentTreatedAccount->mTweetToRequestList.pop_back();
@@ -983,12 +983,12 @@ DEFINE_METHOD(RTNetwork, getChannelID)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 		CoreItemSP snippet = json["items"][0]["snippet"];
 
 		std::string channelID = "";
-		if (!snippet.isNil())
+		if (snippet)
 		{
 			CoreItemSP ChannelID = snippet["channelId"];
 			CoreItemSP ChannelTitle = snippet["channelTitle"];
@@ -1011,7 +1011,7 @@ DEFINE_METHOD(RTNetwork, getChannelID)
 			if (account!="")
 			{
 				CoreItemSP currentUserJson = mCurrentTreatedAccount->loadUserID(account);
-				if (currentUserJson.isNil())
+				if (!currentUserJson)
 				{
 					mCurrentTreatedAccount->mUserNameRequestList.insert(account);
 				}
@@ -1036,7 +1036,7 @@ DEFINE_METHOD(RTNetwork, getUserDetails)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 		CoreItemSP	data = json["data"];
 		CoreItemSP	public_m = data["public_metrics"];
@@ -1216,7 +1216,7 @@ void	RTNetwork::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloade
 				toFill->mThumb.mTexture = KigsCore::GetInstanceOf((std::string)toFill->mName + "tex", "Texture");
 				toFill->mThumb.mTexture->Init();
 
-				SmartPointer<TinyImage>	imgsp = OwningRawPtrToSmartPtr(img);
+				SmartPointer<TinyImage>	imgsp = img->shared_from_this();
 				toFill->mThumb.mTexture->CreateFromImage(imgsp);
 			}
 			else
@@ -1274,7 +1274,7 @@ bool		RTNetwork::LoadUserStruct(u64 id, TwitterAccount::UserStruct& ch, bool req
 
 	CoreItemSP initP = LoadJSon(filename, true);
 
-	if (initP.isNil()) // file not found, return
+	if (!initP) // file not found, return
 	{
 		return false;
 	}
@@ -1284,11 +1284,11 @@ bool		RTNetwork::LoadUserStruct(u64 id, TwitterAccount::UserStruct& ch, bool req
 	ch.mFollowingCount = initP["FollowingCount"];
 	ch.mStatuses_count = initP["StatusesCount"];
 	ch.UTCTime = initP["CreatedAt"];
-	if (!initP["ImgURL"].isNil())
+	if (initP["ImgURL"])
 	{
 		ch.mThumb.mURL = initP["ImgURL"];
 	}
-	if (requestThumb && ch.mThumb.mTexture.isNil())
+	if (requestThumb && !ch.mThumb.mTexture)
 	{
 		if (!LoadThumbnail(id, ch))
 		{
@@ -1309,7 +1309,7 @@ void		RTNetwork::loadWebToAccountFile()
 
 	CoreItemSP initP = LoadJSon(filename, false,false);
 
-	if (initP.isNil()) // file not found, return
+	if (!initP) // file not found, return
 	{
 		return;
 	}
@@ -1333,11 +1333,11 @@ void		RTNetwork::loadWebToAccountFile()
 void		RTNetwork::saveWebToAccountFile()
 {
 	JSonFileParser L_JsonParser;
-	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
+	CoreItemSP initP = MakeCoreMap();
 	
 	for (auto m : mWebToTwitterMap)
 	{
-		initP->set(m.first, CoreItemSP::getCoreValue(m.second));
+		initP->set(m.first, m.second);
 	}
 
 	std::string filename = "Cache/WebToAccount.json";
@@ -1349,16 +1349,16 @@ void		RTNetwork::SaveUserStruct(u64 id, TwitterAccount::UserStruct& ch)
 {
 
 	JSonFileParserUTF16 L_JsonParser;
-	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<usString>>();
-	initP->set("Name", CoreItemSP::getCoreValue(ch.mName));
-	initP->set("FollowersCount", CoreItemSP::getCoreValue((int)ch.mFollowersCount));
-	initP->set("FollowingCount", CoreItemSP::getCoreValue((int)ch.mFollowingCount));
-	initP->set("StatusesCount", CoreItemSP::getCoreValue((int)ch.mStatuses_count));
-	initP->set("CreatedAt", CoreItemSP::getCoreValue((std::string)ch.UTCTime));
+	CoreItemSP initP = MakeCoreMapUS();
+	initP->set("Name", ch.mName);
+	initP->set("FollowersCount", (int)ch.mFollowersCount);
+	initP->set("FollowingCount",(int)ch.mFollowingCount);
+	initP->set("StatusesCount", (int)ch.mStatuses_count);
+	initP->set("CreatedAt", ch.UTCTime);
 
 	if (ch.mThumb.mURL != "")
 	{
-		initP->set("ImgURL", CoreItemSP::getCoreValue((usString)ch.mThumb.mURL));
+		initP->set("ImgURL", (usString)ch.mThumb.mURL);
 	}
 
 	std::string folderName = GetUserFolderFromID(id);
@@ -1533,7 +1533,7 @@ void	RTNetwork::addDisplayThumb(RTNetwork::displayThumb* thmb)
 	if (thmb->mAccount->needAddToNetwork())
 	{
 		mMainInterface["background"]->addItem(thmb->mThumb);
-		ModuleInput* theInputModule = (ModuleInput*)KigsCore::GetModule("ModuleInput");
+		SP<ModuleInput> theInputModule = KigsCore::GetModule("ModuleInput");
 		theInputModule->getTouchManager()->registerEvent(thmb->mThumb.get(), "ManageClickEvent", Click, EmptyFlag);
 
 		thmb->mThumb->InsertFunction("ManageClickEvent", [thmb](ClickEvent& event) -> bool
@@ -1877,7 +1877,7 @@ void	RTNetwork::updateLinks()
 {
 	for (auto& l : mLinks)
 	{
-		if (!l.second.mDisplayedLink.isNil())
+		if (l.second.mDisplayedLink)
 		{
 
 			v2f p1 = l.second.mThumbs[0]->mPos;
@@ -1897,7 +1897,7 @@ void	RTNetwork::updateLinks()
 			float offsetxStart = l.second.mThumbs[0]->mRadius / dist;
 			float offsetxEnd = l.second.mThumbs[1]->mRadius / dist;
 
-			CoreItemSP	poly1 = CoreItemSP::getCoreVector();
+			CoreItemSP	poly1 = MakeCoreVector();
 
 			float newLength = 0.0f;
 			float newLengthMult = 0.0f;
@@ -1919,13 +1919,13 @@ void	RTNetwork::updateLinks()
 			}
 			else
 			{
-				if(!displayL["link1"].isNil())
+				if(displayL["link1"])
 					displayL->removeItem(displayL["link1"]);
 			}
 
 			poly1 = nullptr;
 
-			poly1 = CoreItemSP::getCoreVector();
+			poly1 = MakeCoreVector();
 
 
 			if ((hasRT[1] > 0.0f) || (wasRT[0] > 0.0f))
@@ -1945,7 +1945,7 @@ void	RTNetwork::updateLinks()
 			}
 			else
 			{
-				if (!displayL["link2"].isNil())
+				if (displayL["link2"])
 					displayL->removeItem(displayL["link2"]);
 			}
 

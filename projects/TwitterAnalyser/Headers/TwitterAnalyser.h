@@ -462,7 +462,6 @@ protected:
 
 	bool						mUseLikes = false;
 	bool						mDetailedLikeStats = false;
-
 	bool						mDailyAnalysis=false;
 
 	AnonymousModule* mWebScraperModule=nullptr;

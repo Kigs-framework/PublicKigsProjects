@@ -4,6 +4,7 @@
 #include <FilePathManager.h>
 #include <NotificationCenter.h>
 #include "HTTPRequestModule.h"
+#include "CoreItem.h"
 #include "JSonFileParser.h"
 #include "TinyImage.h"
 #include "JPEGClass.h"
@@ -121,11 +122,10 @@ void	TwitterAnalyser::ReadScripts()
 {
 
 	u64 length;
-	CoreRawBuffer* rawbuffer = ModuleFileManager::LoadFileAsCharString("WalkerScript.txt", length, 1);
+	SP<CoreRawBuffer> rawbuffer = ModuleFileManager::LoadFileAsCharString("WalkerScript.txt", length, 1);
 	if (rawbuffer)
 	{
 		mWalkInitScript = (const char*)rawbuffer->buffer();
-		rawbuffer->Destroy();
 		rawbuffer = nullptr;
 	}
 
@@ -133,7 +133,6 @@ void	TwitterAnalyser::ReadScripts()
 	if (rawbuffer)
 	{
 		mCallWalkScript = (const char*)rawbuffer->buffer();
-		rawbuffer->Destroy();
 		rawbuffer = nullptr;
 	}
 
@@ -182,16 +181,16 @@ void	TwitterAnalyser::ProtectedInit()
 
 		foundBear = initP[(std::string)BearName];
 
-		if (!foundBear.isNil())
+		if (foundBear)
 		{
 			mTwitterBear.push_back("authorization: Bearer " + (std::string)foundBear);
 			
 		}
-	} while (!foundBear.isNil());
+	} while (foundBear);
 
 
 	auto SetMemberFromParam = [&](auto& x, const char* id) {
-		if (!initP[id].isNil()) x = initP[id];
+		if (initP[id]) x = initP[id].value<std::remove_reference<decltype(x)>::type>();
 	};
 
 	SetMemberFromParam(mUserName, "UserName");
@@ -288,14 +287,12 @@ void	TwitterAnalyser::ProtectedInit()
 		currentUserProgress += "HashTag/";
 		currentUserProgress += getHashtagFilename() + ".json";
 		CoreItemSP currentP = LoadJSon(currentUserProgress);
-		if (currentP.isNil()) // new hashtag
+		if (!currentP) // new hashtag
 		{
 
 			JSonFileParser L_JsonParser;
-			CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
-			CoreItemSP idP = CoreItemSP::getCoreItemOfType<CoreValue<std::string>>();
-			idP = mHashTag;
-			initP->set("hashtag", idP);
+			CoreItemSP initP = MakeCoreMap();
+			initP->set("hashtag", mHashTag);
 			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), currentUserProgress);
 
 			std::string url = "1.1/search/tweets.json?q=" + mHashTag + "&count=100&include_entities=false&result_type=mixed";
@@ -331,7 +328,7 @@ void	TwitterAnalyser::ProtectedInit()
 				}
 			}
 
-			if (!currentP["next-cursor"].isNil())
+			if (currentP["next-cursor"])
 			{
 				mFollowersNextCursor = currentP["next-cursor"];
 			}
@@ -361,7 +358,7 @@ void	TwitterAnalyser::ProtectedInit()
 		currentUserProgress += mUserName + ".json";
 		CoreItemSP currentP = LoadJSon(currentUserProgress);
 
-		if (currentP.isNil()) // new user
+		if (!currentP) // new user
 		{
 #ifdef LOG_ALL
 			writelog("new user : request details");
@@ -388,7 +385,7 @@ void	TwitterAnalyser::ProtectedInit()
 			filename += mUserName + ".json";
 			CoreItemSP currentUserJson = LoadJSon(filename);
 
-			if (!currentUserJson["next-cursor"].isNil())
+			if (currentUserJson["next-cursor"])
 			{
 				mFollowersNextCursor = currentUserJson["next-cursor"];
 			}
@@ -425,8 +422,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 #endif
 
 			mWaitQuota = false;
-			mAnswer->GetRef(); 
-			KigsCore::addAsyncRequest(mAnswer.get());
+			KigsCore::addAsyncRequest(mAnswer);
 			mAnswer->Init();
 			RequestLaunched(60.5);
 		}
@@ -565,7 +561,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 				}
 
 				CoreItemSP likers = LoadLikersFile(tweetID, username);
-				if (!likers.isNil())
+				if (likers)
 				{
 					mTweetLikers.clear();
 					mCurrentTreatedLikerIndex = 0;
@@ -610,7 +606,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 					currentUserProgress += "HashTag/";
 					currentUserProgress += getHashtagFilename() + ".json";
 					CoreItemSP currentP = LoadJSon(currentUserProgress);
-					if (!currentP["next-cursor"].isNil())
+					if (currentP["next-cursor"])
 					{
 						mFollowersNextCursor = currentP["next-cursor"];
 					}
@@ -738,7 +734,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			CoreItemSP currentNextCursor = LoadJSon(filename);
 			bool needRequest = false;
 			std::string nextCursor = "-1";
-			if (currentNextCursor.isNil())
+			if (!currentNextCursor)
 			{
 				needRequest = true;
 			}
@@ -862,7 +858,7 @@ void	TwitterAnalyser::ProtectedUpdate()
 			{
 				std::string filename = "Cache/Tweets/" + user.substr(0, 4) + "/" + user + ".json";
 				CoreItemSP currentUserJson = LoadJSon(filename);
-				if (currentUserJson.isNil())
+				if (!currentUserJson)
 				{
 					if (CanLaunchRequest())
 					{
@@ -1156,13 +1152,13 @@ CoreItemSP	TwitterAnalyser::RetrieveJSON(CoreModifiable* sender)
 			JSonFileParserUTF16 L_JsonParser;
 			CoreItemSP result = L_JsonParser.Get_JsonDictionaryFromString(utf8string);
 
-			if (!result["error"].isNil())
+			if (result["error"])
 			{
 				return nullptr;
 			}
-			if (!result["errors"].isNil())
+			if (result["errors"])
 			{
-				if (!result["errors"][0]["code"].isNil())
+				if (result["errors"][0]["code"])
 				{
 					int code = result["errors"][0]["code"];
 					mApiErrorCode = code;
@@ -1282,7 +1278,7 @@ DEFINE_METHOD(TwitterAnalyser, getFollowers)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 		CoreItemSP followersArray = json["ids"];
 		unsigned int idcount=followersArray->size();
@@ -1327,7 +1323,7 @@ DEFINE_METHOD(TwitterAnalyser, getFavorites)
 
 	std::string user = mTweetLikers[mCurrentTreatedLikerIndex];
 
-	if (!json.isNil())
+	if (json)
 	{
 		std::vector<favoriteStruct>& currentFavorites = mFavorites[user];
 
@@ -1363,7 +1359,7 @@ DEFINE_METHOD(TwitterAnalyser, getTweets)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 		std::vector<Twts> retrievedTweets;
 		CoreItemSP tweetsArray = json["data"];
@@ -1387,9 +1383,9 @@ DEFINE_METHOD(TwitterAnalyser, getTweets)
 		std::string nextStr = "-1";
 
 		CoreItemSP meta = json["meta"];
-		if (!meta.isNil())
+		if (meta)
 		{
-			if (!meta["next_token"].isNil())
+			if (meta["next_token"])
 			{
 				nextStr = meta["next_token"];
 				if (nextStr == "0")
@@ -1426,7 +1422,7 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 
 		u64 currentID=sender->getValue<u64>("UserID");
@@ -1446,7 +1442,7 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 		std::string stringID = GetIDString(currentID);
 		std::string filename = "Cache/Users/" + GetUserFolderFromID(currentID) + "/" + stringID + "_nc.json";
 
-		CoreItemSP currentP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
+		CoreItemSP currentP = MakeCoreMap();
 		std::string nextStr = json["next_cursor_str"];
 
 		// limit following count to last 20000
@@ -1479,7 +1475,7 @@ DEFINE_METHOD(TwitterAnalyser, getFollowing)
 			std::string stringID = GetIDString(currentID);
 			std::string filename = "Cache/Users/" + GetUserFolderFromID(currentID) + "/" + stringID + "_nc.json";
 
-			CoreItemSP currentP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
+			CoreItemSP currentP = MakeCoreMap();
 
 			std::string nextStr = "-1";
 			currentP->set("next-cursor", nextStr);
@@ -1504,7 +1500,7 @@ DEFINE_METHOD(TwitterAnalyser, getHashTagsTweets)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 		CoreItemSP tweetsArray = json["statuses"];
 		unsigned int idcount = tweetsArray->size();
@@ -1549,7 +1545,7 @@ DEFINE_METHOD(TwitterAnalyser, getHashTagsTweets)
 
 		std::string nextStr = "-1";
 
-		if(!json["search_metadata"]["next_results"].isNil())
+		if(json["search_metadata"]["next_results"])
 			nextStr=json["search_metadata"]["next_results"];
 
 		if (nextStr == "0")
@@ -1577,7 +1573,7 @@ DEFINE_METHOD(TwitterAnalyser, getHashTagsTweets)
 
 		if (mTweetsPosters.size())
 		{
-			CoreItemSP posters = CoreItemSP::getCoreVector();
+			CoreItemSP posters = MakeCoreVector();
 			currentUserJson->set("Posters", posters);
 			for (const auto& p : mTweetsPosters)
 			{
@@ -1595,7 +1591,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 {
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 		CoreItemSP	data = json["data"];
 		CoreItemSP	public_m = data["public_metrics"];
@@ -1613,10 +1609,8 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		if (mState == WAIT_USER_ID)
 		{
 			JSonFileParser L_JsonParser;
-			CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
-			CoreItemSP idP = CoreItemSP::getCoreItemOfType<CoreValue<u64>>();
-			idP = currentID;
-			initP->set("id", idP);
+			CoreItemSP initP = MakeCoreMap();
+			initP->set("id", currentID);
 			std::string user= data["username"];
 			std::string filename = "Cache/Tweets/" + user.substr(0, 4) + "/" + user + ".json";
 			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
@@ -1656,10 +1650,8 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		{
 			// save user
 			JSonFileParser L_JsonParser;
-			CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
-			CoreItemSP idP = CoreItemSP::getCoreItemOfType<CoreValue<u64>>();
-			idP = mUserID;
-			initP->set("id", idP);
+			CoreItemSP initP = MakeCoreMap();
+			initP->set("id", mUserID);
 			std::string filename = "Cache/UserName/";
 			filename += mUserName + ".json";
 			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
@@ -1830,7 +1822,7 @@ void	TwitterAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 				toFill->mThumb.mTexture = KigsCore::GetInstanceOf((std::string)toFill->mName + "tex", "Texture");
 				toFill->mThumb.mTexture->Init();
 
-				SmartPointer<TinyImage>	imgsp = OwningRawPtrToSmartPtr(img);
+				SmartPointer<TinyImage>	imgsp = img->shared_from_this();
 				toFill->mThumb.mTexture->CreateFromImage(imgsp);
 
 			}
@@ -1901,7 +1893,7 @@ bool		TwitterAnalyser::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
 
 	CoreItemSP initP = LoadJSon(filename, true);
 
-	if (initP.isNil()) // file not found, return
+	if (!initP) // file not found, return
 	{
 		return false;
 	}
@@ -1913,7 +1905,7 @@ bool		TwitterAnalyser::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
 	ch.mFollowingCount = initP["FollowingCount"];
 	ch.mStatuses_count = initP["StatusesCount"];
 	ch.UTCTime = initP["CreatedAt"];
-	if (!initP["ImgURL"].isNil())
+	if (initP["ImgURL"])
 	{
 		ch.mThumb.mURL = initP["ImgURL"];
 	}
@@ -1937,16 +1929,16 @@ void		TwitterAnalyser::SaveUserStruct(u64 id, UserStruct& ch)
 #endif
 
 	JSonFileParserUTF16 L_JsonParser;
-	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<usString>>();
-	initP->set("Name", CoreItemSP::getCoreValue(ch.mName));
-	initP->set("FollowersCount", CoreItemSP::getCoreValue((int)ch.mFollowersCount));
-	initP->set("FollowingCount", CoreItemSP::getCoreValue((int)ch.mFollowingCount));
-	initP->set("StatusesCount", CoreItemSP::getCoreValue((int)ch.mStatuses_count));
-	initP->set("CreatedAt", CoreItemSP::getCoreValue((std::string)ch.UTCTime));
+	CoreItemSP initP = MakeCoreMapUS();
+	initP->set("Name", ch.mName);
+	initP->set("FollowersCount", (int)ch.mFollowersCount);
+	initP->set("FollowingCount", (int)ch.mFollowingCount);
+	initP->set("StatusesCount", (int)ch.mStatuses_count);
+	initP->set("CreatedAt", ch.UTCTime);
 
 	if (ch.mThumb.mURL != "")
 	{
-		initP->set("ImgURL", CoreItemSP::getCoreValue((usString)ch.mThumb.mURL));
+		initP->set("ImgURL", (usString)ch.mThumb.mURL);
 	}
 
 	std::string folderName = GetUserFolderFromID(id);
@@ -2729,7 +2721,7 @@ void		TwitterAnalyser::SaveLikersFile(u64 tweetid, const std::string& username)
 	// likers are stored in unused mFollowers (when in UseLikes mode)
 	std::string filename = "Cache/Tweets/" + username + "/" + GetIDString(tweetid) + ".json";
 
-	CoreItemSP likers = CoreItemSP::getCoreVector();
+	CoreItemSP likers = MakeCoreVector();
 	for (const auto& l : mTweetLikers)
 	{
 		likers->set("", l);

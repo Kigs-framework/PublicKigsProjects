@@ -21,16 +21,16 @@ bool	TwitterAccount::needMoreTweets()
 {
 	
 	CoreItemSP tweets = loadTweetsFile();
-	if (tweets.isNil())
+	if (!tweets)
 	{
 		return true;
 	}
 	else
 	{
 		CoreItemSP meta = tweets["meta"];
-		if (!meta.isNil())
+		if (meta)
 		{
-			if (!meta["next_token"].isNil())
+			if (meta["next_token"])
 			{
 				mNextTweetsToken = meta["next_token"];
 				return true;
@@ -60,7 +60,7 @@ void		TwitterAccount::updateTweetList(CoreItemSP currentTwt)
 	bool searchHttps = true;
 
 	CoreItemSP refs = currentTwt["referenced_tweets"];
-	if (!refs.isNil())
+	if (refs)
 	{
 		needAdd = false;
 		for (auto r : refs)
@@ -112,7 +112,7 @@ void		TwitterAccount::updateTweetList(CoreItemSP currentTwt)
 
 	if (searchHttps)
 	{
-		if (currentTwt["attachments"].isNil()) // it's not an attachement (gif, image...)
+		if (!currentTwt["attachments"]) // it's not an attachement (gif, image...)
 		{
 			size_t pos = txt.find("https://t.co/"); // a link was found
 
@@ -167,9 +167,8 @@ void		TwitterAccount::saveURL(const std::string& shortURL, const std::string& fu
 {
 	std::string filename = "Cache/EncodedURL/" + shortURL.substr(0, 4) + "/" + shortURL + ".json";
 
-	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
-	CoreItemSP decoded = CoreItemSP::getCoreItemOfType<CoreValue<std::string>>();
-	decoded = fullURL;
+	CoreItemSP initP = MakeCoreMap();
+	CoreItemSP decoded = fullURL;
 	initP->set("URL", decoded);
 	RTNetwork::SaveJSon(filename, initP, false);
 }
@@ -184,9 +183,8 @@ void			TwitterAccount::saveYoutubeFile(const std::string& videoID, const std::st
 {
 	std::string filename = "Cache/YTVideoID/" + videoID.substr(0, 4) + "/" + videoID + ".json";
 
-	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
-	CoreItemSP channel = CoreItemSP::getCoreItemOfType<CoreValue<std::string>>();
-	channel = channelID;
+	CoreItemSP initP = MakeCoreMap();
+	CoreItemSP channel = channelID;
 	initP->set("GUID", channel);
 	RTNetwork::SaveJSon(filename, initP, false);
 }
@@ -201,9 +199,8 @@ void		TwitterAccount::saveUserID(const std::string& uname, u64 id)
 {
 	std::string filename = "Cache/Tweets/" + uname.substr(0, 4) + "/" + uname + ".json";
 
-	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
-	CoreItemSP idP = CoreItemSP::getCoreItemOfType<CoreValue<u64>>();
-	idP = id;
+	CoreItemSP initP = MakeCoreMap();
+	CoreItemSP idP = id;
 	initP->set("id", idP);
 	RTNetwork::SaveJSon(filename, initP, false);
 }
@@ -236,8 +233,8 @@ CoreItemSP	TwitterAccount::loadTweetUserFile(u64 twtid)
 void		TwitterAccount::saveTweetUserFile(u64 twtid, const std::string& username)
 {
 	
-	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<std::string>>();
-	initP->set("Name", CoreItemSP::getCoreValue(username));
+	CoreItemSP initP = MakeCoreMap();
+	initP->set("Name", username);
 	
 	std::string folderName = RTNetwork::GetUserFolderFromID(twtid);
 
@@ -265,7 +262,7 @@ void		TwitterAccount::updateEmbeddedURLList()
 			{
 				CoreItemSP urlfile = loadURL(url);
 
-				if (urlfile.isNil()) // file is not available
+				if (!urlfile) // file is not available
 				{
 					if (alreadyAsked.find(url) == alreadyAsked.end())
 					{
@@ -289,7 +286,7 @@ void		TwitterAccount::updateTweetRequestList()
 			{
 				CoreItemSP user = loadTweetUserFile(u.first); 
 
-				if (user.isNil()) // and file is not available
+				if (!user) // and file is not available
 				{
 					if (alreadyAsked.find(u.first) == alreadyAsked.end())
 					{
@@ -316,7 +313,7 @@ void		TwitterAccount::updateRetweeterList()
 			{
 				CoreItemSP users = loadRetweeters(t.mID); 
 
-				if (users.isNil()) // and file is not available
+				if (!users) // and file is not available
 				{
 					if (alreadyAsked.find(t.mID) == alreadyAsked.end())
 					{
@@ -339,7 +336,7 @@ void		TwitterAccount::updateUserNameRequest()
 		if (t.mRTedUser.length()) // user name found
 		{
 			CoreItemSP currentUserJson = loadUserID(t.mRTedUser);
-			if (currentUserJson.isNil())
+			if (!currentUserJson)
 			{
 				mUserNameRequestList.insert(t.mRTedUser);
 			}
@@ -353,13 +350,13 @@ void		TwitterAccount::updateUserNameRequest()
 			for (const auto& u : t.mReferences) // quoted
 			{
 				CoreItemSP user = loadTweetUserFile(u.first);
-				if (!user.isNil())
+				if (user)
 				{
 					std::string uname = user["Name"];
 					if (uname != "")
 					{
 						CoreItemSP currentUserJson = loadUserID(uname);
-						if (currentUserJson.isNil())
+						if (!currentUserJson)
 						{
 							mUserNameRequestList.insert(uname);
 						}
@@ -376,7 +373,7 @@ void		TwitterAccount::updateUserNameRequest()
 			for (auto& url : t.mURLs)
 			{
 				CoreItemSP urlfile = loadURL(url);
-				if (!urlfile.isNil())
+				if (urlfile)
 				{
 					std::string wurl = urlfile["URL"];
 					std::string uname = mSettings->getTwitterAccountForURL(wurl);
@@ -397,7 +394,7 @@ void		TwitterAccount::updateUserNameRequest()
 						else
 						{
 							CoreItemSP currentUserJson = loadUserID(uname);
-							if (currentUserJson.isNil())
+							if (!currentUserJson)
 							{
 								mUserNameRequestList.insert(uname);
 							}
@@ -421,7 +418,7 @@ void		TwitterAccount::addTweets(CoreItemSP json,bool addtofile)
 		fromfile=loadTweetsFile();
 
 	CoreItemSP tweetsArray = json["data"];
-	if (!tweetsArray.isNil())
+	if (tweetsArray)
 	{
 		unsigned int tweetcount = tweetsArray->size();
 		for (unsigned int i = 0; i < tweetcount; i++)
@@ -429,7 +426,7 @@ void		TwitterAccount::addTweets(CoreItemSP json,bool addtofile)
 			CoreItemSP currentTwt = tweetsArray[i];
 
 			// add tweet to previous file
-			if (!fromfile.isNil() && addtofile)
+			if (fromfile && addtofile)
 				fromfile["data"]->set("", currentTwt);
 
 			if (!addtofile)
@@ -439,24 +436,24 @@ void		TwitterAccount::addTweets(CoreItemSP json,bool addtofile)
 	}
 
 
-	if (!fromfile.isNil() && addtofile)
+	if (fromfile && addtofile)
 	{
 
-		if (fromfile["includes"].isNil())
+		if (!fromfile["includes"])
 		{
-			fromfile->set("includes", CoreItemSP::getCoreMap());
+			fromfile->set("includes", MakeCoreMap());
 		}
 
-		if (fromfile["includes"]["media"].isNil())
+		if (!fromfile["includes"]["media"])
 		{
-			fromfile["includes"]->set("media", CoreItemSP::getCoreVector());
+			fromfile["includes"]->set("media", MakeCoreVector());
 		}
 
 		CoreItemSP addTo = fromfile["includes"]["media"];
 
 		// add includes
 		CoreItemSP includesMediaArray = json["includes"]["media"];
-		if (!includesMediaArray.isNil())
+		if (includesMediaArray)
 		{
 			unsigned int mediacount = includesMediaArray->size();
 			for (unsigned int i = 0; i < mediacount; i++)
@@ -471,9 +468,9 @@ void		TwitterAccount::addTweets(CoreItemSP json,bool addtofile)
 	std::string nextStr = "-1";
 
 	CoreItemSP meta = json["meta"];
-	if (!meta.isNil())
+	if (meta)
 	{
-		if (!meta["next_token"].isNil())
+		if (meta["next_token"])
 		{
 			nextStr = meta["next_token"];
 			if (nextStr == "0")
@@ -483,7 +480,7 @@ void		TwitterAccount::addTweets(CoreItemSP json,bool addtofile)
 		}
 	}
 
-	if (!fromfile.isNil() && addtofile)
+	if (fromfile && addtofile)
 	{
 		fromfile->set("meta",meta);
 	}
@@ -636,7 +633,7 @@ void		TwitterAccount::updateStats()
 				for (auto url : t.mURLs)
 				{
 					CoreItemSP urlfile = loadURL(url);
-					if (!urlfile.isNil())
+					if (urlfile)
 					{
 						std::string wurl = urlfile["URL"];
 						std::string uname = mSettings->getTwitterAccountForURL(wurl);
@@ -646,7 +643,7 @@ void		TwitterAccount::updateStats()
 							{
 								CoreItemSP YTfile = loadYoutubeFile(uname.substr(3));
 
-								if (YTfile.isNil())
+								if (!YTfile)
 								{
 									KIGS_ERROR("should not be here", 2);
 								}
@@ -710,7 +707,7 @@ void		TwitterAccount::updateStats()
 			{
 				CoreItemSP user = loadTweetUserFile(u.first);
 
-				if (user.isNil() || user["Name"].isNil()) // and file is not available
+				if (!user || !user["Name"]) // and file is not available
 				{
 					KIGS_ERROR("should not be here", 2);
 				}

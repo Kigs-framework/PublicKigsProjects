@@ -48,7 +48,7 @@ void	boules::ProtectedUpdate()
 {
 	DataDrivenBaseApplication::ProtectedUpdate();
 
-	if (!mMainInterface.isNil())
+	if (mMainInterface)
 	{
 		if (mFirstTime < 0.0) // if first time here, init mFirstTime
 		{
@@ -248,7 +248,7 @@ void	boules::ProtectedInitSequence(const kstl::string& sequence)
 	if (sequence == "sequencemain")
 	{
 		mMainInterface = GetFirstInstanceByName("UIItem", "Interface");
-		if (!mMainInterface.isNil())
+		if (mMainInterface)
 		{
 			// set display for each ball
 			int ballindex = 0;

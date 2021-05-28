@@ -83,7 +83,7 @@ void	YoutubeAnalyser::ProtectedInit()
 	mChannelName = initP["ChannelID"];
 
 	auto SetMemberFromParam = [&](auto& x, const char* id) {
-		if (!initP[id].isNil()) x = initP[id];
+		if (initP[id]) x = initP[id].value<std::remove_reference<decltype(x)>::type>();
 	};
 
 	SetMemberFromParam(mSubscribedUserCount, "ValidUserCount");
@@ -115,7 +115,7 @@ void	YoutubeAnalyser::ProtectedInit()
 	currentChannelProgress += mChannelName + ".json";
 	CoreItemSP currentP = LoadJSon(currentChannelProgress);
 
-	if (currentP.isNil()) // new channel, launch getChannelID
+	if (!currentP) // new channel, launch getChannelID
 	{
 		std::string url = "/youtube/v3/channels?part=snippet,statistics&id=";
 		std::string request = url + mChannelName + mKey;
@@ -214,15 +214,15 @@ void	YoutubeAnalyser::ProtectedUpdate()
 		CoreItemSP initP = LoadJSon(filename);
 		// need to get more videos than the ones already retrieved ?
 		std::string nextPageToken;
-		if (needMoreData && (!initP.isNil()))
+		if (needMoreData && initP)
 		{
-			if (!initP["nextPageToken"].isNil())
+			if (initP["nextPageToken"])
 			{
 				nextPageToken = "&pageToken=" + (std::string)initP["nextPageToken"];
 			}
 		}
 
-		if (initP.isNil() || (nextPageToken!=""))
+		if (!initP || (nextPageToken!=""))
 		{
 			// get latest video list
 			// GET https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={CHANNEL_ID}&maxResults=10&order=date&type=video&key={YOUR_API_KEY}
@@ -253,7 +253,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 		{
 			CoreItemSP videoList = initP["videos"];
 			CoreItemSP videotitles = initP["videosTitles"];
-			if (!videoList.isNil())
+			if (videoList)
 			{
 				mVideoListToProcess.clear();
 				for (int i = 0; i < videoList->size(); i++)
@@ -302,9 +302,9 @@ void	YoutubeAnalyser::ProtectedUpdate()
 
 			// check if we can retrieve more comments from the same video
 			std::string nextPageToken;
-			if (needMoreData && (!initP.isNil()))
+			if (needMoreData && initP)
 			{
-				if (!initP["nextPageToken"].isNil())
+				if (initP["nextPageToken"])
 				{
 					nextPageToken = "&pageToken=" + (std::string)initP["nextPageToken"];
 				}
@@ -319,7 +319,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			}			
 
 			// request new comments
-			if (initP.isNil() || nextPageToken!="")
+			if (!initP || nextPageToken!="")
 			{
 				std::string url = "/youtube/v3/commentThreads?part=snippet%2Creplies&videoId=";
 				std::string request = url + videoID + mKey + nextPageToken +  "&maxResults=50&order=time";
@@ -334,7 +334,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 				mParsedComments += (int)initP["ParsedComments"];
 				
 				CoreItemSP authorList = initP["authors"];
-				if (!authorList.isNil())
+				if (authorList)
 				{
 					for (int i = 0; i < authorList->size(); i++)
 					{
@@ -405,7 +405,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 				CoreItemSP initP = LoadJSon(filename);
 
 				// we don't know this writer, retrieve its subscription
-				if (initP.isNil())
+				if (!initP)
 				{
 					std::string url = "/youtube/v3/subscriptions?part=snippet%2CcontentDetails&channelId=";
 					std::string request = url + mCurrentProcessedUser + mKey + "&maxResults=50";
@@ -420,7 +420,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 					CoreItemSP channels = initP["channels"];
 					mCurrentUser.mHasSubscribed = false;
 					mCurrentUser.mPublicChannels.clear();
-					if (!channels.isNil())
+					if (channels)
 					{
 						myPublicWriters++;
 						for (int i = 0; i < channels->size(); i++)
@@ -1503,7 +1503,7 @@ CoreItemSP	YoutubeAnalyser::RetrieveJSON(CoreModifiable* sender)
 			JSonFileParserUTF16 L_JsonParser;
 			CoreItemSP result = L_JsonParser.Get_JsonDictionaryFromString(utf8string);
 
-			if (!result["error"].isNil())
+			if (result["error"])
 			{
 				std::string reason = result["error"]["errors"][0]["reason"];
 				int code = result["error"]["code"];
@@ -1600,7 +1600,7 @@ void	YoutubeAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 				toFill->mThumb.mTexture = KigsCore::GetInstanceOf((std::string)toFill->mName + "tex", "Texture");
 				toFill->mThumb.mTexture->Init();
 
-				SmartPointer<TinyImage>	imgsp = OwningRawPtrToSmartPtr(img);
+				SmartPointer<TinyImage>	imgsp = img->shared_from_this();
 				toFill->mThumb.mTexture->CreateFromImage(imgsp);
 			}
 		}
@@ -1616,11 +1616,11 @@ DEFINE_METHOD(YoutubeAnalyser, getChannelID)
 {
 	auto json=RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
 		CoreItemSP IDItem = json["items"][0]["id"];
 
-		if (!IDItem.isNil())
+		if (IDItem)
 		{
 			ChannelStruct* currentChan = nullptr;
 			bool isMainChannel=false;
@@ -1633,8 +1633,8 @@ DEFINE_METHOD(YoutubeAnalyser, getChannelID)
 				// save channel id
 				{
 					JSonFileParser L_JsonParser;
-					CoreItemSP initP = CoreItemSP::getCoreMap();
-					initP->set("channelID", CoreItemSP::getCoreValue(mChannelID));
+					CoreItemSP initP = MakeCoreMap();
+					initP->set("channelID", mChannelID);
 
 					std::string filename = "Cache/" + mChannelName + "/";
 					filename += mChannelName + ".json";
@@ -1682,23 +1682,23 @@ DEFINE_METHOD(YoutubeAnalyser, getChannelStats)
 	}
 	auto json = RetrieveJSON(sender);
 
-	if (!json.isNil())
+	if (json)
 	{
-		if (!json["items"][0]["id"].isNil())
+		if (json["items"][0]["id"])
 		{
 			std::string id = json["items"][0]["id"];
 
 			ChannelStruct* current = mFoundChannels[id];
 
 			CoreItemSP infos = json["items"][0]["snippet"];
-			if (!infos.isNil())
+			if (infos)
 			{
 				current->mName = infos["title"];
 				current->mThumb.mURL = infos["thumbnails"]["default"]["url"];
 			}
 			current->mTotalSubscribers = 0;
 			CoreItemSP subscount = json["items"][0]["statistics"]["subscriberCount"];
-			if (!subscount.isNil())
+			if (subscount)
 			{
 				current->mTotalSubscribers = subscount;
 			}
@@ -1741,14 +1741,14 @@ void		YoutubeAnalyser::SaveAuthorList(const std::string& nextPage,const std::str
 	CoreItemSP initP = LoadJSon(filename);
 
 
-	if (initP.isNil())
+	if (!initP)
 	{
-		initP = CoreItemSP::getCoreMap();
+		initP = MakeCoreMap();
 	}
 
 	if (nextPage != "")
 	{
-		initP->set("nextPageToken", CoreItemSP::getCoreValue(nextPage));
+		initP->set("nextPageToken", nextPage);
 	}
 	else
 	{
@@ -1756,23 +1756,23 @@ void		YoutubeAnalyser::SaveAuthorList(const std::string& nextPage,const std::str
 	}
 
 	CoreItemSP v = initP["authors"];
-	if (v.isNil())
+	if (!v)
 	{
-		v = CoreItemSP::getCoreVector();
+		v = MakeCoreVector();
 	}
 
 	// add new authors
 	for (const auto& auth : mAuthorListToProcess)
 	{
-		v->set("", CoreItemSP::getCoreValue(auth));
+		v->set("", auth);
 	}
 
 	initP->set("authors", v);
 	
 	CoreItemSP parsedComments = initP["ParsedComments"];
-	if (parsedComments.isNil())
+	if (!parsedComments)
 	{
-		parsedComments = CoreItemSP::getCoreValue(0);
+		parsedComments = 0;
 	}
 	parsedComments = ((int)parsedComments) + localParsedComments;
 	
@@ -1790,29 +1790,29 @@ void YoutubeAnalyser::SaveVideoList(const std::string& nextPage)
 
 	CoreItemSP initP = LoadJSon(filename);
 
-	if (initP.isNil())
+	if (!initP)
 	{
-		initP = CoreItemSP::getCoreMap();
+		initP = MakeCoreMap();
 	}
 
 	if (nextPage != "")
 	{
-		initP->set("nextPageToken", CoreItemSP::getCoreValue(nextPage));
+		initP->set("nextPageToken", nextPage);
 	}
 	else
 	{
 		initP->erase("nextPageToken");
 	}
 
-	CoreItemSP v = CoreItemSP::getCoreVector();
+	CoreItemSP v = MakeCoreVector();
 	// titles
-	CoreItemSP nv = CoreItemSP::getCoreVector();
+	CoreItemSP nv = MakeCoreVector();
 
 	// mVideoListToProcess is never reset, so just write the full list
 	for (const auto& vid : mVideoListToProcess)
 	{
-		v->set("", CoreItemSP::getCoreValue(vid.first));
-		nv->set("", CoreItemSP::getCoreValue(vid.second));
+		v->set("", vid.first);
+		nv->set("", vid.second);
 	}
 
 	initP->set("videos", v);
@@ -1825,22 +1825,22 @@ void YoutubeAnalyser::SaveVideoList(const std::string& nextPage)
 void		YoutubeAnalyser::SaveAuthor(const std::string& id)
 {
 	JSonFileParser L_JsonParser;
-	CoreItemSP initP = CoreItemSP::getCoreMap();
+	CoreItemSP initP = MakeCoreMap();
 
 	auto it = mFoundUsers.find(id);
 	if (it != mFoundUsers.end())
 	{
 		UserStruct& currentUser = (*it).second;
-		CoreItemSP channelList = CoreItemSP::getCoreVector();
+		CoreItemSP channelList = MakeCoreVector();
 
 		for (const auto& c : currentUser.mPublicChannels)
 		{
-			channelList->set("", CoreItemSP::getCoreValue(c));
+			channelList->set("", c);
 		}
 
 		if (currentUser.mHasSubscribed)
 		{
-			channelList->set("", CoreItemSP::getCoreValue(mChannelID));
+			channelList->set("", mChannelID);
 		}
 			
 		if(channelList->size())
@@ -1859,12 +1859,12 @@ void		YoutubeAnalyser::SaveAuthor(const std::string& id)
 void		YoutubeAnalyser::SaveChannelStruct(const std::string& id, const ChannelStruct& ch)
 {
 	JSonFileParserUTF16 L_JsonParser;
-	CoreItemSP initP = CoreItemSP::getCoreItemOfType<CoreMap<usString>>();
-	initP->set("Name",CoreItemSP::getCoreValue(ch.mName));
-	initP->set("TotalSubscribers", CoreItemSP::getCoreValue((int)ch.mTotalSubscribers));
+	CoreItemSP initP = MakeCoreMapUS();
+	initP->set("Name",ch.mName);
+	initP->set("TotalSubscribers", (int)ch.mTotalSubscribers);
 	if(ch.mThumb.mURL != "")
 	{
-		initP->set("ImgURL", CoreItemSP::getCoreValue((usString)ch.mThumb.mURL));
+		initP->set("ImgURL", (usString)ch.mThumb.mURL);
 	}
 
 	std::string folderName = id.substr(0, 4);
@@ -1888,14 +1888,14 @@ bool		YoutubeAnalyser::LoadChannelStruct(const std::string& id, ChannelStruct& c
 
 	CoreItemSP initP = LoadJSon(filename,true);
 
-	if (initP.isNil()) // file not found, return
+	if (!initP) // file not found, return
 	{
 		return false;
 	}
 	
 	ch.mName = initP["Name"];
 	ch.mTotalSubscribers = initP["TotalSubscribers"];
-	if (!initP["ImgURL"].isNil())
+	if (initP["ImgURL"])
 	{
 		ch.mThumb.mURL = initP["ImgURL"];
 	}
@@ -1933,28 +1933,28 @@ DEFINE_METHOD(YoutubeAnalyser, getVideoList)
 
 	std::string nextPageToken;
 
-	if (!json.isNil())
+	if (json)
 	{
-		if (!json["nextPageToken"].isNil())
+		if (json["nextPageToken"])
 		{
 			nextPageToken = json["nextPageToken"];
 		}
 
 		CoreItemSP videoList = json["items"];
 
-		if (!videoList.isNil())
+		if (videoList)
 		{
 			if (videoList->size())
 			{
 				for (int i = 0; i < videoList->size(); i++)
 				{
 					CoreItemSP video = videoList[i];
-					if (!video["id"]["kind"].isNil())
+					if (video["id"]["kind"])
 					{
 						std::string kind = video["id"]["kind"];
 						if (kind == "youtube#video")
 						{
-							if (!video["id"]["videoId"].isNil())
+							if (video["id"]["videoId"])
 							{
 
 								std::string cid = video["snippet"]["channelId"];
@@ -1990,9 +1990,9 @@ DEFINE_METHOD(YoutubeAnalyser, getCommentList)
 	auto json = RetrieveJSON(sender);
 	std::string nextPageToken;
 
-	if (!json.isNil())
+	if (json)
 	{
-		if (!json["nextPageToken"].isNil())
+		if (json["nextPageToken"])
 		{
 			nextPageToken = json["nextPageToken"];
 		}
@@ -2000,19 +2000,19 @@ DEFINE_METHOD(YoutubeAnalyser, getCommentList)
 
 		unsigned int localParsedComments=0;
 
-		if (!commentThreads.isNil())
+		if (commentThreads)
 		{
 			if (commentThreads->size())
 			{
 				for (int i = 0; i < commentThreads->size(); i++)
 				{
 					CoreItemSP topComment = commentThreads[i]["snippet"]["topLevelComment"]["snippet"];
-					if (!topComment.isNil())
+					if (topComment)
 					{
 						localParsedComments++;
 					
 						CoreItemSP authorChannelID = topComment["authorChannelId"]["value"];
-						if (!authorChannelID.isNil())
+						if (authorChannelID)
 						{
 							std::string authorID = authorChannelID;
 
@@ -2033,11 +2033,11 @@ DEFINE_METHOD(YoutubeAnalyser, getCommentList)
 						for (int j = 0; j < answerCount; j++)
 						{
 							CoreItemSP replies = commentThreads[i]["replies"]["comments"][j]["snippet"];
-							if (!replies.isNil())
+							if (replies)
 							{
 								localParsedComments++;
 								CoreItemSP authorChannelID = replies["authorChannelId"]["value"];
-								if (!authorChannelID.isNil())
+								if (authorChannelID)
 								{
 									std::string authorID = authorChannelID;
 
@@ -2091,29 +2091,29 @@ DEFINE_METHOD(YoutubeAnalyser, getUserSubscribtion)
 
 	bool isLastPage = true;
 
-	if (!json.isNil())
+	if (json)
 	{
-		if (!json["nextPageToken"].isNil())
+		if (json["nextPageToken"])
 		{
 			isLastPage = false;
 			nextPageToken = json["nextPageToken"];
 		}
 
 		CoreItemSP subscriptions = json["items"];
-		if (!subscriptions.isNil())
+		if (subscriptions)
 		{
 			if (subscriptions->size())
 			{
 				for (int i = 0; i < subscriptions->size(); i++)
 				{
 					CoreItemSP subscription = subscriptions[i]["snippet"]["resourceId"]["channelId"];
-					if (!subscription.isNil())
+					if (subscription)
 					{
 
 						usString title = subscriptions[i]["snippet"]["title"];
 						CoreItemSP thumbnailInfos = subscriptions[i]["snippet"]["thumbnails"];
 						std::string url="";
-						if (!thumbnailInfos.isNil())
+						if (thumbnailInfos)
 						{
 							url = thumbnailInfos["default"]["url"];
 						} 

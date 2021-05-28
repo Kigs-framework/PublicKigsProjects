@@ -39,7 +39,7 @@ void	Mandelbrot::ProtectedUpdate()
 	static int count_frame = 0;
 	DataDrivenBaseApplication::ProtectedUpdate();
 
-	if (!mBitmap.isNil())
+	if (mBitmap)
 	{
 		if (mStartTime < 0.0)
 		{
@@ -47,7 +47,7 @@ void	Mandelbrot::ProtectedUpdate()
 		}
 		v2f bitmapSize = mBitmap->getValue<v2f>("Size");
 
-		DrawMandelbrot(mBitmap->GetPixelBuffer(), (int)bitmapSize.x, (int)bitmapSize.y, -0.743643887037151, 0.13182590420533, mZoomCoef, mImage);
+		DrawMandelbrot(mBitmap->GetPixelBuffer(), (int)bitmapSize.x, (int)bitmapSize.y, -0.743643887037151, 0.13182590420533, mZoomCoef, mImage.get());
 		mZoomCoef *= 1.01;
 		count_frame++;
 		double totalTime = DataDrivenBaseApplication::GetApplicationTimer()->GetTime() - mStartTime;

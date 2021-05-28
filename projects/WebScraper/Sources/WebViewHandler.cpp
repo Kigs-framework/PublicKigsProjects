@@ -1,4 +1,5 @@
 #include "WebViewHandler.h"
+#include "WebScraper.h"
 
 IMPLEMENT_CLASS_INFO(WebViewHandler)
 

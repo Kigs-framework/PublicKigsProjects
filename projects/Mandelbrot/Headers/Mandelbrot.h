@@ -29,5 +29,5 @@ protected:
 	double			mStartTime = -1.0;
 	double			mRotationAngle = 0.0f;
 
-	TinyImage* mImage = nullptr;
+	SP<TinyImage>	mImage = nullptr;
 };

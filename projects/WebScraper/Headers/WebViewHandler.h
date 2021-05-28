@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreModifiable.h"
 #include "maString.h"
+#include "maUSString.h"
 #include <Windows.h>
 #include <stdlib.h>
 #include <string>
