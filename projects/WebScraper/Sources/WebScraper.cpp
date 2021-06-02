@@ -14,6 +14,7 @@
 IMPLEMENT_CLASS_INFO(WebScraper);
 
 HINSTANCE	WebScraper::mHinstance = NULL;
+SP<WebScraper>  mDllInstance = nullptr;
 
 
 //! module init
@@ -29,14 +30,14 @@ void WebScraper::Init(KigsCore* core, const kstl::vector<CoreModifiableAttribute
 void WebScraper::Close()
 {
     BaseClose();
-	
+    mDllInstance = nullptr;
 }    
 
 ModuleBase* ModuleInit(KigsCore* core, const kstl::vector<CoreModifiableAttribute*>* params)
 {
-	ModuleBase* newModule = new WebScraper("theWebScraper");
-    newModule->Init(core, params);
-	return newModule;
+    mDllInstance = MakeRefCounted<WebScraper>("WebScraper");
+    mDllInstance->Init(core, params);
+	return mDllInstance.get();
 }
 
 extern "C"

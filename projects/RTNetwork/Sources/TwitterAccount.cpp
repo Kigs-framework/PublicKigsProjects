@@ -1,6 +1,7 @@
 #include "TwitterAccount.h"
 #include "RTNetwork.h"
 #include "CoreMap.h"
+#include <iostream>
 
 CoreItemSP TwitterAccount::loadTweetsFile()
 {
@@ -382,16 +383,32 @@ void		TwitterAccount::updateUserNameRequest()
 						if (uname.substr(0, 3) == "YT:")
 						{
 							mYoutubeVideoList.insert(uname.substr(3));
+							uname = "";
 						}
-						else if (uname.substr(0, 3) == "FB:")
+						else if (uname[2] == '#')
 						{
-							printf("TODO\n");
+
+							std::string foundUser = mSettings->findRSUser(uname);
+							if (foundUser == "NotFound")
+							{
+								std::cout << "Enter account for social network " << RTNetwork::getSocialNetworkFullName(uname.substr(0,2)) << " : " << uname.substr(3) << std::endl;
+
+								std::string account;
+								std::cin >> account;
+								if (account.length() < 3)
+									account = "";
+
+								mSettings->updateRSUser(uname,account);
+								uname = account;
+							}
+							else
+							{
+								uname = foundUser;
+							}
+
 						}
-						else if (uname.substr(0, 3) == "IG:")
-						{
-							printf("TODO\n");
-						}
-						else
+						
+						if(uname!="")
 						{
 							CoreItemSP currentUserJson = loadUserID(uname);
 							if (!currentUserJson)
@@ -654,15 +671,10 @@ void		TwitterAccount::updateStats()
 								}
 
 							}
-							else if (uname.substr(0, 3) == "FB:")
+							else if (uname[2] == '#')
 							{
-								printf("TODO\n");
-								uname = "";
-							}
-							else if (uname.substr(0, 3) == "IG:")
-							{
-								printf("TODO\n");
-								uname = "";
+
+								uname = mSettings->findRSUser(uname);
 							}
 
 							if(uname!="")
@@ -750,9 +762,11 @@ void		TwitterAccount::updateStats()
 	mConnectionCount = mHasRetweetCount + mWasRetweetCount;
 	
 	mSourceCoef = 0.0f;
-	if(mConnectionCount>0.0f)
+	if (mConnectionCount > 0.0f)
 		mSourceCoef = (float)mWasRetweetCount / (float)(mHasRetweetCount + mWasRetweetCount);
-	
+	else
+		mAddToNetwork = false; // tweet so much that past tweets can't be retrieved
+
 	// check for account no to add to network
 	u32 did=mSettings->getDurationInDays();
 	float twtperdays = (float)mAllTweetCount / (float)did;

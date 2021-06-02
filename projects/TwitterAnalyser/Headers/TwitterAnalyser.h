@@ -464,7 +464,7 @@ protected:
 	bool						mDetailedLikeStats = false;
 	bool						mDailyAnalysis=false;
 
-	AnonymousModule* mWebScraperModule=nullptr;
+	SP<AnonymousModule> mWebScraperModule=nullptr;
 	SP<CoreModifiable> mWebScraper=nullptr;
 
 	void	ReadScripts();

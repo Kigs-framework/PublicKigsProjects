@@ -103,17 +103,13 @@ IMPLEMENT_CONSTRUCTOR(TwitterAnalyser)
 	srand(time(NULL));
 }
 
-int getCreationYear(const std::string& created_date)
+int getCreationYear(const std::string& created_date) //YYYY-MM-DDTHH:MM:SS.000Z
 {
-	char Day[6];
-	char Mon[6];
-
-	int	day_date;
-	int	hours,minutes,seconds;
-	int delta;
 	int	year=0;
+	int month = 0;
+	int day = 0;
 
-	sscanf(created_date.c_str(), "%s %s %d %d:%d:%d +%d %d", Day, Mon, &day_date, &hours, &minutes, &seconds,&delta ,&year);
+	sscanf(created_date.c_str(), "%d-%d-%d",&year, &month, &day);
 
 	return year;
 }
@@ -223,9 +219,9 @@ void	TwitterAnalyser::ProtectedInit()
 		}
 		// load anonymous module for web scraper
 #ifdef _DEBUG
-		mWebScraperModule = new AnonymousModule("WebScraperD.dll");
+		mWebScraperModule = MakeRefCounted<AnonymousModule>("WebScraperD.dll");
 #else
-		mWebScraperModule = new AnonymousModule("WebScraper.dll");
+		mWebScraperModule = MakeRefCounted<AnonymousModule>("WebScraper.dll");
 #endif
 		mWebScraperModule->Init(KigsCore::Instance(), nullptr);
 
@@ -235,7 +231,7 @@ void	TwitterAnalyser::ProtectedInit()
 		if (!mWebScraper->isSubType("WebViewHandler"))
 		{
 			mWebScraperModule->Close();
-			delete mWebScraperModule;
+			mWebScraperModule = nullptr;
 			mWebScraper = nullptr;
 			mUseLikes = false;
 			mDetailedLikeStats = false;
@@ -1615,7 +1611,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 			std::string filename = "Cache/Tweets/" + user.substr(0, 4) + "/" + user + ".json";
 			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
 		}
-		else if (data["username"] == mUserName)
+		else if ((std::string)data["username"] == mUserName)
 		{
 			mUserID = currentID;
 			pUser = &mCurrentUser;
@@ -1646,7 +1642,7 @@ DEFINE_METHOD(TwitterAnalyser, getUserDetails)
 		{
 			mState = GET_USER_ID;
 		}
-		else if (data["username"] == mUserName)
+		else if ((std::string)data["username"] == mUserName)
 		{
 			// save user
 			JSonFileParser L_JsonParser;
@@ -1788,19 +1784,19 @@ void	TwitterAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 			std::string	url = downloader->getValue<std::string>("URL");
 			std::string::size_type pos=	url.rfind('.');
 			std::string ext = url.substr(pos);
-			TinyImage* img = nullptr;
+			SP<TinyImage> img = nullptr;
 
 			if (ext == ".png")
 			{
-				img = new PNGClass(data);
+				img = MakeRefCounted<PNGClass>(data);
 			}
 			else if (ext == ".gif")
 			{
-				img = new GIFClass(data);
+				img = MakeRefCounted<GIFClass>(data);
 			}
 			else
 			{
-				img = new JPEGClass(data);
+				img = MakeRefCounted<JPEGClass>(data);
 				ext = ".jpg";
 			}
 			if (img->IsOK())
@@ -1836,9 +1832,6 @@ void	TwitterAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 				filename += folderName + "/" + GetIDString(id) + ".json";
 
 				ModuleFileManager::RemoveFile(filename.c_str());
-
-
-				delete img;
 			}
 		}
 		else
@@ -3007,9 +3000,9 @@ void		TwitterAnalyser::UpdateStatistics()
 		if (alreadyfound != mFollowersFollowingCount.end())
 		{
 			(*alreadyfound).second.first++;
-			if ((*alreadyfound).second.first == (mUserPanelSize / 50))
+			if (!LoadUserStruct(f, (*alreadyfound).second.second, false))
 			{
-				if (!LoadUserStruct(f, (*alreadyfound).second.second, false))
+				if ((*alreadyfound).second.first == (mUserPanelSize / 50))
 				{
 					mUserDetailsAsked.push_back(f);
 				}

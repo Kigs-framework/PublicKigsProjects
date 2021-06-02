@@ -1580,7 +1580,7 @@ void	YoutubeAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 	{
 		if (p.first.get() == downloader)
 		{
-			TinyImage* img = new JPEGClass(data);
+			SP<TinyImage> img = MakeRefCounted<JPEGClass>(data);
 			if (img)
 			{
 				ChannelStruct* toFill = p.second.second;
@@ -1600,8 +1600,7 @@ void	YoutubeAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 				toFill->mThumb.mTexture = KigsCore::GetInstanceOf((std::string)toFill->mName + "tex", "Texture");
 				toFill->mThumb.mTexture->Init();
 
-				SmartPointer<TinyImage>	imgsp = img->shared_from_this();
-				toFill->mThumb.mTexture->CreateFromImage(imgsp);
+				toFill->mThumb.mTexture->CreateFromImage(img);
 			}
 		}
 		else

@@ -14,11 +14,17 @@
 #include "AnonymousModule.h"
 #include "ModuleInput.h"
 #include "CoreItem.h"
+#include "TecLibs/2D/BBox2D.h"
 #include <iostream>
 #include <iomanip> 
 
 time_t     RTNetwork::mCurrentTime=0;
 double		RTNetwork::mOldFileLimit = 0.0;
+
+std::unordered_map<std::string, std::string> RTNetwork::mSocialNetworkList = {	{"TW","Twitter"},{"FB","Facebook"},{"IG","Instagram"},{"VK","VK"},{"TC","Twitch"},
+																				{"OD","Odysee"},{"LI","LinkedIn"},{"PI","Pinterest"},{"SN","SnapChat"},{"SC","SoundCloud"},
+																				{"VM","Vimeo"},{"DM","DailyMotion"}, {"TL","Telegram"} };
+
 
 
 time_t	getDateAndTime(const std::string& d)
@@ -194,11 +200,13 @@ void	RTNetwork::ProtectedInit()
 	mTwitterConnect->Init();
 
 	loadWebToAccountFile();
+	loadSocialNetworkToAccountFile();
 	// load anonymous module for web scraper
+	DECLARE_CLASS_INFO_WITHOUT_FACTORY(AnonymousModule, "AnonymousModuleWebScraper");
 #ifdef _DEBUG
-	mWebScraperModule = new AnonymousModule("WebScraperD.dll");
+	mWebScraperModule = MakeRefCounted<AnonymousModule>("WebScraperD.dll");
 #else
-	mWebScraperModule = new AnonymousModule("WebScraper.dll");
+	mWebScraperModule = MakeRefCounted<AnonymousModule>("WebScraper.dll");
 #endif
 	mWebScraperModule->Init(KigsCore::Instance(), nullptr);
 
@@ -208,7 +216,6 @@ void	RTNetwork::ProtectedInit()
 	if (!mWebScraper->isSubType("WebViewHandler"))
 	{
 		mWebScraperModule->Close();
-		delete mWebScraperModule;
 		mWebScraper = nullptr;
 		mWebScraperModule = nullptr;
 	}
@@ -487,6 +494,7 @@ void	RTNetwork::ProtectedUpdate()
 
 				mAnalysedAccountList.push_back(mCurrentTreatedAccount);
 				mCurrentTreatedAccount = chooseNextAccountToTreat();
+
 				mState.pop_back();
 
 				refreshShowed();
@@ -554,7 +562,9 @@ void	RTNetwork::ProtectedUpdate()
 
 	moveThumbs();
 	updateLinks();
+	scalePicture();
 }
+
 
 void	RTNetwork::ProtectedClose()
 {
@@ -694,6 +704,10 @@ TwitterAccount* RTNetwork::chooseNextAccountToTreat()
 					
 					for (auto l : links)
 					{
+						if (!l.first->mAccount->needAddToNetwork())
+						{
+							continue;
+						}
 						if (l.second.first+ l.second.second)
 						{
 							int d = l.first->mAccount->getDepth();
@@ -998,7 +1012,6 @@ DEFINE_METHOD(RTNetwork, getChannelID)
 			{
 				std::cout << "Enter account for Youtube Channel : " << (std::string)ChannelTitle << std::endl;
 
-				
 				std::cin >> account;
 				if (account.length() < 4)
 					account = "";
@@ -1041,24 +1054,26 @@ DEFINE_METHOD(RTNetwork, getUserDetails)
 		CoreItemSP	data = json["data"];
 		CoreItemSP	public_m = data["public_metrics"];
 		u64			currentID= data["id"];
-
+		std::string user = data["username"];
 		if ( ((mState.size() > 1) && (mState[mState.size() - 2] == TREAT_USERNAME_REQUEST)) ||
 			(mState.back() == WAIT_STARTUSERID) )// requested ID from name
 		{
-			mCurrentTreatedAccount->saveUserID(*(mCurrentTreatedAccount->mUserNameRequestList.begin()), currentID);
-			mCurrentTreatedAccount->mUserNameRequestList.erase(mCurrentTreatedAccount->mUserNameRequestList.begin());
+			if (mState.back() == WAIT_STARTUSERID)
+			{
+				mStartUserID = currentID;
+				mCurrentTreatedAccount = getUser(mStartUserID);
+				mCurrentTreatedAccount->saveUserID(user, currentID);
+			}
+			else
+			{
+				mCurrentTreatedAccount->saveUserID(*(mCurrentTreatedAccount->mUserNameRequestList.begin()), currentID);
+				mCurrentTreatedAccount->mUserNameRequestList.erase(mCurrentTreatedAccount->mUserNameRequestList.begin());
+			}
 		}
-
-		std::string user = data["username"];
 
 		updateUserNameAndIDMaps(user, currentID);
 
 		TwitterAccount* current=getUser(currentID);
-
-		if (mCurrentTreatedAccount == nullptr) // start account ?
-		{
-			mCurrentTreatedAccount = current;
-		}
 
 		current->mUserStruct.mName = user;
 		current->mID = currentID;
@@ -1080,11 +1095,6 @@ DEFINE_METHOD(RTNetwork, getUserDetails)
 				}
 		}
 
-
-		if (mState.back() == WAIT_STARTUSERID)
-		{
-			mStartUserID = currentID;
-		}
 
 		mState.pop_back();
 		
@@ -1182,19 +1192,19 @@ void	RTNetwork::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloade
 			std::string	url = downloader->getValue<std::string>("URL");
 			std::string::size_type pos=	url.rfind('.');
 			std::string ext = url.substr(pos);
-			TinyImage* img = nullptr;
+			SP<TinyImage> img = nullptr;
 
 			if (ext == ".png")
 			{
-				img = new PNGClass(data);
+				img = MakeRefCounted<PNGClass>(data);
 			}
 			else if (ext == ".gif")
 			{
-				img = new GIFClass(data);
+				img = MakeRefCounted < GIFClass>(data);
 			}
 			else
 			{
-				img = new JPEGClass(data);
+				img = MakeRefCounted < JPEGClass>(data);
 				ext = ".jpg";
 			}
 			if (img->IsOK())
@@ -1216,8 +1226,7 @@ void	RTNetwork::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloade
 				toFill->mThumb.mTexture = KigsCore::GetInstanceOf((std::string)toFill->mName + "tex", "Texture");
 				toFill->mThumb.mTexture->Init();
 
-				SmartPointer<TinyImage>	imgsp = img->shared_from_this();
-				toFill->mThumb.mTexture->CreateFromImage(imgsp);
+				toFill->mThumb.mTexture->CreateFromImage(img);
 			}
 			else
 			{
@@ -1229,9 +1238,6 @@ void	RTNetwork::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloade
 				filename += folderName + "/" + GetIDString(id) + ".json";
 
 				ModuleFileManager::RemoveFile(filename.c_str());
-
-
-				delete img;
 			}
 		}
 		else
@@ -1302,6 +1308,38 @@ bool		RTNetwork::LoadUserStruct(u64 id, TwitterAccount::UserStruct& ch, bool req
 }
 
 
+
+
+void		RTNetwork::loadSocialNetworkToAccountFile()
+{
+	mSocialNetworkToTwitterMap.clear();
+	std::string filename = "Cache/SocialNetworkToAccount.json";
+
+	CoreItemSP initP = LoadJSon(filename, false, false);
+
+	if (!initP) // file not found, return
+	{
+		return;
+	}
+
+	CoreItemIterator it = initP.begin();
+	while (it != initP.end())
+	{
+		std::string value;
+		std::string key;
+
+		CoreItemSP val = (*it);
+		val->getValue(value);
+
+		it.getKey(key);
+
+		mSocialNetworkToTwitterMap.insert({ key,value });
+
+		it++;
+	}
+}
+
+
 void		RTNetwork::loadWebToAccountFile()
 {
 	mWebToTwitterMap.clear();
@@ -1330,6 +1368,23 @@ void		RTNetwork::loadWebToAccountFile()
 		it++;
 	}
 }
+
+void		RTNetwork::saveSocialNetworkToAccountFile()
+{
+	JSonFileParser L_JsonParser;
+	CoreItemSP initP = MakeCoreMap();
+
+	for (auto m : mSocialNetworkToTwitterMap)
+	{
+		initP->set(m.first, m.second);
+	}
+
+	std::string filename = "Cache/SocialNetworkToAccount.json";
+
+	L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
+	std::map<std::string, std::string> ;
+}
+
 void		RTNetwork::saveWebToAccountFile()
 {
 	JSonFileParser L_JsonParser;
@@ -1546,6 +1601,7 @@ void	RTNetwork::addDisplayThumb(RTNetwork::displayThumb* thmb)
 
 					return true;
 				}
+				return false;
 			});
 
 	}
@@ -1711,6 +1767,69 @@ void					RTNetwork::SaveIDVectorFile(const std::vector<u64>& v, const std::strin
 {
 	SaveDataFile<u64>(filename, v);
 }
+
+void	RTNetwork::scalePicture()
+{
+	if (mThumbs.size() < 2)
+		return;
+
+	BBox2D	currentbbox;
+	currentbbox.SetEmpty();
+	for (auto t : mThumbs)
+	{
+		if (t->mAccount->needAddToNetwork())
+		{
+			v2f radiusV(t->mRadius*1.25, t->mRadius*1.25);
+			currentbbox.Update(t->mPos + radiusV);
+			currentbbox.Update(t->mPos - radiusV);
+		}
+	}
+	currentbbox.m_Min /= v2f(1920, 1080);
+	currentbbox.m_Max /= v2f(1920, 1080);
+
+	float neededScale = 1.0f;
+	if (currentbbox.m_Min.x < 0.08f)
+	{
+		float toscale = 0.5f / (0.5f - (currentbbox.m_Min.x - 0.08f));
+		if (toscale < neededScale)
+		{
+			neededScale = toscale;
+		}
+	}
+	if (currentbbox.m_Min.y < 0.08f)
+	{
+		float toscale = 0.5f / (0.5f - (currentbbox.m_Min.y - 0.08f));
+		if (toscale < neededScale)
+		{
+			neededScale = toscale;
+		}
+	}
+	if (currentbbox.m_Max.x > 0.92f)
+	{
+		float toscale = 0.5f / (0.5f + (currentbbox.m_Max.x - 0.92f));
+		if (toscale < neededScale)
+		{
+			neededScale = toscale;
+		}
+	}
+	if (currentbbox.m_Max.y > 0.92f)
+	{
+		float toscale = 0.5f / (0.5f + (currentbbox.m_Max.y - 0.92f));
+		if (toscale < neededScale)
+		{
+			neededScale = toscale;
+		}
+	}
+
+	v2f currentScale = mMainInterface["background"]("PreScale");
+
+	if (fabsf(neededScale-currentScale.x)>0.001f)
+	{
+		mMainInterface["background"]("PreScale") = v2f(neededScale, neededScale);
+	}
+
+}
+
 
 void	RTNetwork::moveThumbs()
 {
@@ -2052,36 +2171,93 @@ std::string	RTNetwork::getTwitterAccountForURL(const std::string& url)
 				size_t	userpos= url.rfind("/", statuspos-1);
 				if (userpos != std::string::npos)
 				{
-					return url.substr(userpos+1, statuspos-userpos-1);
+					std::string user=url.substr(userpos+1, statuspos-userpos-1);
+					return "TW#" + user;
 				}
 			}
 			return "";
 		}
 		if (hostname.find("facebook") != std::string::npos)
 		{
-			size_t postspos = url.find("posts");
-			if (postspos != std::string::npos)
+			size_t lastfb = url.rfind("facebook.com"); // find last facebook.com
+			if (lastfb != std::string::npos)
 			{
-				size_t	facebookpos = url.rfind("www.facebook.com", postspos - 1);
-				if (facebookpos != std::string::npos)
+				std::string workurl = url.substr(lastfb + 12);
+				replaceAll(workurl, "%2F", "/");
+
+				size_t	facebookuserend = workurl.find("/",1);
+				if (facebookuserend != std::string::npos)
 				{
-					return "FB:" + url.substr(facebookpos + 16, postspos - facebookpos - 16);
+					return "FB#" + workurl.substr(1, facebookuserend-1);
 				}
 			}
 			return "";
 		}
+
+		// TODO
 		if (hostname.find("instagram") != std::string::npos)
 		{
-			size_t statuspos = url.find("/status");
-			if (statuspos != std::string::npos)
+			printf("");
+		}
+
+		if (hostname.find("vk.com") != std::string::npos)
+		{
+			// https://vk.com/wall634041650_1945 => use Webscrapper to get channel ?
+			printf("");
+		}
+		if (hostname.find("twitch") != std::string::npos)
+		{
+			printf("");
+		}
+		if (hostname.find("odysee") != std::string::npos)
+		{
+			size_t lastod = url.rfind("odysee.com/@"); // find last soundcloud.com
+			if (lastod != std::string::npos)
 			{
-				size_t	facebookpos = url.rfind("www.facebook.com", statuspos - 1);
-				if (facebookpos != std::string::npos)
-				{
-					return "FB:" + url.substr(facebookpos + 16, statuspos - facebookpos - 16);
-				}
+				std::string workurl = url.substr(lastod + 12);
+				size_t	oduserend = workurl.find("/");
+				
+				return "OD#" + workurl.substr(0, oduserend);
+				
 			}
 			return "";
+		}
+		if (hostname.find("linkedin") != std::string::npos)
+		{
+			printf("");
+		}
+		if (hostname.find("pinterest") != std::string::npos)
+		{
+			printf("");
+		}
+		if (hostname.find("snapchat") != std::string::npos)
+		{
+			printf("");
+		}
+		if (hostname.find("soundcloud") != std::string::npos)
+		{
+
+			size_t lastsc = url.rfind("soundcloud.com"); // find last soundcloud.com
+			if (lastsc != std::string::npos)
+			{
+				std::string workurl = url.substr(lastsc + 14);
+				size_t	soundclouduserend = workurl.find("/", 1);
+				if (soundclouduserend != std::string::npos)
+				{
+					return "SC#" + workurl.substr(1, soundclouduserend - 1);
+				}
+			}
+			return "";		
+		}
+		if (hostname.find("vimeo") != std::string::npos)
+		{
+			// use webscraper to get vimeo channel 
+			printf("");
+		}
+		if (hostname.find("dailymotion") != std::string::npos)
+		{
+			// https://www.dailymotion.com/video/x81ddug => webscrapper ?
+			printf("");
 		}
 
 

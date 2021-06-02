@@ -50,6 +50,15 @@ public:
 		return mDurationInDays;
 	}
 
+	static std::string getSocialNetworkFullName(const std::string& code)
+	{
+		if (mSocialNetworkList.find(code) != mSocialNetworkList.end())
+		{
+			return mSocialNetworkList[code];
+		}
+		return "";
+	}
+
 protected:
 
 	SP<HTTPConnect>									mTwitterConnect = nullptr;
@@ -295,26 +304,44 @@ protected:
 
 	void	updateLinks();
 
+	void	scalePicture();
+
 	std::map<std::pair<u64, u64>, thumbLink>		mLinks;
 	std::vector< displayThumb*>						mThumbs;
 
 
 	// resolve urls
 
-	AnonymousModule*	 mWebScraperModule = nullptr;
+	SP<AnonymousModule>	 mWebScraperModule = nullptr;
 	SP<CoreModifiable>	 mWebScraper = nullptr;
 	u32					 mCountDecodeAttempt = 0;
 
 
 	std::map<std::string, std::string>	mWebToTwitterMap;
 
-
 	void		saveWebToAccountFile();
 	void		loadWebToAccountFile();
-	
 
-	u32					mDurationInDays = 0;
-	float				mCurrentOutNetAngle = -1.0f;
+	std::map<std::string, std::string> mSocialNetworkToTwitterMap;
+	void		saveSocialNetworkToAccountFile();
+	void		loadSocialNetworkToAccountFile();
+	std::string findRSUser(const std::string& rsname)
+	{
+		if (mSocialNetworkToTwitterMap.find(rsname) != mSocialNetworkToTwitterMap.end())
+		{
+			return mSocialNetworkToTwitterMap[rsname];
+		}
+		return "NotFound";
+	}
+	void updateRSUser(const std::string& rsname, const std::string& acountname)
+	{
+		mSocialNetworkToTwitterMap[rsname] = acountname;
+		saveSocialNetworkToAccountFile();
+	}
+
+	static	std::unordered_map<std::string, std::string> mSocialNetworkList;
+	u32		mDurationInDays = 0;
+	float	mCurrentOutNetAngle = -1.0f;
 
 	void	addDisplayThumb(RTNetwork::displayThumb* thmb);
 };
