@@ -191,6 +191,7 @@ void	TwitterAnalyser::ProtectedInit()
 
 	SetMemberFromParam(mUserName, "UserName");
 	SetMemberFromParam(mHashTag, "HashTag");
+
 	SetMemberFromParam(mUserPanelSize, "UserPanelSize");
 	SetMemberFromParam(mMaxUserCount, "MaxUserCount");
 	SetMemberFromParam(mValidUserPercent, "ValidUserPercent");
@@ -246,6 +247,12 @@ void	TwitterAnalyser::ProtectedInit()
 
 			ReadScripts();
 
+#ifdef _DEBUG
+			// give some time to user to login
+			//mStartWaitQuota = GetApplicationTimer()->GetTime();
+			//mWaitQuota = true;
+#endif
+
 		}
 	}
 
@@ -291,7 +298,7 @@ void	TwitterAnalyser::ProtectedInit()
 			initP->set("hashtag", mHashTag);
 			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), currentUserProgress);
 
-			std::string url = "1.1/search/tweets.json?q=" + mHashTag + "&count=100&include_entities=false&result_type=mixed";
+			std::string url = "1.1/search/tweets.json?q=" + mHashTag + "&count=100&include_entities=false&result_type=recent";
 			mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getHashTagsTweets", this);
 			mAnswer->AddHeader(mTwitterBear[NextBearer()]);
 			mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
@@ -1507,14 +1514,24 @@ DEFINE_METHOD(TwitterAnalyser, getHashTagsTweets)
 			{
 				CoreItemSP currentTweet = tweetsArray[i];
 				
+				CoreItemSP RTStatus = currentTweet["retweeted_status"];
+
+				if (RTStatus)
+				{
+					currentTweet = RTStatus;
+				}
+
 				u32 like_count = currentTweet["favorite_count"];
 				if (like_count > 1)
 				{
 					u32 rt_count = currentTweet["retweet_count"];
 					u64 tweetid = currentTweet["id"];
 
-					mTweets.push_back({ tweetid,like_count,rt_count });
-					mTweetsPosters.push_back(currentTweet["user"]["screen_name"]);
+					if (!searchDuplicateTweet(tweetid))
+					{
+						mTweets.push_back({ tweetid,like_count,rt_count });
+						mTweetsPosters.push_back(currentTweet["user"]["screen_name"]);
+					}
 				}
 			}
 
@@ -3124,12 +3141,15 @@ void	TwitterAnalyser::treatWebScraperMessage(CoreModifiable* sender, std::string
 
 					if (mTweetLikers.size() && oneWasAdded)
 					{
-						mCurrentScrappedUserNameList.clear();
-						mNextScript = "var toscroll=document.querySelector('[href=\"/" + mTweetLikers.back() + "\"]');"\
-							"toscroll.scrollIntoView(true);"\
-							"window.chrome.webview.postMessage(\"scriptDone\");";
-						LaunchScript(sender);
-						mScraperState = SCROLL_LIKES;
+						if (mTweetLikers.size() < 200) // if enough likers found
+						{
+							mCurrentScrappedUserNameList.clear();
+							mNextScript = "var toscroll=document.querySelector('[href=\"/" + mTweetLikers.back() + "\"]');"\
+								"toscroll.scrollIntoView(true);"\
+								"window.chrome.webview.postMessage(\"scriptDone\");";
+							LaunchScript(sender);
+							mScraperState = SCROLL_LIKES;
+						}
 					}
 				}
 			}

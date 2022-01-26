@@ -120,8 +120,6 @@ protected:
 		std::vector<nodeInfo>*		mNotEmptyList;
 		std::vector< nodeInfo>		mChildToTreat;
 		recurseVoxelSideChildren	mSideChildrenGrabber;
-
-
 	};
 	
 	// return true if currentNode parent needs to be changed

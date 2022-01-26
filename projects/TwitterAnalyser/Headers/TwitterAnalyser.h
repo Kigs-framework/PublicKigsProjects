@@ -475,4 +475,16 @@ protected:
 
 	void ExportDetailedStats();
 
+	bool searchDuplicateTweet(u64 twtid) // return true if the same tweet already in the list
+	{
+		for (auto t : mTweets)
+		{
+			if (t.mTweetID == twtid)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 };
