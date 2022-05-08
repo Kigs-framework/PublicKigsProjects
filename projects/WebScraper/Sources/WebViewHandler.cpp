@@ -125,7 +125,7 @@ void WebViewHandler::NotifyUpdate(const u32 labelid)
 	{
 		if (mScript.size())
 		{
-			auto a1 = std::async(&WebViewHandler::asyncExecute, this, (unsigned int)1000, (wchar_t*)mScript.us_str());
+			auto a1 = std::async(&WebViewHandler::asyncExecute, this, (unsigned int)800, (wchar_t*)mScript.us_str());
 		}
 
 	}
