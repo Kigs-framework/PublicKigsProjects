@@ -15,6 +15,8 @@
 //! then define it as the application class 
 #define KIGS_APPLICATION_CLASS TwitterAnalyser
 
+#define APP_KIGS_PACKAGE_NAME "TwitterAnalyser_assets.kpkg"
+
 //! for Intel Appup version
 
 #define ADP_APPLICATIONID ADP_DEBUG_APPLICATIONID

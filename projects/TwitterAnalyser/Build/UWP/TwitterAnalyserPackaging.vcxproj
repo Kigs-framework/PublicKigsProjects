@@ -117,14 +117,11 @@
   </ItemGroup>
   <ItemGroup>
     <Xml Include="..\..\Android\assets\AppInit.xml" />
-    <Xml Include="..\..\Android\assets\LaunchScreen.xml" />
-    <Xml Include="..\..\Android\assets\Screen_Main.xml" />
   </ItemGroup>
   <ItemGroup>
-    <Font Include="..\..\Android\assets\Calibri.ttf" />
+    <Content Include="..\..\Android\assets\TwitterAnalyser_assets.kpkg" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="..\..\Android\assets\Logo.png" />
     <Image Include="Assets\Generated\LargeTile.scale-100.png" />
     <Image Include="Assets\Generated\LargeTile.scale-125.png" />
     <Image Include="Assets\Generated\LargeTile.scale-150.png" />

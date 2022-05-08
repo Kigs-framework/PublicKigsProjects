@@ -1,0 +1,5 @@
+[
+	{"dir_rule" : ["toPack","{tFolder}\TwitterAnalyser_assets.kpkg","kigsPackager.exe -i {iFullPathName} -o {tFolder}\TwitterAnalyser_assets.kpkg"]},
+	{"rule" : ["","{tPath}\{iFileName}","copy {iFullPathName} {tPath}"]},
+	{"action" : ["changed","xcopy /E /Y {tFolder} {oFolder}"]}
+]

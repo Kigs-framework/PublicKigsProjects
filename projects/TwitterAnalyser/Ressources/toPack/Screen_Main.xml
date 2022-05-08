@@ -24,13 +24,13 @@
 		</Attr>
 	</Inst>
 	<Inst N="UILayer" T="UI2DLayer">
-	<Attr N="Size" V="{1280,800}"/>
+	<Attr N="Size" V="{1920,1080}"/>
 	<Attr N="Priority" V="50"/>
 	<Attr N="RenderingScreen" V="RenderingScreen:theRenderingScreen"/>
 		<Inst N="Interface" T="UIItem">
-			<Attr N="Size" V="{1280,800}"/>
+			<Attr N="Size" V="{1920,1080}"/>
 			<Inst N="background" T="UIPanel">
-				<Attr N="Size" V="{1280,800}"/>
+				<Attr N="Size" V="{1920,1080}"/>
 				<Attr N="Priority" V="0"/>
 				<Attr N="Anchor" V="{0.500000,0.500000}"/>
 				<Attr N="Dock" V="{0.500000,0.500000}"/>
@@ -51,7 +51,7 @@
 			<Inst N="FoundFollowings" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="{0.02,0.05}"/>
+				<Attr N="Dock" V="{0.02,0.045}"/>
 				<Attr N="Anchor" V="{0.0,0.5}"/>
 				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -63,7 +63,7 @@
 			<Inst N="FakeFollowers" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="{0.02,0.075}"/>
+				<Attr N="Dock" V="{0.02,0.065}"/>
 				<Attr N="Anchor" V="{0.0,0.5}"/>
 				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -75,7 +75,7 @@
 			<Inst N="RequestCount" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="{0.02,0.1}"/>
+				<Attr N="Dock" V="{0.02,0.085}"/>
 				<Attr N="Anchor" V="{0.0,0.5}"/>
 				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -87,7 +87,7 @@
 			<Inst N="RequestWait" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="{0.02,0.125}"/>
+				<Attr N="Dock" V="{0.02,0.105}"/>
 				<Attr N="Anchor" V="{0.0,0.5}"/>
 				<Attr N="Size" V="{-1,-1}"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -100,7 +100,7 @@
 				<Attr N="Priority" V="10"/>
 				<Attr N="Dock" V="{0.52,0.44}"/>
 				<Attr N="Anchor" V="{0.5,0.5}"/>
-				<Attr N="PreScale" V="{1.56,1.56}"/>
+				<Attr N="PreScale" V="{2.0,2.0}"/>
 				<Inst N="UserName" T="UIText">
 					<Attr N="Priority" V="11"/>
 					<Attr N="Text" V="userName"/>
@@ -117,20 +117,64 @@
 					<Attr N="SliceCount" V="32"/>
 				</Inst>
 			</Inst>
-			<Inst N="twitterLogo" T="UIImage">
-				<Attr N="TextureName" V="Twitter.png"/>
+			
+			<Inst N="panelLogo" T="UIImage">
+				<Attr N="TextureName" V="Panel.png"/>
 				<Attr N="Priority" V="10"/>
-				<Attr N="Dock" V="{0.95,0.94}"/>
+				<Attr N="Dock" V="{0.91,0.92}"/>
 				<Attr N="Anchor" V="{0.5,0.5}"/>
-				<Attr N="PreScale" V="{0.6,0.6}"/>
+				<Attr N="PreScale" V="{0.8,0.8}"/>
+				
+				<Inst N="twitterLogo" T="UIImage">
+					<Attr N="TextureName" V="Twitter.png"/>
+					<Attr N="Priority" V="10"/>
+					<Attr N="Dock" V="{0.5,0.5}"/>
+					<Attr N="Anchor" V="{0.5,0.5}"/>
+					<Attr N="PreScale" V="{0.9,0.9}"/>
+					
+					<Inst N="placeHolder1" T="UIImage">
+						<Attr N="TextureName" V="BigHeart.png"/>
+						<Attr N="Priority" V="11"/>
+						<Attr N="Dock" V="{0.20,0.30}"/>
+						<Attr N="Anchor" V="{0.5,0.5}"/>
+						<Attr N="PreScale" V="{0.6,0.6}"/>
+					</Inst>
+				
+					<Inst N="placeHolder2" T="UIImage">
+						<Attr N="TextureName" V="BigHeart.png"/>
+						<Attr N="Priority" V="9"/>
+						<Attr N="Dock" V="{0.8,0.7}"/>
+						<Attr N="Anchor" V="{0.4,0.5}"/>
+						<Attr N="PreScale" V="{0.6,0.6}"/>
+					</Inst>
+					
+				</Inst>
+				
+				<Inst N="placeHolder3" T="UIImage">
+					<Attr N="TextureName" V="BigHeart.png"/>
+					<Attr N="Priority" V="11"/>
+					<Attr N="Dock" V="{0.10,0.30}"/>
+					<Attr N="Anchor" V="{0.9,0.6}"/>
+					<Attr N="PreScale" V="{0.5,0.5}"/>
+				</Inst>
+			
+				<Inst N="placeHolder4" T="UIImage">
+					<Attr N="TextureName" V="BigHeart.png"/>
+					<Attr N="Priority" V="9"/>
+					<Attr N="Dock" V="{0.9,0.7}"/>
+					<Attr N="Anchor" V="{0.1,0.4}"/>
+					<Attr N="PreScale" V="{0.5,0.5}"/>
+				</Inst>
+				
 			</Inst>
+			
 			<Inst N="heart" T="UIImage">
 				<Attr N="TextureName" V="BigHeart.png"/>
 				<Attr N="Priority" V="1"/>
 				<Attr N="IsHidden" V="true"/>
 				<Attr N="Dock" V="{0.92,0.92}"/>
 				<Attr N="Anchor" V="{0.5,0.5}"/>
-				<Attr N="PreScale" V="{0.6,0.6}"/>
+				<Attr N="PreScale" V="{0.8,0.8}"/>
 			</Inst>
 			<Inst N="switchV" T="UIText">
 				<Attr N="Priority" V="11"/>

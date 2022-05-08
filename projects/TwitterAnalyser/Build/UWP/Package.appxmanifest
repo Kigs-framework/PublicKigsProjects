@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" IgnorableNamespaces="uap mp">
-  <Identity Name="89537229-0EAC-4A8E-ACD2-22801D0AD851" Publisher="CN=Antoine" Version="0.1.0.0" />
-  <mp:PhoneIdentity PhoneProductId="89537229-0EAC-4A8E-ACD2-22801D0AD851" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
+  <Identity Name="BC41295E-B27F-4C58-AAF5-0C5DFE731493" Publisher="CN=Antoine" Version="0.1.0.0" />
+  <mp:PhoneIdentity PhoneProductId="BC41295E-B27F-4C58-AAF5-0C5DFE731493" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>TwitterAnalyser</DisplayName>
     <PublisherDisplayName>Kigs framework</PublisherDisplayName>
