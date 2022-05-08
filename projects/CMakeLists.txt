@@ -4,6 +4,8 @@ add_subdirectory(Mandelbrot)
 add_subdirectory(VoxelLandscape)
 add_subdirectory(TwitterAnalyser)
 add_subdirectory(RTNetwork)
+add_subdirectory(TLTightness)
+
 if(${KIGS_PLATFORM} STREQUAL "Windows")
 	add_subdirectory(WebScraper)
 endif()

@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<Inst N="UILayerBump" T="UI2DLayer">
+	<Attr N="Size" V="{1920,1080}"/>
+	<Attr N="Priority" V="0"/>
+	<Attr N="RenderingScreen" V="RenderingScreen:theRenderingScreen"/>
+	<Inst N="Bump" T="UIItem">
+		<Attr N="Size" V="{1920,1080}"/>
+		<Attr N="Opacity" V="0.0"/>
+		<Attr N="Dock" V="{0.500000,0.50000}"/>
+		<Attr N="Anchor" V="{0.500000,0.50000}"/>
+		<Inst N="Logo" T="UIImage">
+			<Attr N="TextureName" V="Logo.png"/>
+			<Attr N="Size" V="{1920,1080}"/>
+			<Attr N="Priority" V="50"/>
+			<Attr N="Dock" V="{0.500000,0.50000}"/>
+			<Attr N="Anchor" V="{0.500000,0.50000}"/>
+			<Attr N="KeepRatio" V="false"/>
+		</Inst>
+	</Inst>
+	<Inst N="FadeIn_Launcher" T="CoreSequenceLauncher">
+		<Attr N="StartOnFirstUpdate" V="true"/>
+		<Attr N="Sequence">
+<![CDATA[{
+"Fade":[
+{"Linear1D":[0.5,-16,0,"/theRenderingScreen->Brightness",0]},
+{ "Wait" : [  0.1 ] },
+{ "Notification" :  [ 0 , "StackSequence", "Screen_Main.xml" ] }
+]
+}
+]]>
+	</Attr>
+  </Inst>
+</Inst>
