@@ -25,12 +25,34 @@ void GraphDrawer::InitModifiable()
 	// need to add fsm to the object to control
 	addItem(fsm);
 
+	mTwitterAnalyser = static_cast<TwitterAnalyser*>(KigsCore::GetCoreApplication());
+	mTwitterAnalyser->AddAutoUpdate(this, 1.0);
+	//mTwitterAnalyser->ChangeAutoUpdateFrequency(fsm.get(), 1.0);
+
 	if (mDrawTop)
 	{
 		// create only TopDraw state
 		fsm->addState("TopDraw", new CoreFSMStateClass(GraphDrawer, TopDraw)());
+
+		SP<CoreFSMTransition> topdrawnexttransition = KigsCore::GetInstanceOf("topdrawnexttransition", "CoreFSMOnValueTransition");
+		topdrawnexttransition->setValue("ValueName", "GoNext");
+		topdrawnexttransition->setState("UserStats");
+		topdrawnexttransition->Init();
+		fsm->getState("TopDraw")->addTransition(topdrawnexttransition);
+
+		// create UserStats state
+		fsm->addState("UserStats", new CoreFSMStateClass(GraphDrawer, UserStats)());
+
+		SP<CoreFSMTransition> userstatnexttransition = KigsCore::GetInstanceOf("userstatnexttransition", "CoreFSMOnValueTransition");
+		userstatnexttransition->setValue("ValueName", "GoNext");
+		userstatnexttransition->setState("TopDraw");
+		userstatnexttransition->Init();
+		fsm->getState("UserStats")->addTransition(userstatnexttransition);
+
 		fsm->setStartState("TopDraw");
 		fsm->Init();
+
+		
 	}
 	else
 	{
@@ -108,9 +130,7 @@ void GraphDrawer::InitModifiable()
 		fsm->setStartState("Percent");
 		fsm->Init();
 	}
-	mTwitterAnalyser = static_cast<TwitterAnalyser*>(KigsCore::GetCoreApplication());
-	mTwitterAnalyser->AddAutoUpdate(this, 1.0);
-	//mTwitterAnalyser->ChangeAutoUpdateFrequency(fsm.get(), 1.0);
+
 }
 
 void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	toShow)
@@ -160,7 +180,17 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	
 			int score = (int)std::get<1>(toS);
 			std::string scorePrint;
 
-			scorePrint = std::to_string(score) + mUnits[mCurrentUnit];
+			if (mCurrentUnit == FollowerCount)
+			{
+				scorePrint = std::to_string(std::get<0>(toS));
+			}
+			else
+			{
+				scorePrint = std::to_string(score);
+
+			}
+
+			scorePrint+= mUnits[mCurrentUnit];
 
 			toSetup["ChannelPercent"]("Text") = scorePrint;
 
@@ -197,9 +227,6 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	
 			toSetup("Radius") = ((v2f)toSetup("Size")).x * 1.44f * prescale * 0.5f;
 
 			toSetup["ChannelName"]("PreScale") = v2f(1.0f / (1.44f * prescale), 1.0f / (1.44f * prescale));
-
-			toSetup["ChannelPercent"]("FontSize") = 0.6f * 24.0f / prescale;
-			toSetup["ChannelPercent"]("MaxWidth") = 0.6f * 100.0f / prescale;
 
 			toSetup["ChannelPercent"]("PreScale") = v2f(0.8f, 0.8f);
 			toSetup["ChannelPercent"]("FontSize") = 0.6f * 24.0f / prescale;
@@ -684,7 +711,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	for (auto u : mTwitterAnalyser->mPerPanelUsersStats)
 	{
 		const auto& userdata = mTwitterAnalyser->getRetreivedUser(u.first);
-		currentData.push_back(userdata.mFollowersCount);
+		if (userdata.mFollowersCount + userdata.mFollowingCount)
+		{
+			currentData.push_back(userdata.mFollowersCount);
+		}
 	}
 	
 	Diagram	diagram(bitmap);
@@ -705,7 +735,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	for (auto u : mTwitterAnalyser->mPerPanelUsersStats)
 	{
 		const auto& userdata = mTwitterAnalyser->getRetreivedUser(u.first);
-		currentData.push_back(userdata.mFollowingCount);
+		if (userdata.mFollowersCount + userdata.mFollowingCount)
+		{
+			currentData.push_back(userdata.mFollowingCount);
+		}
 	}
 
 	diagram.mZonePos.Set(1920/2-256, 256);
@@ -734,14 +767,16 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	for (auto u : mTwitterAnalyser->mPerPanelUsersStats)
 	{
 		const auto& userdata = mTwitterAnalyser->getRetreivedUser(u.first);
-
-		std::string creationDate = userdata.UTCTime;
+		if (userdata.mFollowersCount + userdata.mFollowingCount)
+		{
+			std::string creationDate = userdata.UTCTime;
 		
-		int age= TwitterConnect::getDateDiffInMonth(creationDate, endDate);
+			int age= TwitterConnect::getDateDiffInMonth(creationDate, endDate);
 
-		activityIndice.push_back((float)userdata.mStatuses_count/(float)(age+1));
-
-		currentData.push_back(age);
+			activityIndice.push_back((float)userdata.mStatuses_count/(float)(age+1));
+		
+			currentData.push_back(age);
+		}
 		
 	}
 
@@ -1395,6 +1430,10 @@ void CoreFSMStartMethod(GraphDrawer, TopDraw)
 {
 	mGoNext = false;
 	mCurrentUnit = 0;
+	if ((mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Followers) || (mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Following))
+	{
+		mCurrentUnit = FollowerCount;
+	}
 	mCurrentStateHasForceDraw = true;
 }
 
@@ -1409,29 +1448,44 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, TopDraw))
 		drawGeneralStats();
 		return false;
 	}
-	
-	float totalCount = 0.0f;
+
+	std::vector<std::pair<u32, u64>>	sortTop;
 	for (const auto& c : mTwitterAnalyser->mInStatsUsers)
 	{
-		totalCount += (float)c.second.first;
+		sortTop.push_back({ c.second.first,c.first });
 	}
 
-	float oneOnCount = 1.0f / totalCount;
-	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
-	for (const auto& c : mTwitterAnalyser->mInStatsUsers)
-	{
-		toShow.push_back({ c.second.first,(float)c.second.first*oneOnCount * 100.0f,c.first });
-	}
-
-	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, u64>& a1, const std::tuple<unsigned int, float, u64>& a2)
+	std::sort(sortTop.begin(), sortTop.end(), [&](const std::pair<u32, u64>& a1, const std::pair<u32, u64>& a2)
 		{
-			if (std::get<0>(a1) == std::get<0>(a2))
+			if (a1.first == a2.first)
 			{
-				return std::get<2>(a1) > std::get<2>(a2);
+				return a1.second > a2.second;
 			}
-			return (std::get<0>(a1) > std::get<0>(a2));
+			return a1.first > a2.first;
 		}
 	);
+
+	if (sortTop.size() > mTwitterAnalyser->mMaxUserCount)
+	{
+		sortTop.resize(mTwitterAnalyser->mMaxUserCount);
+	}
+	
+	float totalCount = 0.0f;
+	u32 maxCount = 0;
+	for (const auto& c : sortTop)
+	{
+		totalCount += (float)c.first;
+		if (maxCount < c.first)
+			maxCount = c.first;
+	}
+	float oneOnCount = 1.0f / maxCount;
+	
+	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
+
+	for (const auto& c : sortTop)
+	{
+		toShow.push_back({ c.first,(float)c.first *oneOnCount * 100.0f,c.second });
+	}
 
 	std::unordered_map<u64, unsigned int>	currentShowedChannels;
 	int toShowCount = 0;

@@ -31,10 +31,11 @@ protected:
 		Percent = 0,
 		Similarity = 1,
 		Normalized = 2,
-		MEASURE_COUNT = 3
+		FollowerCount = 3,
+		MEASURE_COUNT = 4
 	};
 
-	const std::string	mUnits[MEASURE_COUNT] = { "\%","sc","n" };
+	const std::string	mUnits[MEASURE_COUNT] = { "\%","sc","n",""};
 
 	u32		mCurrentUnit = 0;
 

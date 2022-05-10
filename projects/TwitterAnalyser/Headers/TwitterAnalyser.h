@@ -219,7 +219,8 @@ protected:
 			{
 				return mUsersStruct[(*f).second];
 			}
-			return mUsersStruct[0];
+			addUser(id);
+			return getUserStruct(id);
 		}
 
 		TwitterConnect::UserStruct& getUserStructAtIndex(size_t index)

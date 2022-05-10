@@ -41,7 +41,7 @@ std::string TwitterAnalyser::searchFollowFSM(const std::string& followtype)
 	retrieveuserfollowtransition->Init();
 
 	// create getUserFollow transition (Push)
-	SP<CoreFSMTransition> getfollowtransition = KigsCore::GetInstanceOf("getuserfollowtransition", "CoreFSMInternalSetTransition");
+	SP<CoreFSMTransition> getfollowtransition = KigsCore::GetInstanceOf("getfollowtransition", "CoreFSMInternalSetTransition");
 	getfollowtransition->setValue("TransitionBehavior", "Push");
 	getfollowtransition->setState("GetFollow");
 	getfollowtransition->Init();

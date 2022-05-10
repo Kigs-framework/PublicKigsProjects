@@ -640,6 +640,7 @@ void TwitterConnect::launchUserDetailRequest(u64 UserID, UserStruct& ch)
 	// check classic User Cache
 	std::string url = "2/users/" + std::to_string(UserID) + "?user.fields=created_at,public_metrics,profile_image_url";
 	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
+	mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::ULONG,"UserID", UserID);
 
 	// 900 req per 15 minutes
 	launchGenericRequest(1.5);
@@ -750,6 +751,20 @@ CoreItemSP	TwitterConnect::RetrieveJSON(CoreModifiable* sender)
 			JSonFileParserUTF16 L_JsonParser;
 			CoreItemSP result = L_JsonParser.Get_JsonDictionaryFromString(utf8string);
 
+			if (result["title"])
+			{
+				std::string t(result["title"]);
+				if (t == "Too Many Requests")
+				{
+					Upgrade("DelayedFuncUpgrador");
+					setValue("DelayedFunction", "resendRequest");
+					setValue("Delay", 120.0f); // wait 2 minutes
+					mWaitQuota = true;
+					mWaitQuotaCount++;
+					return nullptr;
+				}
+			}
+
 			if (result["error"])
 			{
 				return nullptr;
@@ -787,6 +802,15 @@ CoreItemSP	TwitterConnect::RetrieveJSON(CoreModifiable* sender)
 						return nullptr;
 					}
 
+				}
+				if (result["errors"][0]["title"])
+				{
+					std::string t(result["errors"][0]["title"]);
+					if ( (t == "Not Found Error") || (t == "Forbidden") )
+					{
+						mApiErrorCode = 63;
+						return nullptr;
+					}
 				}
 			}
 
@@ -826,6 +850,8 @@ DEFINE_METHOD(TwitterConnect, getUserDetails)
 		{
 			u64 id = sender->getValue<u64>("UserID");
 			UserStruct suspended;
+			suspended.mName = usString("Unknown");
+			suspended.mID = id;
 			suspended.mFollowersCount = 0;
 			suspended.mFollowingCount = 0;
 			suspended.mStatuses_count = 0;

@@ -397,11 +397,10 @@ void	TwitterAnalyser::initLogos()
 		}
 		break;
 
-		case dataType::Posters:
+		case dataType::TOP:
 		{
-			// TODO
-			//twitterLogo["placeHolder1"]("IsHidden") = true;
-			//twitterLogo["placeHolder2"]("IsHidden") = true;
+			panelLogo["placeHolder3"]("TextureName") = "Top.png";
+			panelLogo["placeHolder4"]("IsHidden") = true;
 		}
 		break;
 
@@ -492,21 +491,24 @@ void	TwitterAnalyser::manageRetrievedUserDetail(TwitterConnect::UserStruct& Curr
 	{
 		// save name to id if needed
 		std::string username = CurrentUserStruct.mName.ToString();
-		std::string filename = "Cache/Tweets/" + username.substr(0, 4) + "/" + username + ".json";
-		// user id doesn't expire
-		CoreItemSP currentUserJson = TwitterConnect::LoadJSon(filename, false);
-		if (!currentUserJson)
+		if (username != "Unknown")
 		{
-			JSonFileParser L_JsonParser;
-			CoreItemSP initP = MakeCoreMap();
-			initP->set("id", CurrentUserStruct.mID);
-			L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
+			std::string filename = "Cache/Tweets/" + username.substr(0, 4) + "/" + username + ".json";
+			// user id doesn't expire
+			CoreItemSP currentUserJson = TwitterConnect::LoadJSon(filename, false);
+			if (!currentUserJson)
+			{
+				JSonFileParser L_JsonParser;
+				CoreItemSP initP = MakeCoreMap();
+				initP->set("id", CurrentUserStruct.mID);
+				L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
+			}
 		}
 
 	}
 	TwitterConnect::SaveUserStruct(CurrentUserStruct.mID, CurrentUserStruct);
 
-	KigsCore::Disconnect(mTwitterConnect.get(), "UserDetailRetrieved", this, "mainUserDone");
+	KigsCore::Disconnect(mTwitterConnect.get(), "UserDetailRetrieved", this, "manageRetrievedUserDetail");
 
 	requestDone();
 }

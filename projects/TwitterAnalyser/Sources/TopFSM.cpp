@@ -16,13 +16,13 @@ void TwitterAnalyser::TopFSM(const std::string& laststate)
 	// generic get user data transition
 	SP<CoreFSMTransition> getuserdatatransition = KigsCore::GetInstanceOf("getuserdatatransition", "CoreFSMInternalSetTransition");
 	getuserdatatransition->setValue("TransitionBehavior", "Push");
-	getuserdatatransition->setState("UpdateTopStats");
+	getuserdatatransition->setState("UpdateTopStats",1);
 	getuserdatatransition->Init();
 
-	fsm->getState(laststate)->addTransition(getuserdatatransition);
+	fsm->getState(laststate,0)->addTransition(getuserdatatransition);
 
 	// when going to getuserdatatransition, retreive user list from previous state
-	KigsCore::Connect(getuserdatatransition.get(), "ExecuteTransition", this, "setUserList", [this](CoreFSMTransition* t, CoreFSMStateBase* from)
+	KigsCore::Connect(getuserdatatransition.get(), "ExecuteTransition", this, "setUserListblock1", [this](CoreFSMTransition* t, CoreFSMStateBase* from)
 		{
 			SimpleCall("copyUserList", mPanelUserList);
 		});
@@ -33,7 +33,7 @@ void TwitterAnalyser::TopFSM(const std::string& laststate)
 	// create GetUserDetail transition (Push)
 	SP<CoreFSMTransition> getuserdetailtransition = KigsCore::GetInstanceOf("getuserdetailtransition", "CoreFSMInternalSetTransition");
 	getuserdetailtransition->setValue("TransitionBehavior", "Push");
-	getuserdetailtransition->setState("GetUserDetail");
+	getuserdetailtransition->setState("GetUserDetail",1);
 	getuserdetailtransition->Init();
 
 	// getFavorites -> user detail, wait or pop
@@ -62,7 +62,7 @@ void	CoreFSMStopMethod(TwitterAnalyser, UpdateTopStats)
 
 DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 {
-	auto userlist = mPanelUserList.getList();
+	auto& userlist = mPanelUserList.getList();
 	
 	switch (mPanelType)
 	{
@@ -84,22 +84,20 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 
 			mValidUserCount = mInStatsUsers.size();
 			mUserPanelSize = mValidUserCount;
-			userlist.clear();
 			break;
 		}
 
 		case dataType::Followers:
 		case dataType::Following:
 		{
+			mUserPanelSize = userlist.size();
 			if (mCurrentTreatedPanelUserIndex < userlist.size())
 			{
 				u64 user = userlist[mCurrentTreatedPanelUserIndex].first;
 
-				TwitterConnect::UserStruct	newuser;
-				if (!TwitterConnect::LoadUserStruct(user, newuser, false))
+				
+				if (!TwitterConnect::LoadUserStruct(user, mPanelRetreivedUsers.getUserStruct(user), false))
 				{
-					mPanelRetreivedUsers.addUser(user);
-					
 					SP<CoreFSM> fsm = mFsm;
 
 					auto userDetailState = getFSMState(fsm, TwitterAnalyser, GetUserDetail);
@@ -107,15 +105,19 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 					userDetailState->nextTransition = "Pop";
 					userDetailState->mUserID = user;
 
+
 					GetUpgrador()->activateTransition("getuserdetailtransition");
 				}
 				else
 				{
+					// just add user to panel user stats
+					auto& currentUserData = mPerPanelUsersStats[user];
+
 					TwitterConnect::UserStruct	toAdd;
-					mInStatsUsers[user] = std::pair<unsigned int, TwitterConnect::UserStruct>(newuser.mFollowersCount, toAdd);
+					mInStatsUsers[user] = std::pair<unsigned int, TwitterConnect::UserStruct>(mPanelRetreivedUsers.getUserStruct(user).mFollowersCount, mPanelRetreivedUsers.getUserStruct(user));
 					mCurrentTreatedPanelUserIndex++;
 					mTreatedUserCount++;
-					if(newuser.mFollowersCount)
+					if(mPanelRetreivedUsers.getUserStruct(user).mFollowersCount || mPanelRetreivedUsers.getUserStruct(user).mFollowingCount)
 						mValidUserCount++;
 				}
 			}
