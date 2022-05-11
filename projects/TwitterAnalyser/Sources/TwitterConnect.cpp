@@ -805,11 +805,15 @@ CoreItemSP	TwitterConnect::RetrieveJSON(CoreModifiable* sender)
 				}
 				if (result["errors"][0]["title"])
 				{
-					std::string t(result["errors"][0]["title"]);
-					if ( (t == "Not Found Error") || (t == "Forbidden") )
+					// check if data was retrieved
+					if (result["data"]->size() == 0)
 					{
-						mApiErrorCode = 63;
-						return nullptr;
+						std::string t(result["errors"][0]["title"]);
+						if ((t == "Not Found Error") || (t == "Forbidden"))
+						{
+							mApiErrorCode = 63;
+							return nullptr;
+						}
 					}
 				}
 			}
