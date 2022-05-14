@@ -49,6 +49,21 @@ void TwitterAnalyser::TopFSM(const std::string& laststate)
 	// GetUserDetail can only wait (or pop)
 	fsm->getState("GetUserDetail")->addTransition(mTransitionList["waittransition"]);
 
+
+	// change search fsm behaviour according to topFSM
+
+	switch (mPanelType)
+	{
+	case dataType::Posters:
+	case dataType::RTted:
+	{
+		auto retrievetweetactorstate = getFSMState(fsm, TwitterAnalyser, RetrieveTweetActors);
+
+		retrievetweetactorstate->mTreatAllActorsTogether = true;
+	}
+		break;
+	}
+
 }
 
 void	CoreFSMStartMethod(TwitterAnalyser, UpdateTopStats)
@@ -68,6 +83,27 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 	{
 		case dataType::Likers:
 		case dataType::Favorites:
+		{
+			for (auto u : userlist)
+			{
+				if (mInStatsUsers.find(u.first) == mInStatsUsers.end())
+				{
+					TwitterConnect::UserStruct	toAdd;
+					mInStatsUsers[u.first] = std::pair<unsigned int, TwitterConnect::UserStruct>(1, toAdd);
+				}
+				else
+				{
+					mInStatsUsers[u.first].first++;
+				}
+			}
+
+			mValidUserCount = mInStatsUsers.size();
+			mUserPanelSize = mValidUserCount;
+			break;
+		}
+
+		case dataType::RTted:
+		case dataType::RTters:
 		{
 			for (auto u : userlist)
 			{

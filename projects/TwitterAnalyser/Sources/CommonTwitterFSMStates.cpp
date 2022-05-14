@@ -236,10 +236,14 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, GetTweets))
 			{
 				nextCursor = nxtTokenJson["next-cursor"]->toString();
 			}
+			if (nextCursor == "-1")
+			{
+				GetUpgrador()->mCantGetMoreTweets = true;
+			}
 		}
 
 		// more tweets
-		if ( (nextCursor != -1) || (!hasTweetFile))
+		if ( (nextCursor != "-1") || (!hasTweetFile))
 		{
 			KigsCore::Connect(mTwitterConnect.get(), "TweetRetrieved", this, "manageRetrievedTweets");
 			if (GetUpgrador()->mSearchTweets)
