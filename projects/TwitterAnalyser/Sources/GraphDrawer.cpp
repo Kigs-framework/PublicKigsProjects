@@ -146,7 +146,7 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	
 	float dray = 0.0117f;
 	for (const auto& toS : toShow)
 	{
-		if (std::get<2>(toS) == mTwitterAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
+		if( (std::get<2>(toS) == mTwitterAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID) && !mShowMyself)
 		{
 			continue;
 		}
@@ -180,7 +180,7 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	
 			int score = (int)std::get<1>(toS);
 			std::string scorePrint;
 
-			if (mCurrentUnit == FollowerCount)
+			if (mCurrentUnit == AnonymousCount)
 			{
 				scorePrint = std::to_string(std::get<0>(toS));
 			}
@@ -1430,9 +1430,12 @@ void CoreFSMStartMethod(GraphDrawer, TopDraw)
 {
 	mGoNext = false;
 	mCurrentUnit = 0;
-	if ((mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Followers) || (mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Following))
+	if ((mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Followers) || 
+		(mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Following) || 
+		(mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Favorites))
 	{
-		mCurrentUnit = FollowerCount;
+		mCurrentUnit = AnonymousCount;
+		mShowMyself = true;
 	}
 	mCurrentStateHasForceDraw = true;
 }
@@ -1459,7 +1462,14 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, TopDraw))
 		{
 			if (a1.first == a2.first)
 			{
-				return a1.second > a2.second;
+				// search followers count
+				if (mTwitterAnalyser->mPanelRetreivedUsers.getUserStruct(a1.second).mFollowersCount == mTwitterAnalyser->mPanelRetreivedUsers.getUserStruct(a2.second).mFollowersCount)
+				{
+					return a1.second > a2.second;
+				}
+
+				return mTwitterAnalyser->mPanelRetreivedUsers.getUserStruct(a1.second).mFollowersCount > mTwitterAnalyser->mPanelRetreivedUsers.getUserStruct(a2.second).mFollowersCount;
+				
 			}
 			return a1.first > a2.first;
 		}

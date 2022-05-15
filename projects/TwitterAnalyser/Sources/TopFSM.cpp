@@ -49,21 +49,6 @@ void TwitterAnalyser::TopFSM(const std::string& laststate)
 	// GetUserDetail can only wait (or pop)
 	fsm->getState("GetUserDetail")->addTransition(mTransitionList["waittransition"]);
 
-
-	// change search fsm behaviour according to topFSM
-
-	switch (mPanelType)
-	{
-	case dataType::Posters:
-	case dataType::RTted:
-	{
-		auto retrievetweetactorstate = getFSMState(fsm, TwitterAnalyser, RetrieveTweetActors);
-
-		retrievetweetactorstate->mTreatAllActorsTogether = true;
-	}
-		break;
-	}
-
 }
 
 void	CoreFSMStartMethod(TwitterAnalyser, UpdateTopStats)
@@ -82,7 +67,6 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 	switch (mPanelType)
 	{
 		case dataType::Likers:
-		case dataType::Favorites:
 		{
 			for (auto u : userlist)
 			{
@@ -102,24 +86,95 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 			break;
 		}
 
-		case dataType::RTted:
-		case dataType::RTters:
+		case dataType::Favorites:
 		{
-			for (auto u : userlist)
+			if (mCurrentTreatedPanelUserIndex < userlist.size())
 			{
-				if (mInStatsUsers.find(u.first) == mInStatsUsers.end())
+				u64 user = userlist[mCurrentTreatedPanelUserIndex].first;
+
+				if (!TwitterConnect::LoadUserStruct(user, mPanelRetreivedUsers.getUserStruct(user), false))
 				{
-					TwitterConnect::UserStruct	toAdd;
-					mInStatsUsers[u.first] = std::pair<unsigned int, TwitterConnect::UserStruct>(1, toAdd);
+					SP<CoreFSM> fsm = mFsm;
+
+					auto userDetailState = getFSMState(fsm, TwitterAnalyser, GetUserDetail);
+
+					userDetailState->nextTransition = "Pop";
+					userDetailState->mUserID = user;
+
+
+					GetUpgrador()->activateTransition("getuserdetailtransition");
 				}
 				else
 				{
-					mInStatsUsers[u.first].first++;
+					// just add user to panel user stats
+					auto& currentUserData = mPerPanelUsersStats[user];
+
+					mInStatsUsers[user] = std::pair<unsigned int, TwitterConnect::UserStruct>(userlist[mCurrentTreatedPanelUserIndex].second, mPanelRetreivedUsers.getUserStruct(user));
+					
+					mCurrentTreatedPanelUserIndex++;
+					mTreatedUserCount++;
+					if (mPanelRetreivedUsers.getUserStruct(user).mFollowersCount || mPanelRetreivedUsers.getUserStruct(user).mFollowingCount)
+						mValidUserCount++;
+
 				}
 			}
+			else
+			{
+				mUserPanelSize = mValidUserCount;
+			}
+			break;
+		}
 
-			mValidUserCount = mInStatsUsers.size();
-			mUserPanelSize = mValidUserCount;
+		case dataType::RTted:
+		case dataType::Posters:
+
+		{
+			if (mCurrentTreatedPanelUserIndex < userlist.size())
+			{
+				u64 user = userlist[mCurrentTreatedPanelUserIndex].first;
+
+				if (!TwitterConnect::LoadUserStruct(user, mPanelRetreivedUsers.getUserStruct(user), false))
+				{
+					SP<CoreFSM> fsm = mFsm;
+
+					auto userDetailState = getFSMState(fsm, TwitterAnalyser, GetUserDetail);
+
+					userDetailState->nextTransition = "Pop";
+					userDetailState->mUserID = user;
+
+
+					GetUpgrador()->activateTransition("getuserdetailtransition");
+				}
+				else
+				{
+					// just add user to panel user stats
+					auto& currentUserData = mPerPanelUsersStats[user];
+
+					// refresh all 
+					for (size_t i = 0; i <= mCurrentTreatedPanelUserIndex; i++)
+					{
+						u64 refreshuser = userlist[i].first;
+						mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(userlist[i].second, mPanelRetreivedUsers.getUserStruct(refreshuser));
+					}
+
+					mCurrentTreatedPanelUserIndex++;
+					mTreatedUserCount++;
+					if (mPanelRetreivedUsers.getUserStruct(user).mFollowersCount || mPanelRetreivedUsers.getUserStruct(user).mFollowingCount)
+						mValidUserCount++;
+
+					GetUpgrador()->popState();
+				}
+			}
+			else
+			{
+				// refresh all 
+				for (auto i : userlist)
+				{
+					u64 refreshuser = i.first;
+					mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(i.second, mPanelRetreivedUsers.getUserStruct(refreshuser));
+				}
+				mUserPanelSize = mValidUserCount;
+			}
 			break;
 		}
 
@@ -149,7 +204,6 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 					// just add user to panel user stats
 					auto& currentUserData = mPerPanelUsersStats[user];
 
-					TwitterConnect::UserStruct	toAdd;
 					mInStatsUsers[user] = std::pair<unsigned int, TwitterConnect::UserStruct>(mPanelRetreivedUsers.getUserStruct(user).mFollowersCount, mPanelRetreivedUsers.getUserStruct(user));
 					mCurrentTreatedPanelUserIndex++;
 					mTreatedUserCount++;

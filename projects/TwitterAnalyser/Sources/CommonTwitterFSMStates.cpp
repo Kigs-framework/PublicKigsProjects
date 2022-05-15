@@ -481,9 +481,15 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 				// I just can't get enough !
 				GetUpgrador()->mStateStep = 0;
 
-				if (GetUpgrador()->getTransition("donetransition"))
+				if (GetUpgrador()->getTransition("donetransition") && !GetUpgrador()->mTreatAllActorsTogether)
 				{
+					if (mAnalysedType == dataType::TOP) // for top, call it one last time
+					{
+						GetUpgrador()->activateTransition("getuserdatatransition");
+					}
+					break;
 					mUserPanelSize = mValidUserCount;
+					
 				}
 				else
 				{

@@ -31,7 +31,7 @@ protected:
 		Percent = 0,
 		Similarity = 1,
 		Normalized = 2,
-		FollowerCount = 3,
+		AnonymousCount = 3,
 		MEASURE_COUNT = 4
 	};
 
@@ -47,6 +47,7 @@ protected:
 
 	maBool	mDrawForce = BASE_ATTRIBUTE(DrawForce, false);
 	bool	mCurrentStateHasForceDraw = false;
+	bool	mShowMyself = false;
 
 	class Diagram
 	{
