@@ -404,42 +404,83 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 		{
 			auto tweetsState = fsm->getState("RetrieveTweets")->as<CoreFSMStateClass(TwitterAnalyser, RetrieveTweets)>();
 			auto& currentTweet = tweetsState->mTweets[GetUpgrador()->mCurrentTreatedTweetIndex];
+			
+			auto userlistsize = getActorState->mUserlist.size();
+			
 			// different for each actor type
 			if(GetUpgrador()->mActorType == "Likers")
 			{
-				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { currentTweet.mLikeCount, getActorState->mUserlist.size() };
+				if (userlistsize > currentTweet.mLikeCount)
+				{
+					currentTweet.mLikeCount = userlistsize;
+				}
+				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { currentTweet.mLikeCount, userlistsize };
 			}
 			else if (GetUpgrador()->mActorType == "Retweeters")
 			{
-				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { currentTweet.mRetweetCount, getActorState->mUserlist.size() };
+				if (userlistsize > currentTweet.mRetweetCount)
+				{
+					currentTweet.mRetweetCount = userlistsize;
+				}
+				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { currentTweet.mRetweetCount, userlistsize };
 			}
 			else if ( (GetUpgrador()->mActorType == "Posters") || (GetUpgrador()->mActorType == "Retweeted"))
 			{
-				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { 1, getActorState->mUserlist.size() };
+				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { 1, userlistsize };
 			}
 		}
 
 		if ((GetUpgrador()->mWantedActorCount) && (GetUpgrador()->mUserlist.size() >= GetUpgrador()->mWantedActorCount)) // enough actors where found
 		{
-		
 			GetUpgrador()->mStateStep = 4;
 			break;
 		}
 
-		if( (currentTreatedActor.first < getActorState->mUserlist.size()) && ( (currentTreatedActor.second< GetUpgrador()->mMaxActorPerTweet)||(GetUpgrador()->mMaxActorPerTweet==0)) )
+		bool doelse = false;
+		if (GetUpgrador()->mTreatFullList)
 		{
-			if (GetUpgrador()->mUserlist.addUser(getActorState->mUserlist.getList()[currentTreatedActor.first]))
+			if (currentTreatedActor.first < getActorState->mUserlist.size())
 			{
-				currentTreatedActor.second++;
-				if (!GetUpgrador()->mTreatAllActorsTogether)
+				for (auto user : getActorState->mUserlist.getList())
 				{
-					GetUpgrador()->activateTransition("getuserdatatransition");
+					if (GetUpgrador()->mUserlist.addUser(user))
+					{
+						currentTreatedActor.second++;
+					}
+					currentTreatedActor.first++;
 				}
+				
+				GetUpgrador()->activateTransition("getuserdatatransition");
+				
 			}
-			currentTreatedActor.first++;
+			else
+			{
+				doelse = true;
+			}
+			
 		}
 		else
-		{	
+		{
+			if ((currentTreatedActor.first < getActorState->mUserlist.size()) && ((currentTreatedActor.second < GetUpgrador()->mMaxActorPerTweet) || (GetUpgrador()->mMaxActorPerTweet == 0)))
+			{
+				if (GetUpgrador()->mUserlist.addUser(getActorState->mUserlist.getList()[currentTreatedActor.first]))
+				{
+					currentTreatedActor.second++;
+					if (!GetUpgrador()->mTreatAllActorsTogether)
+					{
+						GetUpgrador()->activateTransition("getuserdatatransition");
+					}
+				}
+				currentTreatedActor.first++;
+			}
+			else
+			{
+				doelse = true;
+			}
+		}
+
+		if(doelse)
+		{
 			if (currentTreatedActor.first < getActorState->mUserlist.size())
 			{
 				// it's possible to get more actors for this tweet

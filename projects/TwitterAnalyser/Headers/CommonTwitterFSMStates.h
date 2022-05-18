@@ -89,7 +89,9 @@ public:
 	u32								mCurrentTreatedTweetIndex = 0;
 	bool							mCanGetMoreActors = false;
 	bool							mTreatAllActorsTogether=false;
+	bool							mTreatFullList = false;
 	u32								mWantedActorCount = 0;
+
 protected:
 STARTCOREFSMSTATE_WRAPMETHODS();
 	void	copyUserList(TwitterAnalyser::UserList& touserlist);

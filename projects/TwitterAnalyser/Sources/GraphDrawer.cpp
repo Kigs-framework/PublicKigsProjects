@@ -706,6 +706,8 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	// title
 	bitmap->Print("Sample statistics", 1920 / 2, 16, 1, 1920, 92, "Calibri.ttf", 1, {0,0,0,128});
 
+
+
 	// followers
 	std::vector<float> currentData;
 	for (auto u : mTwitterAnalyser->mPerPanelUsersStats)
@@ -716,7 +718,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 			currentData.push_back(userdata.mFollowersCount);
 		}
 	}
-	
+
+	std::string panelsize = "(sample size = " + std::to_string(currentData.size()) + ")";
+	bitmap->Print(panelsize, 1920 / 2, 100, 1, 1920, 24, "Calibri.ttf", 1, { 0,0,0,128 });
+
 	Diagram	diagram(bitmap);
 	diagram.mZonePos.Set(64, 256);
 	diagram.mColumnCount = 10;
@@ -1430,13 +1435,11 @@ void CoreFSMStartMethod(GraphDrawer, TopDraw)
 {
 	mGoNext = false;
 	mCurrentUnit = 0;
-	if ((mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Followers) || 
-		(mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Following) || 
-		(mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Favorites))
-	{
-		mCurrentUnit = AnonymousCount;
-		mShowMyself = true;
-	}
+
+	// just show the count, not a %
+	mCurrentUnit = AnonymousCount;
+	mShowMyself = true;
+	
 	mCurrentStateHasForceDraw = true;
 }
 
@@ -1489,12 +1492,25 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, TopDraw))
 			maxCount = c.first;
 	}
 	float oneOnCount = 1.0f / maxCount;
+
+	bool usesqrscale = false;
+	if ((mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Followers) ||
+		(mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Following))
+	{
+		usesqrscale = true;
+		oneOnCount = 1.0f / (sqrtf(10.0f + (float)maxCount));
+	}
 	
 	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
 
 	for (const auto& c : sortTop)
 	{
-		toShow.push_back({ c.first,(float)c.first *oneOnCount * 100.0f,c.second });
+		float percent = (float)c.first * oneOnCount * 100.0f;
+		if (usesqrscale)
+		{
+			percent = sqrtf(10.0f+(float)c.first)* oneOnCount * 100.0f;
+		}
+		toShow.push_back({ c.first,percent,c.second });
 	}
 
 	std::unordered_map<u64, unsigned int>	currentShowedChannels;
