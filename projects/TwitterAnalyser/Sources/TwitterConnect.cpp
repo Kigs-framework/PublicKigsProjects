@@ -469,24 +469,22 @@ void		TwitterConnect::SaveFavoritesFile(const std::string& username, const std::
 	SaveDataFile<TwitterConnect::Twts>(filename, favs);
 }
 
-std::vector<u64> TwitterConnect::LoadLikersFile(u64 tweetid)
+bool TwitterConnect::LoadLikersFile(u64 tweetid, std::vector<u64>& likers)
 {
 	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".likers";
 
 	// if dated search, then don't use old file limit here ?
-	std::vector<u64>	result;
-	LoadDataFile<u64>(filename, result);
+	bool result=LoadDataFile<u64>(filename, likers);
 	
 	return result;
 }
 
-std::vector<u64> TwitterConnect::LoadRetweetersFile(u64 tweetid)
+bool TwitterConnect::LoadRetweetersFile(u64 tweetid, std::vector<u64>& rttwers)
 {
 	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".retweeters";
 
 	// if dated search, then don't use old file limit here ?
-	std::vector<u64>	result;
-	LoadDataFile<u64>(filename, result);
+	bool result=LoadDataFile<u64>(filename, rttwers);
 
 	return result;
 }
@@ -806,10 +804,10 @@ CoreItemSP	TwitterConnect::RetrieveJSON(CoreModifiable* sender)
 				if (result["errors"][0]["title"])
 				{
 					// check if data was retrieved
-					if (result["data"]->size() == 0)
+					if (!result["data"] || (result["data"]->size() == 0))
 					{
 						std::string t(result["errors"][0]["title"]);
-						if ((t == "Not Found Error") || (t == "Forbidden"))
+						if ((t == "Not Found Error") || (t == "Forbidden") || (t == "Authorization Error"))
 						{
 							mApiErrorCode = 63;
 							return nullptr;

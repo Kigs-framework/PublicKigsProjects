@@ -600,7 +600,8 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, GetLikers))
 
 	std::string next_cursor = "-1";
 
-	std::vector<u64>	 v = TwitterConnect::LoadLikersFile(GetUpgrador()->mForID);
+	std::vector<u64>	 v;
+	bool found= TwitterConnect::LoadLikersFile(GetUpgrador()->mForID,v);
 	if (nextt)
 	{
 		if (!(GetUpgrador()->mNeededUserCount) || (v.size() < GetUpgrador()->mNeededUserCount))
@@ -609,7 +610,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, GetLikers))
 		}
 	}
 
-	if ((v.size() == 0) || (next_cursor != "-1"))
+	if ((!found) || (next_cursor != "-1"))
 	{
 		KigsCore::Connect(mTwitterConnect.get(), "LikersRetrieved", this, "manageRetrievedLikers");
 		mTwitterConnect->launchGetLikers(GetUpgrador()->mForID, next_cursor);
@@ -634,7 +635,8 @@ void	CoreFSMStateClassMethods(TwitterAnalyser, GetLikers)::manageRetrievedLikers
 	std::string filenamenext_token = "Cache/Tweets/";
 	filenamenext_token += std::to_string(tweetID) + "_LikersNextCursor.json";
 
-	auto v = TwitterConnect::LoadLikersFile(tweetID);
+	std::vector<u64> v;
+	TwitterConnect::LoadLikersFile(tweetID,v);
 	v.insert(v.end(), TweetLikers.begin(), TweetLikers.end());
 
 	if (nexttoken != "-1")
@@ -863,16 +865,17 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, GetRetweeters))
 	std::string next_cursor = "-1";
 
 	std::vector<u64>	 v;
+	bool found=false;
 	if (nextt)
 	{
 		next_cursor = nextt["next-cursor"]->toString();
 	}
 	else
 	{
-		v = TwitterConnect::LoadRetweetersFile(GetUpgrador()->mForID);
+		found = TwitterConnect::LoadRetweetersFile(GetUpgrador()->mForID,v);
 	}
 
-	if ((v.size() == 0) || (next_cursor != "-1"))
+	if ((!found) || (next_cursor != "-1"))
 	{
 		// warning ! same callback as likers => signal is LikersRetrieved
 		KigsCore::Connect(mTwitterConnect.get(), "LikersRetrieved", this, "manageRetrievedRetweeters");
@@ -898,7 +901,8 @@ void	CoreFSMStateClassMethods(TwitterAnalyser, GetRetweeters)::manageRetrievedRe
 	std::string filenamenext_token = "Cache/Tweets/";
 	filenamenext_token += std::to_string(tweetID) + "_RetweeterNextCursor.json";
 
-	auto v = TwitterConnect::LoadRetweetersFile(tweetID);
+	std::vector<u64> v;
+	TwitterConnect::LoadRetweetersFile(tweetID,v);
 	v.insert(v.end(), retweeters.begin(), retweeters.end());
 
 	if (nexttoken != "-1")

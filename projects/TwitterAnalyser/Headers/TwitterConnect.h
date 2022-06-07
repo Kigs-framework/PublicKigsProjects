@@ -282,10 +282,10 @@ public:
 	static CoreItemSP	LoadLikersFile(u64 tweetid, const std::string& username);
 	static void			SaveLikersFile(const std::vector<std::string>& tweetLikers, u64 tweetid, const std::string& username);
 
-	static std::vector<u64> LoadLikersFile(u64 tweetid);
+	static bool			LoadLikersFile(u64 tweetid, std::vector<u64>& likers);
 	static void			SaveLikersFile(const std::vector<u64>& tweetLikers, u64 tweetid);
 
-	static std::vector<u64> LoadRetweetersFile(u64 tweetid);
+	static bool			LoadRetweetersFile(u64 tweetid, std::vector<u64>& rtweeters);
 	static void			SaveRetweetersFile(const std::vector<u64>& RTers, u64 tweetid);
 
 
