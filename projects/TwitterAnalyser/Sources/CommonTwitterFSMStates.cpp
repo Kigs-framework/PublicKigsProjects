@@ -147,6 +147,8 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, GetUserListDetail))
 void	CoreFSMStartMethod(TwitterAnalyser, Done)
 {
 	mGraphDrawer->setEverythingDone();
+
+	SaveStatFile();
 }
 void	CoreFSMStopMethod(TwitterAnalyser, Done)
 {

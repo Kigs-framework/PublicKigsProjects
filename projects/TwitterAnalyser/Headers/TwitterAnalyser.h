@@ -245,6 +245,7 @@ protected:
 		std::vector<TwitterConnect::UserStruct>			mUsersStruct;
 	};
 
+	void		SaveStatFile();
 
 	// user 0 is main user if needed
 	UserListWithStruct	mPanelRetreivedUsers;

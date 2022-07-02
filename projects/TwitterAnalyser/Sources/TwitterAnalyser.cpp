@@ -557,3 +557,69 @@ bool	TwitterAnalyser::checkDone()
 	return (mValidUserCount == mUserPanelSize);
 }
 
+void		TwitterAnalyser::SaveStatFile()
+{
+
+	std::string filename = mPanelRetreivedUsers.getUserStructAtIndex(0).mName.ToString();
+	filename += "_stats.csv";
+
+	// avoid slash and backslash
+	std::replace(filename.begin(), filename.end(), '/', ' ');
+	std::replace(filename.begin(), filename.end(), '\\', ' ');
+
+	filename = FilePathManager::MakeValidFileName(filename);
+
+
+	float wantedpercent = mValidUserPercent;
+
+	std::vector<std::tuple<unsigned int, float, u64>>	toSave;
+	for (auto c : mInStatsUsers)
+	{
+		if (c.first != mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
+		{
+			if (c.second.first > 3)
+			{
+				float percent = (float)c.second.first / (float)mValidUserCount;
+				if (percent > wantedpercent)
+				{
+					toSave.push_back({ c.second.first,percent * 100.0f,c.first });
+				}
+			}
+		}
+	}
+
+	std::sort(toSave.begin(), toSave.end(), [&](const std::tuple<unsigned int, float, u64>& a1, const std::tuple<unsigned int, float, u64>& a2)
+		{
+			if (std::get<0>(a1) == std::get<0>(a2))
+			{
+				return std::get<2>(a1) > std::get<2>(a2);
+			}
+			return (std::get<0>(a1) > std::get<0>(a2));
+		}
+	);
+	
+	SmartPointer<::FileHandle> L_File = Platform_fopen(filename.c_str(), "wb");
+	if (L_File->mFile)
+	{
+		// save general stats
+		char saveBuffer[4096];
+	
+		std::string header = "Account Name,Percent,Normalized\n";
+		Platform_fwrite(header.c_str(), 1, header.length(), L_File.get());
+
+		for (const auto& p : toSave)
+		{
+			auto& U = mInStatsUsers[std::get<2>(p)].second;
+
+			float N= (U.mFollowersCount < 10) ? logf(10.0f) : logf((float)U.mFollowersCount);
+
+			N = std::get<1>(p) / N;
+
+			sprintf(saveBuffer, "\"%s\",%d,%d\n", U.mName.ToString().c_str(), (int)std::get<1>(p),  (int)(100.0f*N));
+			Platform_fwrite(saveBuffer, 1, strlen(saveBuffer), L_File.get());
+		}
+
+
+		Platform_fclose(L_File.get());
+	}
+}
