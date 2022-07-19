@@ -92,6 +92,9 @@ void	YoutubeAnalyser::ProtectedInit()
 	SetMemberFromParam(mMaxUserPerVideo, "MaxUserPerVideo");
 	SetMemberFromParam(mUseKeyword, "UseKeyword");
 
+	SetMemberFromParam(mFromDate, "FromDate");
+	SetMemberFromParam(mToDate, "ToDate");
+
 	replaceSpacesByEscapedOr(mUseKeyword);
 
 	int oldFileLimitInDays=3*30;
@@ -209,7 +212,19 @@ void	YoutubeAnalyser::ProtectedUpdate()
 		// search video list in cache
 
 		std::string filename = "Cache/" + mChannelName + "/videos/";
-		filename += mChannelID + ".json";
+		filename += mChannelID;
+
+		// if date use them
+		if (mFromDate.length())
+		{
+			filename += "_from_" + mFromDate + "_";
+		}
+		if (mToDate.length())
+		{
+			filename += "_to_" + mToDate + "_";
+		}
+
+		filename += ".json";
 
 		CoreItemSP initP = LoadJSon(filename);
 		// need to get more videos than the ones already retrieved ?
@@ -241,9 +256,16 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			}
 			std::string request = url  + mKey + nextPageToken + "&maxResults=50&order=date&type=video";
 			
-			// TODO : add date parameter
-			//"&publishedAfter=""
-			//"&publishedBefore=""
+			// if date use them
+			if (mFromDate.length())
+			{
+				request += "&publishedAfter=" + mFromDate + "T00:00:00Z";
+			}
+			if (mToDate.length())
+			{
+				request += "&publishedBefore=" + mToDate + "T23:59:00Z";
+			}
+
 			mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getVideoList", this);
 			printf("Request : getVideoList\n ");
 			mAnswer->Init();
@@ -1785,7 +1807,19 @@ void YoutubeAnalyser::SaveVideoList(const std::string& nextPage)
 {
 
 	std::string filename = "Cache/" + mChannelName + "/videos/";
-	filename += mChannelID + ".json";
+	filename += mChannelID;
+	
+	// if date use them
+	if (mFromDate.length())
+	{
+		filename += "_from_" + mFromDate + "_";
+	}
+	if (mToDate.length())
+	{
+		filename += "_to_" + mToDate + "_";
+	}
+
+	filename += ".json";
 
 	CoreItemSP initP = LoadJSon(filename);
 

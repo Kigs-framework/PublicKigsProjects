@@ -221,6 +221,10 @@ protected:
 	// if a file is older ( in seconds ) than this limit, then it's considered as not existing ( to recreate )
 	double		mOldFileLimit=0.0;
 
+	std::string	mFromDate = "";
+	std::string	mToDate = "";
+
+
 	enum Measure
 	{
 		Percent = 0,
