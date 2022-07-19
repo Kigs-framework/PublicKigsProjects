@@ -555,11 +555,12 @@ void	TwitterConnect::launchGetFavoritesRequest(u64 userid, const std::string& ne
 	// use since ID, max ID here to retrieve tweets in a given laps of time
 	std::string url = "2/users/" + GetIDString(userid) + "/liked_tweets?expansions=author_id,referenced_tweets.id.author_id&tweet.fields=author_id,public_metrics,created_at,text,referenced_tweets";
 
-	if (mDates[0].dateAsInt && mDates[1].dateAsInt)
+	// can't restrict to date for favorites with API V2
+/*	if (mDates[0].dateAsInt && mDates[1].dateAsInt)
 	{
 		url += "&start_time=" + mDates[0].dateAsString + "T00:00:00Z";
 		url += "&end_time=" + mDates[1].dateAsString + "T23:59:59Z";
-	}
+	}*/
 
 	url += "&max_results=100";
 
@@ -1093,7 +1094,7 @@ DEFINE_METHOD(TwitterConnect, getFavorites)
 
 				u32		creationDate = GetU32YYYYMMDD(tweetdate).first;
 
-				if (inGoodInterval(tweetdate, tweetid))
+				//if (inGoodInterval(tweetdate, tweetid)) // too problematic to retrieve just the good ones by date for favorites
 				{
 					currentFavorites.push_back({ authorid,tweetid,like_count,rt_count,quote_count,creationDate,isReply });
 				}
@@ -1332,9 +1333,7 @@ bool TwitterConnect::inGoodInterval(const std::string& createdDate, u64 tweetid)
 	if (!mUseDates)
 		return true;
 
-	std::string strdate = creationDateToUTC(createdDate);
-
-	auto result = GetU32YYYYMMDD(strdate);
+	auto result = GetU32YYYYMMDD(createdDate);
 
 	if ((result.first >= mDates[0].dateAsInt) && (result.first <= mDates[1].dateAsInt))
 		return true;

@@ -530,6 +530,19 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 		maxv = mLimits.y;
 	}
 
+	// apply multiplier first
+	if (mMultiplier)
+	{
+		minv *= mMultiplier;
+		maxv *= mMultiplier;
+	}
+	// then shift
+	if (mShift)
+	{
+		minv += mShift;
+		maxv += mShift;
+	}
+
 	if (mUseLog)
 	{
 		if (minv < 1.0)
@@ -546,6 +559,18 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 	for (auto v : values)
 	{
 		float transformV=v;
+
+		// apply multiplier first
+		if (mMultiplier)
+		{
+			transformV *= mMultiplier;
+		}
+		// then shift
+		if (mShift)
+		{
+			transformV += mShift;
+		}
+
 		if (mUseLog)
 		{
 			if (transformV < 1.0)
@@ -607,21 +632,38 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 	//
 	{
 		std::string printedLegend;
-		float averageLegend = average;
+
+		if (mShift || mMultiplier)
+		{
+			char buffer[20];  // maximum expected length of the float
+			std::snprintf(buffer, 20, "%.1f", average);
+			printedLegend = buffer;
+		}
+		else
+		{
+			printedLegend = std::to_string((u32)average);
+		}
+
+		// apply multiplier first
+		if (mMultiplier)
+		{
+			average *= mMultiplier;
+		}
+		// then shift
+		if (mShift)
+		{
+			average += mShift;
+		}
+
 		if (mUseLog)
 		{
 			if (average < 1.0)
 				average = 1.0f;
 
 			average = log10f(average);
-			printedLegend = std::to_string((u32)averageLegend);
 		}
-		else
-		{
-			char buffer[20];  // maximum expected length of the float
-			std::snprintf(buffer, 20, "%.1f", averageLegend);
-			printedLegend=buffer;
-		}
+		
+
 		float averagePos = (float)DiagramPos.x + (float)DiagramSize.x * (average - minv) / (maxv - minv);
 		if (averagePos < (float)DiagramPos.x)
 		{
@@ -632,27 +674,44 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 			averagePos = (float)(DiagramPos.x + DiagramSize.x);
 		}
 		mBitmap->Line(averagePos, DiagramPos.y - 1, averagePos, DiagramPos.y + DiagramSize.y + 14, { 255,0,0,128 });
-		mBitmap->Print(printedLegend, averagePos, DiagramPos.y + DiagramSize.y + 14, 1, 96, 12, "Calibri.ttf", 1, { 128,0,0,128 });
+		mBitmap->Print(printedLegend, averagePos, DiagramPos.y + DiagramSize.y + 14, 1, 96, 16, "Calibri.ttf", 1, { 128,0,0,128 });
 	}
 	// median line
 	//
 	{
 		std::string printedLegend;
 		float median = sortedV[sortedV.size()/2];
-		if (mUseLog)
-		{
-			printedLegend = std::to_string((u32)median);
-			if (median < 1.0)
-				median = 1.0f;
 
-			median = log10f(median);
-		}
-		else
+		if (mShift || mMultiplier)
 		{
 			char buffer[20];  // maximum expected length of the float
 			std::snprintf(buffer, 20, "%.1f", median);
 			printedLegend = buffer;
 		}
+		else
+		{
+			printedLegend = std::to_string((u32)median);
+		}
+		// apply multiplier first
+		if (mMultiplier)
+		{
+			median *= mMultiplier;
+		}
+		// then shift
+		if (mShift)
+		{
+			median += mShift;
+		}
+
+		if (mUseLog)
+		{
+			
+			if (median < 1.0)
+				median = 1.0f;
+
+			median = log10f(median);
+		}
+		
 		float medianPos = (float)DiagramPos.x + (float)DiagramSize.x * (median - minv) / (maxv - minv);
 		if (medianPos < (float)DiagramPos.x)
 		{
@@ -663,7 +722,7 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 			medianPos = (float)(DiagramPos.x + DiagramSize.x);
 		}
 		mBitmap->Line(medianPos, DiagramPos.y - 1, medianPos, DiagramPos.y + DiagramSize.y + 24, { 0,200,0,128 });
-		mBitmap->Print(printedLegend, medianPos, DiagramPos.y + DiagramSize.y + 26, 1, 96, 12, "Calibri.ttf", 1, { 0,128,0,128 });
+		mBitmap->Print(printedLegend, medianPos, DiagramPos.y + DiagramSize.y + 26, 1, 96, 16, "Calibri.ttf", 1, { 0,128,0,128 });
 	}
 
 	// X legend
@@ -672,8 +731,32 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 		for (u32 i = 1; i < mColumnCount; i++)
 		{
 			u32 printPosX = DiagramPos.x + (float)i * (float)DiagramSize.x / (float)mColumnCount;
+
 			u32 legend = 1 + pow(10.f, minv + (float)i * ((maxv - minv) / (float)mColumnCount));
-			std::string printedLegend = std::to_string(legend);
+
+			float transformedLegend = legend;
+			// invert shift / multiplier
+			if (mShift)
+			{
+				transformedLegend -= mShift;
+			}
+			if (mMultiplier)
+			{
+				transformedLegend /= mMultiplier;
+			}
+
+			std::string printedLegend;
+
+			if (mShift || mMultiplier)
+			{
+				char buffer[20];  // maximum expected length of the float
+				std::snprintf(buffer, 20, "%.1f", transformedLegend);
+				printedLegend=buffer;
+			}
+			else
+			{
+				printedLegend = std::to_string(legend);
+			}
 
 			if (i == mColumnCount - 1)
 				printedLegend += " & more";
@@ -688,10 +771,19 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 			u32 printPosX = DiagramPos.x + (float)i * (float)DiagramSize.x / (float)mColumnCount;
 			float legend = minv + (float)i * ((maxv - minv) / (float)mColumnCount);
 			
+			// invert shift / multiplier
+			if (mShift)
+			{
+				legend -= mShift;
+			}
+			if (mMultiplier)
+			{
+				legend /= mMultiplier;
+			}
+
 			char buffer[20];  // maximum expected length of the float
 			std::snprintf(buffer, 20, "%.1f", legend);
 			std::string printedLegend(buffer);
-
 
 			mBitmap->Print(printedLegend, printPosX, DiagramPos.y + DiagramSize.y + 2, 1, 96, 12, "Calibri.ttf", 1, black);
 		}
@@ -705,8 +797,6 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 
 	// title
 	bitmap->Print("Sample statistics", 1920 / 2, 16, 1, 1920, 92, "Calibri.ttf", 1, {0,0,0,128});
-
-
 
 	// followers
 	std::vector<float> currentData;
@@ -762,6 +852,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	currentData.clear();
 
 	std::vector<float>	activityIndice;
+	std::vector<float>	followerperage;
 
 	std::string endDate = TwitterConnect::getTodayDate();
 	if (TwitterConnect::useDates())
@@ -778,8 +869,8 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 		
 			int age= TwitterConnect::getDateDiffInMonth(creationDate, endDate);
 
-			activityIndice.push_back((float)userdata.mStatuses_count/(float)(age+1));
-		
+			activityIndice.push_back((float)userdata.mStatuses_count / (float)(age + 1));
+			followerperage.push_back((float)userdata.mFollowersCount / (float)(age + 1));
 			currentData.push_back(age);
 		}
 		
@@ -797,70 +888,37 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 		diagram.Draw(currentData);
 	}
 
-	// favorite diversity indice
+	// follower per tweet ratio
 	currentData.clear();
 
-	if (mTwitterAnalyser->mAnalysedType == TwitterAnalyser::dataType::Favorites)
+	for (auto u : mTwitterAnalyser->mPerPanelUsersStats)
 	{
-		std::vector<float>	favoritesUserCount;
-		for (auto u : mTwitterAnalyser->mPerPanelUsersStats)
+		const auto& userdata = mTwitterAnalyser->getRetreivedUser(u.first);
+		if (userdata.mFollowersCount + userdata.mFollowingCount)
 		{
-			const auto& userdata = mTwitterAnalyser->getRetreivedUser(u.first);
-
-			std::vector<TwitterConnect::Twts>	favs;
-
-			if (TwitterConnect::LoadFavoritesFile(userdata.mID, favs))
-			{
-				std::set<u64>	users;
-				for (auto& f : favs)
-				{
-					users.insert(f.mAuthorID);
-				}
-
-				float indice = ((float)users.size()) / ((float)favs.size());
-
-				currentData.push_back(indice);
-				favoritesUserCount.push_back((float)users.size());
-			}
-		}
-
-		diagram.mZonePos.Set(1920 / 2 - 256, 512 + 64);
-		diagram.mColumnCount = 10;
-		diagram.mZoneSize.Set(512, 288);
-		diagram.mLimits.Set(0.0f, 1.0f);
-		diagram.mUseLog = false;
-		diagram.mTitle = "Favorites diversity indice";
-		diagram.mColumnColor = { 94,169,221,255 };
-		if (currentData.size())
-		{
-			diagram.Draw(currentData);
-		}
-
-		// favorites user count
-
-		diagram.mZonePos.Set(1920 - 64 - 512, 256);
-		diagram.mColumnCount = 10;
-		diagram.mZoneSize.Set(512, 288);
-		diagram.mLimits.Set(1.0f, 200.0f);
-		diagram.mUseLog = true;
-		diagram.mTitle = "Unique favorites count";
-		diagram.mColumnColor = { 94,169,221,255 };
-		if (favoritesUserCount.size())
-		{
-			diagram.Draw(favoritesUserCount);
+			float ratio = (float)userdata.mFollowersCount / (float)(userdata.mStatuses_count+1);
+			currentData.push_back(ratio);
 		}
 	}
-	else if (mTwitterAnalyser->mAnalysedType == TwitterAnalyser::dataType::Followers)
+
+	diagram.mZonePos.Set(1920 / 2 - 256, 512 + 64);
+	diagram.mColumnCount = 10;
+	diagram.mZoneSize.Set(512, 288);
+	diagram.mLimits.Set(0.1f, 2.0f);
+	diagram.mShift=1.0f;
+	diagram.mMultiplier=10.0f;
+	diagram.mUseLog = true;
+	diagram.mTitle = "Follower per tweet ratio";
+	diagram.mColumnColor = { 94,169,221,255 };
+	if (currentData.size())
 	{
-
-	}
-	else if (mTwitterAnalyser->mAnalysedType == TwitterAnalyser::dataType::Following)
-	{
-
+		diagram.Draw(currentData);
 	}
 
+
+	diagram.mShift=0.0f;
+	diagram.mMultiplier=0.0f;
 	// activity indice
-
 	diagram.mZonePos.Set(1920 - 64 - 512, 512+64);
 	diagram.mColumnCount = 10;
 	diagram.mZoneSize.Set(512, 288);
@@ -873,21 +931,20 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 		diagram.Draw(activityIndice);
 	}
 
-	// print inaccessible likers %
-	//TODO
-	/*u32 totalLikerCount = 0;
-	u32 retrievedLikerCount = 0;
-	for (u32 i = 0; i < mTwitterAnalyser->mTweetRetrievedLikerCount.size(); i++)
+	// follower per month
+	diagram.mZonePos.Set(1920 - 64 - 512, 256);
+	diagram.mColumnCount = 10;
+	diagram.mZoneSize.Set(512, 288);
+	diagram.mLimits.Set(0.0f, 50.0f);
+	diagram.mShift = 1.0f;
+	diagram.mMultiplier = 2.0f;
+	diagram.mUseLog = true;
+	diagram.mTitle = "Average follower per month";
+	diagram.mColumnColor = { 94,169,221,255 };
+	if (followerperage.size())
 	{
-		totalLikerCount += mTwitterAnalyser->mTweets[i].mLikeCount;
-		retrievedLikerCount += mTwitterAnalyser->mTweetRetrievedLikerCount[mTwitterAnalyser->mTweets[i].mTweetID];
+		diagram.Draw(followerperage);
 	}
-	if (totalLikerCount)
-	{
-		std::string inaccessibleLikers = "Inaccessible likers : " + std::to_string(100 - (100 * retrievedLikerCount) / totalLikerCount) + "%";
-
-		bitmap->Print(inaccessibleLikers, 128, 900, 1, 512, 36, "Calibri.ttf", 0, { 0,0,0,255 });
-	}*/
 
 }
 

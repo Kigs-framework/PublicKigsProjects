@@ -58,6 +58,9 @@ protected:
 		SP<KigsBitmap>	mBitmap;
 		u32				mColumnCount = 12;
 		bool			mUseLog;
+		// apply multiplier, then shift
+		float			mMultiplier = 0.0f;
+		float			mShift = 0.0f;
 
 		KigsBitmap::KigsBitmapPixel	mColumnColor = {0,0,0,255};
 		friend class GraphDrawer;

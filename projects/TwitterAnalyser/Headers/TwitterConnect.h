@@ -51,14 +51,7 @@ public:
 		unsigned int				mStatuses_count = 0;
 		std::string					UTCTime = "";
 		ThumbnailStruct				mThumb;
-		std::vector<u64>			mFollowing;
 		u64							mID;
-		// detailed stats
-		u32							mLikerCount;
-		u32							mLikerFollowerCount;
-		u32							mLikerMainUserFollowerCount;
-		u32							mLikerBothFollowCount;
-		u32							mLikesCount;
 	};
 	// structures
 	class PerAccountUserMap

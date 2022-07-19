@@ -239,11 +239,12 @@ void	TwitterAnalyser::ProtectedInit()
 
 	commonStatesFSM();
 
+	SetMemberFromParam(mMaxUsersPerTweet, "MaxUsersPerTweet");
+
 	switch (mPanelType)
 	{
 	case dataType::Likers:
 		lastState = searchLikersFSM();
-		SetMemberFromParam(mMaxUsersPerTweet, "MaxUsersPerTweet");
 		break;
 	case dataType::Posters:
 		if(mUseHashTags)
