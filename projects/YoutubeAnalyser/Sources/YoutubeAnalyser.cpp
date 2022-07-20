@@ -856,7 +856,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 	{
 		currentShowedChannels[tos.second] = 1;
 		toShowCount++;
-		if (toShowCount >= mMaxChannelCount)
+		if (toShowCount >= (mMaxChannelCount*4)) // compute 4x max channel count to display cloud
 			break;
 	}
 
@@ -916,9 +916,12 @@ void	YoutubeAnalyser::refreshAllThumbs()
 		auto found=mShowedChannels.find(toPlace.second);
 		if (found != mShowedChannels.end())
 		{
+			
+			
 			const CMSP& toSetup = (*found).second;
 			v2f dock(0.53f + ray * cosf(angle), 0.47f + ray*1.02f * sinf(angle));
 			toSetup("Dock") = dock;
+
 			angle += dangle;
 			dangle = 2.0f * KFLOAT_CONST_PI / (2.0f+50.0f*ray);
 			ray += dray;
@@ -1018,10 +1021,16 @@ void	YoutubeAnalyser::refreshAllThumbs()
 				}
 
 			}
+			if (toShowCount >= mMaxChannelCount) // really draw in screen
+			{
+				dock.Set(-5.0f, -5.0f);
+				toSetup("Dock") = dock;
+
+			}
 		}
 		toShowCount++;
-		if (toShowCount >= mMaxChannelCount)
-			break;
+
+		
 	}
 
 	if (mySubscribedWriters >= mSubscribedUserCount)

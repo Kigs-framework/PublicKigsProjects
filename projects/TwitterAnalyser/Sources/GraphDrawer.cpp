@@ -159,6 +159,7 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	
 			const CMSP& toSetup = (*found).second;
 			v2f dock(0.53f + ray * cosf(angle), 0.47f + ray * 1.02f * sinf(angle));
 			toSetup("Dock") = dock;
+
 			angle += dangle;
 			dangle = 2.0f * KFLOAT_CONST_PI / (2.0f + 50.0f * ray);
 			ray += dray;
@@ -253,10 +254,15 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	
 				}
 			}
 
+			if (toShowCount >= mTwitterAnalyser->mMaxUserCount)
+			{
+				dock.Set(-5.0f, -5.0f);
+				toSetup("Dock") = dock;
+			}
+
 		}
 		toShowCount++;
-		if (toShowCount >= mTwitterAnalyser->mMaxUserCount)
-			break;
+		
 	}
 	
 }
@@ -1090,7 +1096,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 
 		const auto& a1User = mTwitterAnalyser->mInStatsUsers[std::get<2>(tos)];
 
-		if (toShowCount >= mTwitterAnalyser->mMaxUserCount)
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*4))
 			break;
 	}
 
@@ -1239,7 +1245,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 
 		std::get<1>(tos) = k1*100.0f;
 
-		if (toShowCount >= mTwitterAnalyser->mMaxUserCount)
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*4))
 			break;
 	}
 
@@ -1373,7 +1379,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Normalized))
 
 		std::get<1>(tos) = fpercent;
 
-		if (toShowCount >= mTwitterAnalyser->mMaxUserCount)
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*4))
 			break;
 	}
 
@@ -1535,9 +1541,9 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, TopDraw))
 		}
 	);
 
-	if (sortTop.size() > mTwitterAnalyser->mMaxUserCount)
+	if (sortTop.size() > (mTwitterAnalyser->mMaxUserCount*4))
 	{
-		sortTop.resize(mTwitterAnalyser->mMaxUserCount);
+		sortTop.resize(mTwitterAnalyser->mMaxUserCount*4);
 	}
 	
 	float totalCount = 0.0f;
@@ -1579,7 +1585,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, TopDraw))
 
 		const auto& a1User = mTwitterAnalyser->mInStatsUsers[std::get<2>(tos)];
 
-		if (toShowCount >= mTwitterAnalyser->mMaxUserCount)
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*4))
 			break;
 	}
 
