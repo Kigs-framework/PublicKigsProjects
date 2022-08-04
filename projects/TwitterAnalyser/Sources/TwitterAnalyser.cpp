@@ -265,6 +265,9 @@ void	TwitterAnalyser::ProtectedInit()
 	case dataType::RTters:
 		lastState = searchRetweetersFSM();
 		break;
+	case dataType::Replyers:
+		lastState = searchReplyersFSM();
+		break;
 	}
 
 	switch (mAnalysedType)
@@ -290,6 +293,9 @@ void	TwitterAnalyser::ProtectedInit()
 		break;
 	case dataType::RTters:
 		analyseRetweetersFSM(lastState);
+		break;
+	case dataType::Replyers:
+		analyseReplyersFSM(lastState);
 		break;
 	}
 
@@ -380,6 +386,14 @@ void	TwitterAnalyser::initLogos()
 			twitterLogo["placeHolder2"]("TextureName") = "Retweet.png";
 		}
 		break;
+
+		case dataType::Replyers:
+		{
+			twitterLogo("Dock") = v2f(0.6f, 0.5f);
+			twitterLogo["placeHolder1"]("TextureName") = "reply.png";
+			twitterLogo["placeHolder2"]("IsHidden") = true;
+		}
+		break;
 	}
 	
 	switch (mAnalysedType)
@@ -430,6 +444,13 @@ void	TwitterAnalyser::initLogos()
 		{
 			panelLogo["placeHolder3"]("IsHidden") = true;
 			panelLogo["placeHolder4"]("TextureName") = "Retweet.png";
+		}
+		break;
+
+		case dataType::Replyers:
+		{
+			panelLogo["placeHolder3"]("TextureName") = "reply.png";
+			panelLogo["placeHolder4"]("IsHidden") = true;
 		}
 		break;
 	}

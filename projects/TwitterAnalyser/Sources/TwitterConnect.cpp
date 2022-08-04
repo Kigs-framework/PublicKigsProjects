@@ -479,6 +479,31 @@ bool TwitterConnect::LoadLikersFile(u64 tweetid, std::vector<u64>& likers)
 	return result;
 }
 
+void		TwitterConnect::SaveLikersFile(const std::vector<u64>& tweetLikers, u64 tweetid)
+{
+	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".likers";
+
+	SaveDataFile<u64>(filename, tweetLikers);
+}
+
+
+bool	TwitterConnect::LoadReplyersFile(u64 tweetid, std::vector<u64>& replyers)
+{
+	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".replyers";
+
+	// if dated search, then don't use old file limit here ?
+	bool result = LoadDataFile<u64>(filename, replyers);
+
+	return result;
+}
+void	TwitterConnect::SaveReplyersFile(const std::vector<u64>& tweetReplyers, u64 tweetid)
+{
+	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".replyers";
+
+	SaveDataFile<u64>(filename, tweetReplyers);
+}
+
+
 bool TwitterConnect::LoadRetweetersFile(u64 tweetid, std::vector<u64>& rttwers)
 {
 	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".retweeters";
@@ -505,12 +530,6 @@ CoreItemSP		TwitterConnect::LoadLikersFile(u64 tweetid, const std::string& usern
 	return likers;
 }
 
-void		TwitterConnect::SaveLikersFile(const std::vector<u64>& tweetLikers, u64 tweetid)
-{
-	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".likers";
-
-	SaveDataFile<u64>(filename, tweetLikers);
-}
 
 void		TwitterConnect::SaveLikersFile(const std::vector<std::string>& tweetLikers,u64 tweetid, const std::string& username)
 {
@@ -577,7 +596,7 @@ void	TwitterConnect::launchGetFavoritesRequest(u64 userid, const std::string& ne
 
 void	TwitterConnect::launchSearchTweetRequest(const std::string& hashtag, const std::string& nextCursor)
 {
-	std::string url = "2/tweets/search/recent?query=" + getHashtagURL(hashtag) + "&expansions=author_id,referenced_tweets.id,referenced_tweets.id.author_id&tweet.fields=author_id,public_metrics,created_at,text,referenced_tweets";
+	std::string url = "2/tweets/search/recent?query=" + getHashtagURL(hashtag) + "&expansions=author_id,referenced_tweets.id,referenced_tweets.id.author_id&tweet.fields=author_id,conversation_id,public_metrics,created_at,text,referenced_tweets";
 
 	if (mDates[0].dateAsInt && mDates[1].dateAsInt)
 	{
@@ -601,7 +620,7 @@ void	TwitterConnect::launchSearchTweetRequest(const std::string& hashtag, const 
 
 void	TwitterConnect::launchGetTweetRequest(u64 userid,const std::string& username,  const std::string& nextCursor)
 {
-	std::string url = "2/users/" + std::to_string(userid) + "/tweets?expansions=author_id,referenced_tweets.id.author_id&tweet.fields=author_id,public_metrics,created_at,text,referenced_tweets";
+	std::string url = "2/users/" + std::to_string(userid) + "/tweets?expansions=author_id,referenced_tweets.id.author_id&tweet.fields=author_id,conversation_id,public_metrics,created_at,text,referenced_tweets";
 
 	if (mDates[0].dateAsInt && mDates[1].dateAsInt)
 	{
@@ -658,6 +677,21 @@ void	TwitterConnect::launchGetLikers(u64 tweetid, const std::string& nextToken)
 
 	// 75 req per 15 minutes
 	launchGenericRequest(12.5);
+}
+
+void	TwitterConnect::launchGetReplyers(u64 conversationID, const std::string& nextToken)
+{
+	std::string url = "2/tweets/search/recent?query=conversation_id:" + std::to_string(conversationID) + "&tweet.fields=author_id";
+
+	url += "&max_results=100";
+	if (nextToken != "-1")
+	{
+		url += "&next_token=" + nextToken;
+	}
+
+	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getReplyers", this);
+	// 450 req per 15 minutes
+	launchGenericRequest(2.5);
 }
 
 
@@ -942,8 +976,14 @@ DEFINE_METHOD(TwitterConnect, getTweets)
 				u32 quote_count = currentTweet["public_metrics"]["quote_count"];
 
 				u32		creationDate = GetU32YYYYMMDD(tweetdate).first;
+
+				u64     conversation_id = -1;
+				if (currentTweet["conversation_id"])
+				{
+					conversation_id = currentTweet["conversation_id"];
+				}
 				
-				retrievedTweets.push_back({ authorid,tweetid,like_count,rt_count,quote_count,creationDate,isReply });
+				retrievedTweets.push_back({ authorid,tweetid,conversation_id,like_count,rt_count,quote_count,creationDate,isReply });
 				
 			}
 		}
@@ -964,6 +1004,53 @@ DEFINE_METHOD(TwitterConnect, getTweets)
 		}
 
 		EmitSignal("TweetRetrieved", retrievedTweets, nextStr);
+
+	}
+
+	return true;
+}
+
+
+DEFINE_METHOD(TwitterConnect, getReplyers)
+{
+	auto json = RetrieveJSON(sender);
+
+	if (json)
+	{
+
+		std::vector<u64> retrievedReplyers;
+		CoreItemSP tweetsArray = json["data"];
+		if (tweetsArray)
+		{
+			unsigned int tweetcount = tweetsArray->size();
+
+			for (unsigned int i = 0; i < tweetcount; i++)
+			{
+				CoreItemSP currentTweet = tweetsArray[i];
+				
+				u64 authorid = currentTweet["author_id"];
+				
+				retrievedReplyers.push_back(authorid);
+
+			}
+		}
+
+		std::string nextStr = "-1";
+
+		CoreItemSP meta = json["meta"];
+		if (meta)
+		{
+			if (meta["next_token"])
+			{
+				nextStr = meta["next_token"]->toString();
+				if (nextStr == "0")
+				{
+					nextStr = "-1";
+				}
+			}
+		}
+
+		EmitSignal("ReplyersRetrieved", retrievedReplyers, nextStr);
 
 	}
 

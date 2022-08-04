@@ -856,7 +856,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 	{
 		currentShowedChannels[tos.second] = 1;
 		toShowCount++;
-		if (toShowCount >= (mMaxChannelCount*4)) // compute 4x max channel count to display cloud
+		if (toShowCount >= (mMaxChannelCount*3)) // compute 3x max channel count to display cloud
 			break;
 	}
 

@@ -17,24 +17,23 @@ public:
 	friend class GraphDrawer;
 	enum class dataType
 	{
-		// panel types
+		
 		Likers		= 0,			// with or without hashtag, with or without period
 		Posters		= 1,			// with hashtag, with or without period
-		// panel or analysed types
 		Followers	= 2,			// no hashtag, no period here
 		Following	= 3,			// no hashtag, no period here
-
-		// analysed types only
 		Favorites	= 4,			// with or without hashtag, with or without period
+		
+		// analysed types only
 		TOP			= 5,			// if used for data type, then just work with panel
 
-		// panel or analysed types
 		RTters		= 6,
 		RTted		= 7,
+		Replyers	= 8,			// only latest 7 days 
 	};
 protected:
 
-	std::vector<std::string>	PanelUserName = { "Likers" , "Posters" , "Followers" , "Following", "Favorites" , "Top" , "Retweeters" , "Retweeted"};
+	std::vector<std::string>	PanelUserName = { "Likers" , "Posters" , "Followers" , "Following", "Favorites" , "Top" , "Retweeters" , "Retweeted", "Replyers"};
 
 	void	requestDone();
 	void	mainUserDone(TwitterConnect::UserStruct& CurrentUserStruct);
@@ -53,6 +52,7 @@ protected:
 
 	std::string	searchFavoritesFSM();
 	std::string	searchLikersFSM();
+	std::string searchReplyersFSM();
 	std::string	searchPostersFSM();
 	std::string	searchFollowFSM(const std::string& followtype);
 	std::string	searchRetweetersFSM();
@@ -62,6 +62,7 @@ protected:
 
 	void	analyseFavoritesFSM(const std::string& lastState);
 	void	analyseLikersFSM(const std::string& lastState);
+	void	analyseReplyersFSM(const std::string& lastState);
 	void	analyseFollowFSM(const std::string& lastState, const std::string& followtype);
 	void	analyseRetweetersFSM(const std::string& lastState);
 	void	analyseRetweetedFSM(const std::string& lastState);

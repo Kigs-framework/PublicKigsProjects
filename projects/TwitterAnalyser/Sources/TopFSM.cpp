@@ -56,6 +56,7 @@ void TwitterAnalyser::TopFSM(const std::string& laststate)
 	{
 	case dataType::Likers:
 	case dataType::RTters:
+	case dataType::Replyers:
 	{
 		auto retrievetweetactorstate = getFSMState(fsm, TwitterAnalyser, RetrieveTweetActors);
 		retrievetweetactorstate->mTreatFullList = true;
@@ -83,6 +84,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 
 	case dataType::Likers:
 	case dataType::RTters:
+	case dataType::Replyers:
 	{
 		while (mCurrentTreatedPanelUserIndex < userlist.size())
 		{

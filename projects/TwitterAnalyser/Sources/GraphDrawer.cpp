@@ -1096,7 +1096,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 
 		const auto& a1User = mTwitterAnalyser->mInStatsUsers[std::get<2>(tos)];
 
-		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*4))
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*3))
 			break;
 	}
 
@@ -1245,7 +1245,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 
 		std::get<1>(tos) = k1*100.0f;
 
-		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*4))
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*3))
 			break;
 	}
 
@@ -1379,7 +1379,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Normalized))
 
 		std::get<1>(tos) = fpercent;
 
-		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*4))
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*3))
 			break;
 	}
 
@@ -1541,9 +1541,9 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, TopDraw))
 		}
 	);
 
-	if (sortTop.size() > (mTwitterAnalyser->mMaxUserCount*4))
+	if (sortTop.size() > (mTwitterAnalyser->mMaxUserCount*3))
 	{
-		sortTop.resize(mTwitterAnalyser->mMaxUserCount*4);
+		sortTop.resize(mTwitterAnalyser->mMaxUserCount*3);
 	}
 	
 	float totalCount = 0.0f;
@@ -1585,7 +1585,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, TopDraw))
 
 		const auto& a1User = mTwitterAnalyser->mInStatsUsers[std::get<2>(tos)];
 
-		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*4))
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount*3))
 			break;
 	}
 

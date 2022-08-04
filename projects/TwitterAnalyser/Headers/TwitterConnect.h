@@ -35,6 +35,7 @@ public:
 	{
 		u64		mAuthorID;		// if 0 need to search author using tweetid
 		u64		mTweetID;
+		u64		mConversationID;
 		u32		mLikeCount;
 		u32		mRetweetCount; 
 		u32		mQuoteCount;
@@ -238,6 +239,7 @@ public:
 	void	launchGetTweetRequest(u64 userid, const std::string& username, const std::string& nextToken="-1");
 	void	launchSearchTweetRequest(const std::string& hashtag, const std::string& nextToken = "-1");
 	void	launchGetLikers(u64 tweetid, const std::string& nextToken = "-1");
+	void	launchGetReplyers(u64 conversationID, const std::string& nextToken = "-1");
 	void	launchGetRetweeters(u64 tweetid, const std::string& nextToken = "-1");
 
 	static bool	LoadTweetsFile(std::vector<Twts>& tweetlist, const std::string& username, const std::string& fname="");
@@ -277,6 +279,9 @@ public:
 
 	static bool			LoadLikersFile(u64 tweetid, std::vector<u64>& likers);
 	static void			SaveLikersFile(const std::vector<u64>& tweetLikers, u64 tweetid);
+
+	static bool			LoadReplyersFile(u64 tweetid, std::vector<u64>& replyers);
+	static void			SaveReplyersFile(const std::vector<u64>& tweetReplyers, u64 tweetid);
 
 	static bool			LoadRetweetersFile(u64 tweetid, std::vector<u64>& rtweeters);
 	static void			SaveRetweetersFile(const std::vector<u64>& RTers, u64 tweetid);
@@ -344,8 +349,10 @@ protected:
 	DECLARE_METHOD(getLikers);
 	DECLARE_METHOD(getFollow);
 	DECLARE_METHOD(getFavorites);
+	DECLARE_METHOD(getReplyers);
+
 	
-	COREMODIFIABLE_METHODS(getUserDetails, getFollow, getTweets, getLikers, getFavorites);
+	COREMODIFIABLE_METHODS(getUserDetails, getFollow, getTweets, getLikers, getFavorites, getReplyers);
 	CoreItemSP	RetrieveJSON(CoreModifiable* sender);
 
 	std::vector<std::pair<CMSP, std::pair<u64, UserStruct*>> >		mDownloaderList;

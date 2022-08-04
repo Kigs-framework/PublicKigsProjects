@@ -90,7 +90,9 @@ public:
 	bool							mCanGetMoreActors = false;
 	bool							mTreatAllActorsTogether=false;
 	bool							mTreatFullList = false;
+	bool							mExcludeMainUser = false;
 	u32								mWantedActorCount = 0;
+
 
 protected:
 STARTCOREFSMSTATE_WRAPMETHODS();
@@ -104,6 +106,13 @@ START_INHERITED_COREFSMSTATE(TwitterAnalyser, GetLikers, GetUsers)
 STARTCOREFSMSTATE_WRAPMETHODS();
 void	manageRetrievedLikers(std::vector<u64>& TweetLikers, const std::string& nexttoken);
 ENDCOREFSMSTATE_WRAPMETHODS(manageRetrievedLikers)
+END_DECLARE_COREFSMSTATE()
+
+// retrieve replyers
+START_INHERITED_COREFSMSTATE(TwitterAnalyser, GetReplyers, GetUsers)
+STARTCOREFSMSTATE_WRAPMETHODS();
+void	manageRetrievedReplyers(std::vector<u64>& TweetReplyers, const std::string& nexttoken);
+ENDCOREFSMSTATE_WRAPMETHODS(manageRetrievedReplyers)
 END_DECLARE_COREFSMSTATE()
 
 

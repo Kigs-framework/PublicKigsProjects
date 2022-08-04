@@ -286,9 +286,9 @@ void	CoreFSMStateClassMethods(TwitterAnalyser, GetTweets)::manageRetrievedTweets
 	}
 	else
 	{
-		GetUpgrador()->mCantGetMoreTweets = true;
-		ModuleFileManager::RemoveFile(filenamenext_token.c_str());
-		//don't randomize tweet vector
+	GetUpgrador()->mCantGetMoreTweets = true;
+	ModuleFileManager::RemoveFile(filenamenext_token.c_str());
+	//don't randomize tweet vector
 	}
 
 	KigsCore::Disconnect(mTwitterConnect.get(), "TweetRetrieved", this, "manageRetrievedTweets");
@@ -308,7 +308,7 @@ void	CoreFSMStopMethod(TwitterAnalyser, GetUsers)
 
 DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, GetUsers))
 {
-	
+
 	if (GetUpgrador()->mNeedMoreUsers) // this state needs more user
 	{
 		if (GetUpgrador()->mCantGetMoreUsers) // no more users can be retreived
@@ -358,7 +358,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 	}
 	break;
 	case 1:
-	// for each retrieved tweet, get actors
+		// for each retrieved tweet, get actors
 	{
 		auto tweetsState = fsm->getState("RetrieveTweets")->as<CoreFSMStateClass(TwitterAnalyser, RetrieveTweets)>();
 		if (GetUpgrador()->mCurrentTreatedTweetIndex < tweetsState->mTweets.size())
@@ -367,19 +367,27 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 			GetUpgrador()->mTreatedActorPerTweet.push_back({ 0,0 });
 
 			if (((currentTweet.mLikeCount) && (GetUpgrador()->mActorType == "Likers"))
-				|| ((currentTweet.mRetweetCount) && (GetUpgrador()->mActorType == "Retweeters")) )
-				
+				|| ((currentTweet.mRetweetCount) && (GetUpgrador()->mActorType == "Retweeters")))
+
 			{
 				auto getActorState = fsm->getState("Get" + GetUpgrador()->mActorType)->as<CoreFSMStateClass(TwitterAnalyser, GetUsers)>();
 				getActorState->mForID = currentTweet.mTweetID;
 				GetUpgrador()->mStateStep = 2;
 				GetUpgrador()->activateTransition("getactorstransition");
 			}
-			else if ( (GetUpgrador()->mActorType == "Posters") || (GetUpgrador()->mActorType == "Retweeted"))
+			else if ((GetUpgrador()->mActorType == "Posters") || (GetUpgrador()->mActorType == "Retweeted"))
 			{
 				auto getActorState = fsm->getState("Get" + GetUpgrador()->mActorType)->as<CoreFSMStateClass(TwitterAnalyser, GetUsers)>();
 				// store authorID here
 				getActorState->mForID = currentTweet.mAuthorID;
+				GetUpgrador()->mStateStep = 2;
+				GetUpgrador()->activateTransition("getactorstransition");
+			}
+			else if ( (GetUpgrador()->mActorType == "Replyers") && (currentTweet.mConversationID!=-1))
+			{
+				auto getActorState = fsm->getState("Get" + GetUpgrador()->mActorType)->as<CoreFSMStateClass(TwitterAnalyser, GetUsers)>();
+				// store authorID here
+				getActorState->mForID = currentTweet.mConversationID;
 				GetUpgrador()->mStateStep = 2;
 				GetUpgrador()->activateTransition("getactorstransition");
 			}
@@ -426,7 +434,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 				}
 				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { currentTweet.mRetweetCount, userlistsize };
 			}
-			else if ( (GetUpgrador()->mActorType == "Posters") || (GetUpgrador()->mActorType == "Retweeted"))
+			else if ( (GetUpgrador()->mActorType == "Posters") || (GetUpgrador()->mActorType == "Retweeted") || (GetUpgrador()->mActorType == "Replyers"))
 			{
 				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { 1, userlistsize };
 			}
@@ -445,9 +453,12 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 			{
 				for (auto user : getActorState->mUserlist.getList())
 				{
-					if (GetUpgrador()->mUserlist.addUser(user))
+					if (!(GetUpgrador()->mExcludeMainUser && (getActorState->mUserlist.getList()[currentTreatedActor.first].first == mPanelRetreivedUsers.getUserStructAtIndex(0).mID)))
 					{
-						currentTreatedActor.second++;
+						if (GetUpgrador()->mUserlist.addUser(user))
+						{
+							currentTreatedActor.second++;
+						}
 					}
 					currentTreatedActor.first++;
 				}
@@ -465,12 +476,15 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 		{
 			if ((currentTreatedActor.first < getActorState->mUserlist.size()) && ((currentTreatedActor.second < GetUpgrador()->mMaxActorPerTweet) || (GetUpgrador()->mMaxActorPerTweet == 0)))
 			{
-				if (GetUpgrador()->mUserlist.addUser(getActorState->mUserlist.getList()[currentTreatedActor.first]))
+				if (!(GetUpgrador()->mExcludeMainUser && (getActorState->mUserlist.getList()[currentTreatedActor.first].first == mPanelRetreivedUsers.getUserStructAtIndex(0).mID)))
 				{
-					currentTreatedActor.second++;
-					if (!GetUpgrador()->mTreatAllActorsTogether)
+					if (GetUpgrador()->mUserlist.addUser(getActorState->mUserlist.getList()[currentTreatedActor.first]))
 					{
-						GetUpgrador()->activateTransition("getuserdatatransition");
+						currentTreatedActor.second++;
+						if (!GetUpgrador()->mTreatAllActorsTogether)
+						{
+							GetUpgrador()->activateTransition("getuserdatatransition");
+						}
 					}
 				}
 				currentTreatedActor.first++;
@@ -655,6 +669,90 @@ void	CoreFSMStateClassMethods(TwitterAnalyser, GetLikers)::manageRetrievedLikers
 
 	KigsCore::Disconnect(mTwitterConnect.get(), "LikersRetrieved", this, "manageRetrievedLikers");
 	TwitterConnect::SaveLikersFile(v, tweetID);
+
+	requestDone();
+}
+
+void	CoreFSMStartMethod(TwitterAnalyser, GetReplyers)
+{
+
+}
+void	CoreFSMStopMethod(TwitterAnalyser, GetReplyers)
+{
+
+}
+
+DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, GetReplyers))
+{
+	// if an active transition already exist, just activate it
+	if (GetUpgrador()->hasActiveTransition(this))
+	{
+		return false;
+	}
+
+	// call parent upgrador update
+	UpgradorMethodParentClass::UpgradorUpdate(timer, addParam);
+
+	std::string filenamenext_token = "Cache/Tweets/";
+	filenamenext_token += std::to_string(GetUpgrador()->mForID) + "_ReplyersNextCursor.json";
+
+	CoreItemSP nextt = TwitterConnect::LoadJSon(filenamenext_token);
+
+	std::string next_cursor = "-1";
+
+	std::vector<u64>	 v;
+	bool found = TwitterConnect::LoadReplyersFile(GetUpgrador()->mForID, v);
+	if (nextt)
+	{
+		if (!(GetUpgrador()->mNeededUserCount) || (v.size() < GetUpgrador()->mNeededUserCount))
+		{
+			next_cursor = nextt["next-cursor"]->toString();
+		}
+	}
+
+	if ((!found) || (next_cursor != "-1"))
+	{
+		KigsCore::Connect(mTwitterConnect.get(), "ReplyersRetrieved", this, "manageRetrievedReplyers");
+		mTwitterConnect->launchGetReplyers(GetUpgrador()->mForID, next_cursor);
+		GetUpgrador()->activateTransition("waittransition");
+		mNeedWait = true;
+	}
+	else
+	{
+		GetUpgrador()->mUserlist.clear();
+		GetUpgrador()->mUserlist.addUsers(v);
+		GetUpgrador()->popState();
+	}
+
+	return false;
+}
+
+
+void	CoreFSMStateClassMethods(TwitterAnalyser, GetReplyers)::manageRetrievedReplyers(std::vector<u64>& TweetReplyers, const std::string& nexttoken)
+{
+	u64 tweetID = GetUpgrador()->mForID;
+
+	std::string filenamenext_token = "Cache/Tweets/";
+	filenamenext_token += std::to_string(tweetID) + "_ReplyersNextCursor.json";
+
+	std::vector<u64> v;
+	TwitterConnect::LoadReplyersFile(tweetID, v);
+	v.insert(v.end(), TweetReplyers.begin(), TweetReplyers.end());
+
+	if (nexttoken != "-1")
+	{
+		CoreItemSP currentUserJson = MakeCoreMap();
+		currentUserJson->set("next-cursor", nexttoken);
+		TwitterConnect::SaveJSon(filenamenext_token, currentUserJson);
+	}
+	else
+	{
+		ModuleFileManager::RemoveFile(filenamenext_token.c_str());
+		TwitterConnect::randomizeVector(v);
+	}
+
+	KigsCore::Disconnect(mTwitterConnect.get(), "ReplyersRetrieved", this, "manageRetrievedReplyers");
+	TwitterConnect::SaveReplyersFile(v, tweetID);
 
 	requestDone();
 }
