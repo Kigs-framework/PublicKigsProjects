@@ -19,7 +19,7 @@ protected:
 	void	drawSpiral(std::vector<std::tuple<unsigned int, float,u64>>& toShow);
 	void	drawForce();
 	void	drawStats(SP<KigsBitmap> bitmap);
-	
+	void	drawOCStats(SP<KigsBitmap> bitmap);
 	void	drawGeneralStats();
 
 	bool	mEverythingDone=false;
@@ -32,10 +32,12 @@ protected:
 		Similarity = 1,
 		Normalized = 2,
 		AnonymousCount = 3,
-		MEASURE_COUNT = 4
+		Opening		   = 4,
+		Closing			= 5,
+		MEASURE_COUNT = 6
 	};
 
-	const std::string	mUnits[MEASURE_COUNT] = { "\%","sc","n",""};
+	const std::string	mUnits[MEASURE_COUNT] = { " \%"," sc"," n",""," Op"," Cl"};
 
 	u32		mCurrentUnit = 0;
 
@@ -48,6 +50,8 @@ protected:
 	maBool	mDrawForce = BASE_ATTRIBUTE(DrawForce, false);
 	bool	mCurrentStateHasForceDraw = false;
 	bool	mShowMyself = false;
+
+	void	OpeningClosingUpdate(bool closing);
 
 	class Diagram
 	{
@@ -86,8 +90,6 @@ public:
 
 	void InitModifiable() override;
 
-	maBool	mDrawTop = BASE_ATTRIBUTE(DrawTop, false);
-	maBool	mHasJaccard = BASE_ATTRIBUTE(HasJaccard, false);
 	maBool  mGoNext = BASE_ATTRIBUTE(GoNext, false);
 	void	setEverythingDone()
 	{
@@ -109,6 +111,22 @@ END_DECLARE_COREFSMSTATE()
 
 // Normalized drawing
 START_DECLARE_COREFSMSTATE(GraphDrawer, Normalized)
+COREFSMSTATE_WITHOUT_METHODS()
+END_DECLARE_COREFSMSTATE()
+
+// Opening drawing
+START_DECLARE_COREFSMSTATE(GraphDrawer, OpeningMeasurement)
+COREFSMSTATE_WITHOUT_METHODS()
+END_DECLARE_COREFSMSTATE()
+
+// Closing drawing
+START_DECLARE_COREFSMSTATE(GraphDrawer, ClosingMeasurement)
+COREFSMSTATE_WITHOUT_METHODS()
+END_DECLARE_COREFSMSTATE()
+
+// Opening/Closing stats
+START_DECLARE_COREFSMSTATE(GraphDrawer, OpeningClosingStats)
+CMSP	mBitmap;
 COREFSMSTATE_WITHOUT_METHODS()
 END_DECLARE_COREFSMSTATE()
 

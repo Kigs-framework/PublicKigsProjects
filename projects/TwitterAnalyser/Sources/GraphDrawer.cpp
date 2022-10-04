@@ -29,7 +29,7 @@ void GraphDrawer::InitModifiable()
 	mTwitterAnalyser->AddAutoUpdate(this, 1.0);
 	//mTwitterAnalyser->ChangeAutoUpdateFrequency(fsm.get(), 1.0);
 
-	if (mDrawTop)
+	if (mTwitterAnalyser->mAnalysedType == TwitterAnalyser::dataType::TOP)
 	{
 		// create only TopDraw state
 		fsm->addState("TopDraw", new CoreFSMStateClass(GraphDrawer, TopDraw)());
@@ -51,8 +51,6 @@ void GraphDrawer::InitModifiable()
 
 		fsm->setStartState("TopDraw");
 		fsm->Init();
-
-		
 	}
 	else
 	{
@@ -70,7 +68,7 @@ void GraphDrawer::InitModifiable()
 		SP<CoreFSMTransition> percentnexttransition = KigsCore::GetInstanceOf("percentnexttransition", "CoreFSMOnValueTransition");
 		percentnexttransition->setValue("ValueName", "GoNext");
 
-		if (mHasJaccard)
+		if ((mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Followers) && (mTwitterAnalyser->mAnalysedType == TwitterAnalyser::dataType::Following))
 		{
 			// create Jaccard state
 			fsm->addState("Jaccard", new CoreFSMStateClass(GraphDrawer, Jaccard)());
@@ -98,13 +96,48 @@ void GraphDrawer::InitModifiable()
 
 		// create Normalized state
 		fsm->addState("Normalized", new CoreFSMStateClass(GraphDrawer, Normalized)());
-
+		fsm->getState("Normalized")->addTransition(forcetransition);
 		SP<CoreFSMTransition> normalizednexttransition = KigsCore::GetInstanceOf("normalizednexttransition", "CoreFSMOnValueTransition");
 		normalizednexttransition->setValue("ValueName", "GoNext");
-		normalizednexttransition->setState("UserStats");
-		normalizednexttransition->Init();
+
+		if ((mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Following) && (mTwitterAnalyser->mAnalysedType == TwitterAnalyser::dataType::Interactors))
+		{
+			normalizednexttransition->setState("OpeningMeasurement");
+			// create Opening and Closing state
+			fsm->addState("OpeningMeasurement", new CoreFSMStateClass(GraphDrawer, OpeningMeasurement)());
+			fsm->addState("ClosingMeasurement", new CoreFSMStateClass(GraphDrawer, ClosingMeasurement)());
+			fsm->addState("OpeningClosingStats", new CoreFSMStateClass(GraphDrawer, OpeningClosingStats)());
+
+			SP<CoreFSMTransition> openingnexttransition = KigsCore::GetInstanceOf("openingnexttransition", "CoreFSMOnValueTransition");
+			openingnexttransition->setValue("ValueName", "GoNext");
+			openingnexttransition->setState("ClosingMeasurement");
+			openingnexttransition->Init();
+
+			fsm->getState("OpeningMeasurement")->addTransition(openingnexttransition);
+			
+			SP<CoreFSMTransition> closingnexttransition = KigsCore::GetInstanceOf("closingnexttransition", "CoreFSMOnValueTransition");
+			closingnexttransition->setValue("ValueName", "GoNext");
+			closingnexttransition->setState("OpeningClosingStats");
+			closingnexttransition->Init();
+
+			fsm->getState("ClosingMeasurement")->addTransition(closingnexttransition);
+
+
+			SP<CoreFSMTransition> opclostatsnexttransition = KigsCore::GetInstanceOf("opclostatsnexttransition", "CoreFSMOnValueTransition");
+			opclostatsnexttransition->setValue("ValueName", "GoNext");
+			opclostatsnexttransition->setState("UserStats");
+			opclostatsnexttransition->Init();
+
+			fsm->getState("OpeningClosingStats")->addTransition(opclostatsnexttransition);
+		}
+		else
+		{
+			
+			normalizednexttransition->setState("UserStats");
+			
+		}
 		fsm->getState("Normalized")->addTransition(normalizednexttransition);
-		fsm->getState("Normalized")->addTransition(forcetransition);
+		normalizednexttransition->Init();
 
 
 		// create UserStats state
@@ -1503,7 +1536,7 @@ void CoreFSMStartMethod(GraphDrawer, TopDraw)
 	mCurrentUnit = AnonymousCount;
 	mShowMyself = true;
 	
-	mCurrentStateHasForceDraw = true;
+	mCurrentStateHasForceDraw = false;
 }
 
 void CoreFSMStopMethod(GraphDrawer, TopDraw)
@@ -1625,3 +1658,306 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, TopDraw))
 	drawSpiral(toShow);
 	return false;
 }
+
+void	GraphDrawer::OpeningClosingUpdate(bool closing)
+{
+	// retrieve analysed account following count
+
+	auto fcount=mTwitterAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mFollowingCount;
+
+	float gcoef = log10f((float)fcount);
+
+	std::vector<std::pair<u64, float>>	sortOpeningClosing;
+	for (const auto& c : mTwitterAnalyser->mPerPanelUsersStats)
+	{
+		size_t ulistSize = c.second.size();
+		if (ulistSize>5)
+		{
+			float total_w = 0.0f;
+			float follow_w = 0.0f;
+			for (const auto& u : c.second.getList())
+			{
+				total_w += u.second;
+				// check if u is in panel (following)
+				if (mTwitterAnalyser->mPanelUserList.hasUser(u.first))
+				{
+					follow_w += u.second;
+				}
+			}
+
+			float score = gcoef*(follow_w / total_w);
+			if (score > 1.0f)
+				score = 1.0f;
+			if (!closing)
+			{
+				score = 1.0f - score;
+			}
+
+			if (ulistSize < 100)
+				score *= ((float)ulistSize) * 0.01f;
+
+			sortOpeningClosing.push_back({ c.first, score });
+		}
+	}
+
+	std::sort(sortOpeningClosing.begin(), sortOpeningClosing.end(), [&](const std::pair<u64, float>& a1, const std::pair<u64, float>& a2)
+		{
+			if (a1.second == a2.second)
+			{
+				return a1.first > a2.first;
+			}
+			return a1.second > a2.second;
+		}
+	);
+
+	if (sortOpeningClosing.size() > (mTwitterAnalyser->mMaxUserCount * 3))
+	{
+		sortOpeningClosing.resize(mTwitterAnalyser->mMaxUserCount * 3);
+	}
+
+	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
+
+	for (const auto& c : sortOpeningClosing)
+	{
+		float percent = (float)c.second * 100.0f;
+		toShow.push_back({ percent,percent,c.first });
+	}
+
+	std::unordered_map<u64, unsigned int>	currentShowedChannels;
+	int toShowCount = 0;
+	for (const auto& tos : toShow)
+	{
+		currentShowedChannels[std::get<2>(tos)] = 1;
+		toShowCount++;
+
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount * 3))
+			break;
+	}
+
+	for (const auto& s : mShowedUser)
+	{
+		if (currentShowedChannels.find(s.first) == currentShowedChannels.end())
+		{
+			currentShowedChannels[s.first] = 0;
+		}
+		else
+		{
+			currentShowedChannels[s.first]++;
+		}
+	}
+
+	// add / remove items
+	for (const auto& update : currentShowedChannels)
+	{
+		if (update.second == 0) // to remove 
+		{
+			auto toremove = mShowedUser.find(update.first);
+			mMainInterface->removeItem((*toremove).second);
+			mShowedUser.erase(toremove);
+		}
+		else if (update.second == 1) // to add
+		{
+			std::string thumbName = "thumbNail_" + TwitterConnect::GetIDString(update.first);
+			CMSP toAdd = CoreModifiable::Import("Thumbnail.xml", false, false, nullptr, thumbName);
+			toAdd->AddDynamicAttribute<maFloat, float>("Radius", 1.0f);
+			mShowedUser[update.first] = toAdd;
+			mMainInterface->addItem(toAdd);
+		}
+	}
+
+	drawSpiral(toShow);
+}
+
+// Opening
+void CoreFSMStartMethod(GraphDrawer, OpeningMeasurement)
+{
+	mGoNext = false;
+	// just show the count, not a %
+	mCurrentUnit = Opening;
+	mShowMyself = false;
+
+	mCurrentStateHasForceDraw = false;
+}
+
+void CoreFSMStopMethod(GraphDrawer, OpeningMeasurement)
+{
+
+}
+
+DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, OpeningMeasurement))
+{
+	if (mTwitterAnalyser->mInStatsUsers.size() == 0)
+	{
+		drawGeneralStats();
+		return false;
+	}
+
+	OpeningClosingUpdate(false);
+
+	return false;
+}
+
+// Closing
+void CoreFSMStartMethod(GraphDrawer, ClosingMeasurement)
+{
+	mGoNext = false;
+
+	// just show the count, not a %
+	mCurrentUnit = Closing;
+	mShowMyself = false;
+	mCurrentStateHasForceDraw = false;
+}
+
+void CoreFSMStopMethod(GraphDrawer, ClosingMeasurement)
+{
+}
+
+DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ClosingMeasurement))
+{
+	if (mTwitterAnalyser->mInStatsUsers.size() == 0)
+	{
+		drawGeneralStats();
+		return false;
+	}
+
+	OpeningClosingUpdate(true);
+	return false;
+}
+
+// Closing
+void CoreFSMStartMethod(GraphDrawer, OpeningClosingStats)
+{
+	mGoNext = false;
+
+	// just show the count, not a %
+	mCurrentUnit = AnonymousCount;
+	mShowMyself = false;
+	mCurrentStateHasForceDraw = false;
+
+	for (auto& u : mShowedUser)
+	{
+		const CMSP& toSetup = u.second;
+		toSetup("IsHidden") = true;
+	}
+
+	// move logo
+	mMainInterface["thumbnail"]("Dock") = v2f(0.94f, 0.08f);
+
+	CMSP uiImage = KigsCore::GetInstanceOf("drawuiImage", "UIImage");
+	uiImage->setValue("Priority", 10);
+	uiImage->setValue("Anchor", v2f(0.0f, 0.0f));
+	uiImage->setValue("Dock", v2f(0.0f, 0.0f));
+	uiImage->setValue("Color", v3f(1.0f, 1.0f, 1.0f));
+	CMSP drawtexture = KigsCore::GetInstanceOf("drawTexture", "Texture");
+	drawtexture->setValue("FileName", "");
+
+	GetUpgrador()->mBitmap = KigsCore::GetInstanceOf("mBitmap", "KigsBitmap");
+	GetUpgrador()->mBitmap->setValue("Size", v2f(2048, 2048));
+	drawtexture->addItem(GetUpgrador()->mBitmap);
+
+	mMainInterface->addItem(uiImage);
+	uiImage->Init();
+
+	drawtexture->Init();
+	GetUpgrador()->mBitmap->Init();
+	uiImage->addItem(drawtexture);
+
+}
+
+void CoreFSMStopMethod(GraphDrawer, OpeningClosingStats)
+{
+	for (auto& u : mShowedUser)
+	{
+		const CMSP& toSetup = u.second;
+		toSetup("IsHidden") = false;
+	}
+	GetUpgrador()->mBitmap = nullptr;
+
+	CMSP uiImage = mMainInterface->GetFirstSonByName("UIImage", "drawuiImage");
+	mMainInterface->removeItem(uiImage);
+	// move logo
+	mMainInterface["thumbnail"]("Dock") = v2f(0.52f, 0.44f);
+}
+
+void	GraphDrawer::drawOCStats(SP<KigsBitmap> bitmap)
+{
+	drawGeneralStats();
+	bitmap->Clear({ 0,0,0,0 });
+
+	// title
+	bitmap->Print("Opening / Closing statistics", 1920 / 2, 16, 1, 1920, 92, "Calibri.ttf", 1, { 0,0,0,128 });
+
+
+	auto fcount = mTwitterAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mFollowingCount;
+
+	float gcoef = log10f((float)fcount);
+
+	std::vector<float>	Opening;
+	std::vector<float>	Closing;
+	for (const auto& c : mTwitterAnalyser->mPerPanelUsersStats)
+	{
+		size_t ulistSize = c.second.size();
+		if (ulistSize > 5)
+		{
+			float total_w = 0.0f;
+			float follow_w = 0.0f;
+			for (const auto& u : c.second.getList())
+			{
+				total_w += u.second;
+				// check if u is in panel (following)
+				if (mTwitterAnalyser->mPanelUserList.hasUser(u.first))
+				{
+					follow_w += u.second;
+				}
+			}
+
+			float cscore = gcoef * (follow_w / total_w);
+			if (cscore > 1.0f)
+				cscore = 1.0f;
+			
+			float oscore= 1.0f - cscore;
+		
+			if (ulistSize < 100)
+			{
+				oscore *= ((float)ulistSize) * 0.01f;
+				cscore *= ((float)ulistSize) * 0.01f;
+			}
+
+			Opening.push_back(oscore*100.0f);
+			Closing.push_back(cscore*100.0f);
+		}
+	}
+
+	Diagram	diagram(bitmap);
+	diagram.mZonePos.Set(64, 256);
+	diagram.mColumnCount = 20;
+	diagram.mZoneSize.Set(856, 512);
+	diagram.mLimits.Set(0.0f, 100.0f);
+	diagram.mUseLog = false;
+	diagram.mTitle = "Opening Profile";
+	diagram.mColumnColor = { 94,169,221,255 };
+	if (Opening.size())
+	{
+		diagram.Draw(Opening);
+	}
+
+	diagram.mZonePos.Set(1920 - (856+64), 256);
+	diagram.mColumnCount = 20;
+	diagram.mZoneSize.Set(856, 512);
+	diagram.mLimits.Set(0.0f, 100.0f);
+	diagram.mUseLog = false;
+	diagram.mTitle = "Closing Profile";
+	diagram.mColumnColor = { 94,169,221,255 };
+	if (Closing.size())
+	{
+		diagram.Draw(Closing);
+	}
+}
+
+
+DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, OpeningClosingStats))
+{
+	drawOCStats(GetUpgrador()->mBitmap);
+	return false;
+}
+

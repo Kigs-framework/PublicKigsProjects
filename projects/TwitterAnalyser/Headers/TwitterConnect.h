@@ -39,8 +39,10 @@ public:
 		u32		mLikeCount;
 		u32		mRetweetCount; 
 		u32		mQuoteCount;
-		u32		mCreationData;
-		u32		mFlag;			// is reply
+		u32		mCreationDate;
+		u64		mReplyedTo;			// 0 if not a reply, else author id of the replied tweet
+
+		time_t	getCreationDate() const;
 	};
 
 	class UserStruct
@@ -328,9 +330,6 @@ public:
 		return mDates[index].dateAsString;
 	}
 
-	static u64	getTweetIdBeforeDate(const std::string& date);
-	static u64	getTweetIdAfterDate(const std::string& date);
-
 	static int	getDateDiffInMonth(const std::string& date1, const std::string& date2);
 
 	static std::string getTodayDate();
@@ -369,10 +368,6 @@ protected:
 	static std::pair<u32, u32>	GetU32YYYYMMDD(const std::string& utcdate);
 
 	static std::string creationDateToUTC(const std::string& created_date);
-
-	static bool inGoodInterval(const std::string& createdDate,u64 tweetid);
-
-	static std::map<u32, std::pair<u64, u32>>		mDateToTweet;
 
 	void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
 

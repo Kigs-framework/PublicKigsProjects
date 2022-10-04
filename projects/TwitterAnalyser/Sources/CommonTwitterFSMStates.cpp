@@ -219,6 +219,32 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, GetTweets))
 		{
 			needMoreTweet = false;
 		}
+
+		// limit tweets in time
+		if (GetUpgrador()->mTimeLimit)
+		{
+			auto currentTime = time(0);
+
+			u64 timelimitinseconds = GetUpgrador()->mTimeLimit * 24 * 60 * 60;
+
+			size_t offlimit = 0;
+			for (const auto& twt : GetUpgrador()->mTweets)
+			{
+				time_t cr = twt.getCreationDate();
+
+				double diffseconds = difftime(currentTime, cr);
+				if (diffseconds > timelimitinseconds)
+				{
+					offlimit++;
+					if (offlimit >= 3)
+					{
+						needMoreTweet = false;
+						break;
+					}	
+				}
+				
+			}
+		}
 	}
 
 	if (needMoreTweet)
@@ -286,9 +312,9 @@ void	CoreFSMStateClassMethods(TwitterAnalyser, GetTweets)::manageRetrievedTweets
 	}
 	else
 	{
-	GetUpgrador()->mCantGetMoreTweets = true;
-	ModuleFileManager::RemoveFile(filenamenext_token.c_str());
-	//don't randomize tweet vector
+		GetUpgrador()->mCantGetMoreTweets = true;
+		ModuleFileManager::RemoveFile(filenamenext_token.c_str());
+		//don't randomize tweet vector
 	}
 
 	KigsCore::Disconnect(mTwitterConnect.get(), "TweetRetrieved", this, "manageRetrievedTweets");
@@ -375,11 +401,15 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 				GetUpgrador()->mStateStep = 2;
 				GetUpgrador()->activateTransition("getactorstransition");
 			}
-			else if ((GetUpgrador()->mActorType == "Posters") || (GetUpgrador()->mActorType == "Retweeted"))
+			else if ((GetUpgrador()->mActorType == "Posters") || (GetUpgrador()->mActorType == "Retweeted") || (GetUpgrador()->mActorType == "Interactors"))
 			{
 				auto getActorState = fsm->getState("Get" + GetUpgrador()->mActorType)->as<CoreFSMStateClass(TwitterAnalyser, GetUsers)>();
 				// store authorID here
 				getActorState->mForID = currentTweet.mAuthorID;
+				if ( (GetUpgrador()->mActorType == "Interactors") && (currentTweet.mReplyedTo)) // for interactors get rtted or replied to
+				{
+					getActorState->mForID = currentTweet.mReplyedTo;
+				}
 				GetUpgrador()->mStateStep = 2;
 				GetUpgrador()->activateTransition("getactorstransition");
 			}
@@ -434,7 +464,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 				}
 				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { currentTweet.mRetweetCount, userlistsize };
 			}
-			else if ( (GetUpgrador()->mActorType == "Posters") || (GetUpgrador()->mActorType == "Retweeted") || (GetUpgrador()->mActorType == "Replyers"))
+			else if ( (GetUpgrador()->mActorType == "Posters") || (GetUpgrador()->mActorType == "Retweeted") || (GetUpgrador()->mActorType == "Replyers") || (GetUpgrador()->mActorType == "Interactors"))
 			{
 				tweetsState->mTweetRetrievedUserCount[currentTweet.mTweetID] = { 1, userlistsize };
 			}
@@ -570,6 +600,10 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweetActors))
 	break;
 	case 5:
 	{
+		auto rtweetsState = fsm->getState("RetrieveTweets")->as<CoreFSMStateClass(TwitterAnalyser, RetrieveTweets)>();
+		
+		// reset RetrieveTweets state
+		rtweetsState->reset();
 
 		auto tweetsState = fsm->getState("GetTweets")->as<CoreFSMStateClass(TwitterAnalyser, GetTweets)>();
 		tweetsState->reset();
@@ -1052,7 +1086,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweets))
 	SP<CoreFSM> fsm = mFsm;
 	auto getTweetsState = getFSMState(fsm, TwitterAnalyser, GetTweets);
 
-	if (getTweetsState->mTweets.size())
+	if (getTweetsState->mTweets.size() || getTweetsState->mCantGetMoreTweets)
 	{
 		GetUpgrador()->mTweets = getTweetsState->mTweets;
 		if (!GetUpgrador()->mUseHashtag) // filter tweet 
@@ -1060,12 +1094,42 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweets))
 			TwitterConnect::FilterTweets(GetUpgrador()->mUserID, GetUpgrador()->mTweets, GetUpgrador()->mExcludeRetweets, GetUpgrador()->mExcludeReplies);
 		}
 
-		if (getTweetsState->mNeededTweetCount < getTweetsState->mTweets.size())
+		bool askmoretweets = true;
+		// limit tweets in time
+		if(GetUpgrador()->mTimeLimit)
+		{
+			auto currentTime = time(0);
+
+			u64 timelimitinseconds = GetUpgrador()->mTimeLimit * 24 * 60 * 60;
+
+			size_t twtindex = 0;
+			size_t offlimit = 0;
+			for (const auto& twt : GetUpgrador()->mTweets)
+			{
+				time_t cr = twt.getCreationDate();
+
+				double diffseconds = difftime(currentTime, cr);
+				if (diffseconds > timelimitinseconds)
+				{
+					offlimit++;
+					if (offlimit >= 3)
+					{
+						askmoretweets = false;
+						break;
+					}
+				}
+				twtindex++;
+			}
+
+			GetUpgrador()->mTweets.resize(twtindex);
+		}
+
+		if (getTweetsState->mNeededTweetCount && (getTweetsState->mNeededTweetCount < getTweetsState->mTweets.size()))
 		{
 			getTweetsState->mNeededTweetCount = getTweetsState->mTweets.size();
 		}
 
-		if (getTweetsState->mCantGetMoreTweets)
+		if ( (getTweetsState->mCantGetMoreTweets) || (!askmoretweets))
 		{
 			GetUpgrador()->mCanGetMore = false;
 			GetUpgrador()->popState();
@@ -1076,10 +1140,12 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveTweets))
 		}
 		else
 		{
+			GetUpgrador()->mCanGetMore = true;
 			if (GetUpgrador()->mAskMore)
 			{
 				GetUpgrador()->mAskMore = false;
-				getTweetsState->mNeededTweetCount += getTweetsState->mNeededTweetCountIncrement;
+				if(getTweetsState->mNeededTweetCount)
+					getTweetsState->mNeededTweetCount += getTweetsState->mNeededTweetCountIncrement;
 			}
 			else
 			{
@@ -1139,7 +1205,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateStats))
 
 		for (auto f : currentData)
 		{
-			currentUserData.addUser(f.first);
+			currentUserData.addUser(f);
 
 			auto alreadyfound = mInStatsUsers.find(f.first);
 			if (alreadyfound != mInStatsUsers.end())

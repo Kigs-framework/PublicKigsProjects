@@ -97,6 +97,7 @@ std::string	TwitterAnalyser::searchRetweetedFSM()
 {
 	SP<CoreFSM> fsm = mFsm;
 
+
 	fsm->addState("Init", new CoreFSMStateClass(TwitterAnalyser, InitUser)());
 	
 	// go to RetrieveTweetActors
@@ -116,7 +117,7 @@ std::string	TwitterAnalyser::searchRetweetedFSM()
 	fsm->addState("RetrieveTweetActors", retrievetweetactorstate);
 
 
-	// transition to GetRetweeters (push)
+	// transition to GetRetweeted (push)
 	SP<CoreFSMTransition> getactorstransition = KigsCore::GetInstanceOf("getactorstransition", "CoreFSMInternalSetTransition");
 	getactorstransition->setValue("TransitionBehavior", "Push");
 	getactorstransition->setState("GetRetweeted");

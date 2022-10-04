@@ -10,8 +10,6 @@
 double		TwitterConnect::mOldFileLimit=0;
 time_t		TwitterConnect::mCurrentTime=0;
 
-std::map<u32, std::pair<u64, u32>>			TwitterConnect::mDateToTweet;
-
 TwitterConnect::datestruct	TwitterConnect::mDates[2];
 bool						TwitterConnect::mUseDates = false;
 
@@ -39,6 +37,8 @@ void	TwitterConnect::initBearer(CoreItemSP initP)
 		}
 	} while (foundBear);
 }
+
+
 
 bool TwitterConnect::checkValidFile(const std::string& fname, SmartPointer<::FileHandle>& filenamehandle, double OldFileLimit)
 {
@@ -97,7 +97,7 @@ void	TwitterConnect::FilterTweets(u64 authorid,std::vector<TwitterConnect::Twts>
 		}
 		if (excludeReplies)
 		{
-			if (t.mFlag)
+			if (t.mReplyedTo)
 			{
 				exludethisone = true;
 			}
@@ -909,10 +909,12 @@ DEFINE_METHOD(TwitterConnect, getTweets)
 {
 	auto json = RetrieveJSON(sender);
 
+	std::vector<Twts> retrievedTweets;
+	std::string nextStr = "-1";
+
 	if (json)
 	{
 
-		std::vector<Twts> retrievedTweets;
 		CoreItemSP tweetsArray = json["data"];
 		if (tweetsArray)
 		{
@@ -921,13 +923,18 @@ DEFINE_METHOD(TwitterConnect, getTweets)
 
 			auto searchRetweeted = [this, includesTweets](u64 twtid)->CoreItemSP
 			{
-				for (auto t : includesTweets)
+				if (includesTweets)
 				{
-					if ((u64)t["id"] == twtid)
+					for (auto t : includesTweets)
 					{
-						return t;
+						if ((u64)t["id"] == twtid)
+						{
+							return t;
+						}
 					}
 				}
+				CoreItemSP empty;
+				return empty;
 			};
 
 			unsigned int tweetcount = tweetsArray->size();
@@ -937,10 +944,18 @@ DEFINE_METHOD(TwitterConnect, getTweets)
 				CoreItemSP currentTweet = tweetsArray[i];
 				CoreItemSP RTStatus = currentTweet["referenced_tweets"];
 
-				u32	isReply = 0;
+				u64	isReplyAuthor = 0;
 
 				u64 tweetid = currentTweet["id"];
-				
+				// retrieve tweet date and data of the current tweet, not the rtweted one
+				std::string tweetdate = currentTweet["created_at"];
+
+				usString text(currentTweet["text"]);
+
+				u32 like_count = currentTweet["public_metrics"]["like_count"];
+				u32 rt_count = currentTweet["public_metrics"]["retweet_count"];
+				u32 quote_count = currentTweet["public_metrics"]["quote_count"];
+
 				if (RTStatus)
 				{
 					u32 referenced_tweets_count = RTStatus->size();
@@ -952,28 +967,30 @@ DEFINE_METHOD(TwitterConnect, getTweets)
 							std::string type(r["type"]);
 							if (type == "replied_to")
 							{
-								isReply = 1;
+								u64 repliedid = r["id"];
+								CoreItemSP repliedTweet = searchRetweeted(repliedid);
+								if(repliedTweet)
+									isReplyAuthor = repliedTweet["author_id"];
 							}
 							else if (type == "retweeted")
 							{
 								// change tweet id and get authorid
 								tweetid = r["id"];
 								currentTweet = searchRetweeted(tweetid);
+								if (!currentTweet)
+								{
+									currentTweet = tweetsArray[i];
+								}
+								// consider a tweet is a RT or a Reply not both, and RT is prioritary 
+								isReplyAuthor = 0;
 								break;
 							}
 						}
 					}
 				}
 				u64 authorid = currentTweet["author_id"];
-				std::string tweetdate = currentTweet["created_at"];
-
-				usString text(currentTweet["text"]);
 
 				SaveTweet(text, authorid, tweetid);
-
-				u32 like_count = currentTweet["public_metrics"]["like_count"];
-				u32 rt_count = currentTweet["public_metrics"]["retweet_count"];
-				u32 quote_count = currentTweet["public_metrics"]["quote_count"];
 
 				u32		creationDate = GetU32YYYYMMDD(tweetdate).first;
 
@@ -983,12 +1000,10 @@ DEFINE_METHOD(TwitterConnect, getTweets)
 					conversation_id = currentTweet["conversation_id"];
 				}
 				
-				retrievedTweets.push_back({ authorid,tweetid,conversation_id,like_count,rt_count,quote_count,creationDate,isReply });
+				retrievedTweets.push_back({ authorid,tweetid,conversation_id,like_count,rt_count,quote_count,creationDate,isReplyAuthor });
 				
 			}
 		}
-
-		std::string nextStr = "-1";
 
 		CoreItemSP meta = json["meta"];
 		if (meta)
@@ -1003,8 +1018,11 @@ DEFINE_METHOD(TwitterConnect, getTweets)
 			}
 		}
 
-		EmitSignal("TweetRetrieved", retrievedTweets, nextStr);
+	}
 
+	if (!mWaitQuota) // can't access favorite for this user
+	{
+		EmitSignal("TweetRetrieved", retrievedTweets, nextStr);
 	}
 
 	return true;
@@ -1129,6 +1147,8 @@ DEFINE_METHOD(TwitterConnect, getFavorites)
 						return t;
 					}
 				}
+				CoreItemSP empty;
+				return empty;
 			};
 
 			unsigned int tweetcount = tweetsArray->size();
@@ -1181,7 +1201,6 @@ DEFINE_METHOD(TwitterConnect, getFavorites)
 
 				u32		creationDate = GetU32YYYYMMDD(tweetdate).first;
 
-				//if (inGoodInterval(tweetdate, tweetid)) // too problematic to retrieve just the good ones by date for favorites
 				{
 					currentFavorites.push_back({ authorid,tweetid,like_count,rt_count,quote_count,creationDate,isReply });
 				}
@@ -1362,37 +1381,6 @@ void	TwitterConnect::initDates(const std::string& fromdate, const std::string& t
 	mUseDates = true;
 }
 
-u64	TwitterConnect::getTweetIdBeforeDate(const std::string& date)
-{
-	auto result = GetU32YYYYMMDD(date + "T0:0:0.000Z");
-
-	u64 foundid = 0;
-	for (const auto &d : mDateToTweet)
-	{
-		if (result.first > d.first)
-		{
-			foundid = d.second.first;
-		}
-		else
-		{
-			return foundid;
-		}
-	}
-	return foundid;
-}
-u64	TwitterConnect::getTweetIdAfterDate(const std::string& date)
-{
-	auto result = GetU32YYYYMMDD(date + "T23:59:59.000Z");
-
-	for (const auto& d : mDateToTweet)
-	{
-		if (result.first < d.first)
-		{
-			return d.second.first;
-		}
-	}
-	return 0;
-}
 
 std::map<std::string, u32>	monthes = { {"Jan",1}, {"Feb",2}, {"Mar",3}, {"Apr",4},
 										{"May",5}, {"Jun",6}, {"Jul",7}, {"Aug",8},
@@ -1415,18 +1403,29 @@ std::string TwitterConnect::creationDateToUTC(const std::string& created_date)
 	return result;
 }
 
-bool TwitterConnect::inGoodInterval(const std::string& createdDate, u64 tweetid)
+time_t	TwitterConnect::Twts::getCreationDate() const
 {
-	if (!mUseDates)
-		return true;
 
-	auto result = GetU32YYYYMMDD(createdDate);
+	u32 treatedDate = mCreationDate;
+	u32 day = mCreationDate%100;
+	treatedDate -= day;
+	treatedDate /= 100;
+	u32 month = treatedDate % 100;
+	treatedDate -= month;
+	treatedDate /= 100;
+	u32 year = treatedDate;
 
-	if ((result.first >= mDates[0].dateAsInt) && (result.first <= mDates[1].dateAsInt))
-		return true;
+	std::string strdate = std::to_string(year) + ":" + std::to_string(month) + ":" + std::to_string(day);
 
-	return false;
+	struct std::tm tm;
+	memset(&tm, 0, sizeof(std::tm));
+	std::istringstream ss(strdate);
+	ss >> std::get_time(&tm, "%Y:%m:%d");
+	std::time_t creationtime = mktime(&tm);
+
+	return creationtime;
 }
+
 
 int	TwitterConnect::getDateDiffInMonth(const std::string& date1, const std::string& date2)
 {

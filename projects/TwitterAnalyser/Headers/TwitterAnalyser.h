@@ -30,10 +30,11 @@ public:
 		RTters		= 6,
 		RTted		= 7,
 		Replyers	= 8,			// only latest 7 days 
+		Interactors = 9,			// last account rted / quote RTed / Replied 
 	};
 protected:
 
-	std::vector<std::string>	PanelUserName = { "Likers" , "Posters" , "Followers" , "Following", "Favorites" , "Top" , "Retweeters" , "Retweeted", "Replyers"};
+	std::vector<std::string>	PanelUserName = { "Likers" , "Posters" , "Followers" , "Following", "Favorites" , "Top" , "Retweeters" , "Retweeted", "Replyers", "Interactors"};
 
 	void	requestDone();
 	void	mainUserDone(TwitterConnect::UserStruct& CurrentUserStruct);
@@ -53,6 +54,7 @@ protected:
 	std::string	searchFavoritesFSM();
 	std::string	searchLikersFSM();
 	std::string searchReplyersFSM();
+	std::string searchInteractorsFSM();
 	std::string	searchPostersFSM();
 	std::string	searchFollowFSM(const std::string& followtype);
 	std::string	searchRetweetersFSM();
@@ -66,6 +68,7 @@ protected:
 	void	analyseFollowFSM(const std::string& lastState, const std::string& followtype);
 	void	analyseRetweetersFSM(const std::string& lastState);
 	void	analyseRetweetedFSM(const std::string& lastState);
+	void	analyseInteractorsFSM(const std::string& lastState);
 
 
 	void	ProtectedInit() override;
@@ -173,6 +176,11 @@ protected:
 		{
 			mUserIndexInVector.clear();
 			mUserList.clear();
+		}
+
+		bool hasUser(u64 u)
+		{
+			return (mUserIndexInVector.find(u) != mUserIndexInVector.end());
 		}
 
 	protected:

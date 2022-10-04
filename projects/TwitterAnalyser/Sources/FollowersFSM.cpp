@@ -279,18 +279,36 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveUserFollow))
 		follow->mNeededUserCountIncrement = thisUpgrador->mNeededUserCountIncrement;
 		follow->mNeedMoreUsers = thisUpgrador->mNeedMoreUsers;
 
-		GetUpgrador()->mStateStep = 1;
-		GetUpgrador()->activateTransition("getfollowtransition");
+		thisUpgrador->mStateStep = 1;
+		thisUpgrador->activateTransition("getfollowtransition");
+	}
+	else if (thisUpgrador->mStateStep == 1)
+	{
+
+		thisUpgrador->mUserlist.clear();
+		thisUpgrador->mUserlist = std::move(follow->mUserlist);
+
+		thisUpgrador->activateTransition("getuserdatatransition");
+
+		if (thisUpgrador->mNeedMoreUsers)
+		{
+			thisUpgrador->mStateStep = 0;
+		}
+		else
+		{
+			thisUpgrador->mStateStep = 2;
+		}
 	}
 	else
 	{
-
-		GetUpgrador()->mUserlist.clear();
-		GetUpgrador()->mUserlist = std::move(follow->mUserlist);
-
-		GetUpgrador()->activateTransition("getuserdatatransition");
-
-		GetUpgrador()->mStateStep = 0;
+		if (mCurrentTreatedPanelUserIndex >= thisUpgrador->mUserlist.size())
+		{
+			thisUpgrador->activateTransition("donetransition");
+		}
+		else
+		{
+			thisUpgrador->activateTransition("getuserdatatransition");
+		}
 	}
 
 
@@ -299,5 +317,6 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, RetrieveUserFollow))
 
 void	CoreFSMStateClassMethods(TwitterAnalyser, RetrieveUserFollow)::copyUserList(TwitterAnalyser::UserList& touserlist)
 {
-	touserlist = std::move(GetUpgrador()->mUserlist);
+	// copy list as we don't want to reinit it each time
+	touserlist = GetUpgrador()->mUserlist;
 }

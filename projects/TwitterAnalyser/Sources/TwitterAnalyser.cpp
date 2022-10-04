@@ -268,6 +268,9 @@ void	TwitterAnalyser::ProtectedInit()
 	case dataType::Replyers:
 		lastState = searchReplyersFSM();
 		break;
+	case dataType::Interactors:
+		lastState = searchInteractorsFSM();
+		break;
 	}
 
 	switch (mAnalysedType)
@@ -286,7 +289,6 @@ void	TwitterAnalyser::ProtectedInit()
 		break;
 	case dataType::TOP:
 		TopFSM(lastState);
-		mGraphDrawer->setValue("DrawTop", true);
 		break;
 	case dataType::RTted:
 		analyseRetweetedFSM(lastState);
@@ -297,13 +299,11 @@ void	TwitterAnalyser::ProtectedInit()
 	case dataType::Replyers:
 		analyseReplyersFSM(lastState);
 		break;
+	case dataType::Interactors:
+		analyseInteractorsFSM(lastState);
+		break;
 	}
 
-	if ((mPanelType == dataType::Followers) && (mAnalysedType == dataType::Following))
-	{
-		mGraphDrawer->setValue("HasJaccard", true);
-	}
-	
 	mTwitterConnect->initConnection(60.0 * 60.0 * 24.0 * (double)oldFileLimitInDays);
 
 	// connect done msg
@@ -394,6 +394,14 @@ void	TwitterAnalyser::initLogos()
 			twitterLogo["placeHolder2"]("IsHidden") = true;
 		}
 		break;
+
+		case dataType::Interactors:
+		{
+			twitterLogo("Dock") = v2f(0.4f, 0.5f);
+			twitterLogo["placeHolder1"]("IsHidden") = true;
+			twitterLogo["placeHolder2"]("TextureName") = "Interactors.png";
+		}
+		break;
 	}
 	
 	switch (mAnalysedType)
@@ -451,6 +459,13 @@ void	TwitterAnalyser::initLogos()
 		{
 			panelLogo["placeHolder3"]("TextureName") = "reply.png";
 			panelLogo["placeHolder4"]("IsHidden") = true;
+		}
+		break;
+
+		case dataType::Interactors:
+		{
+			panelLogo["placeHolder3"]("IsHidden") = true;
+			panelLogo["placeHolder4"]("TextureName") = "Interactors.png";
 		}
 		break;
 	}

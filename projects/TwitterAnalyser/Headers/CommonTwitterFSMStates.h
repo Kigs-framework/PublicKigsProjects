@@ -27,18 +27,21 @@ public:
 	std::string							mUserName="";
 	std::string							mHashTag = "";
 	u64									mUserID=-1;
-	u32									mNeededTweetCount=100;
+	u32									mNeededTweetCount=100; // if 0, get all possible tweets
 	u32									mNeededTweetCountIncrement = 50;
 	bool								mSearchTweets=false;
 	bool								mCantGetMoreTweets = false;
 	std::vector<TwitterConnect::Twts>	mTweets;
+	u64									mTimeLimit = 0;	// if timelimit (in days) !=0 , stop getting tweets after 3 tweets off limit.
 
 	void reset()
 	{
 		mNeededTweetCount = 100;
 		mNeededTweetCountIncrement = 50;
 		mCantGetMoreTweets = false;
+		mSearchTweets = false;
 		mTweets.clear();
+		mTimeLimit = 0;
 	}
 
 protected:
@@ -69,6 +72,15 @@ public:
 	// set to true when no more user can be retreived
 	bool							mCantGetMoreUsers = false;
 
+	virtual void reset()
+	{
+		mUserlist.clear();
+		mNeededUserCount = 0;
+		mNeededUserCountIncrement = 0;
+		mNeedMoreUsers = false;
+		mCantGetMoreUsers = false;
+	}
+
 protected:
 COREFSMSTATE_WITHOUT_METHODS();
 END_DECLARE_COREFSMSTATE()
@@ -93,7 +105,19 @@ public:
 	bool							mExcludeMainUser = false;
 	u32								mWantedActorCount = 0;
 
-
+	void reset()
+	{
+		mMaxActorPerTweet = 0;
+		mActorType = "Likers";
+		mUserlist.clear();
+		mTreatedActorPerTweet.clear();
+		mCurrentTreatedTweetIndex = 0;
+		mCanGetMoreActors = false;
+		mTreatAllActorsTogether = false;
+		mTreatFullList = false;
+		mExcludeMainUser = false;
+		mWantedActorCount = 0;
+	}
 protected:
 STARTCOREFSMSTATE_WRAPMETHODS();
 	void	copyUserList(TwitterAnalyser::UserList& touserlist);
@@ -129,6 +153,12 @@ public:
 u64												mUserID;
 std::vector<TwitterConnect::Twts>				mFavorites;
 u32												mFavoritesCount = 200;
+void reset()
+{
+	mUserID=0;
+	mFavorites.clear();
+	mFavoritesCount = 200;
+}
 protected:
 STARTCOREFSMSTATE_WRAPMETHODS();
 void	manageRetrievedFavorites(std::vector<TwitterConnect::Twts>& favs, const std::string& nexttoken);
@@ -194,7 +224,20 @@ public:
 	std::map<u64, std::pair<u32,u32>>	mTweetRetrievedUserCount;
 	std::vector<TwitterConnect::Twts>	mTweets;
 	bool								mAskMore=false;
-
+	u64									mTimeLimit = 0;	// if timelimit (in days) !=0 , stop getting tweets after 3 tweets off limit.
+	void	reset()
+	{
+		mExcludeRetweets = false;
+		mExcludeReplies = false;
+		mUserName = "";
+		mUserID = 0;
+		mUseHashtag = false;
+		mCanGetMore = true;
+		mTweetRetrievedUserCount.clear();
+		mTweets.clear();
+		mAskMore = false;
+		mTimeLimit = 0;
+	}
 protected:
 COREFSMSTATE_WITHOUT_METHODS()
 END_DECLARE_COREFSMSTATE()
