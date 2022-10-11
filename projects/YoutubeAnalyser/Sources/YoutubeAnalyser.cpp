@@ -2151,8 +2151,10 @@ DEFINE_METHOD(YoutubeAnalyser, getUserSubscribtion)
 					CoreItemSP subscription = subscriptions[i]["snippet"]["resourceId"]["channelId"];
 					if (subscription)
 					{
+						usString title("");
+						if(subscriptions[i]["snippet"]["title"])
+							title = subscriptions[i]["snippet"]["title"];
 
-						usString title = subscriptions[i]["snippet"]["title"];
 						CoreItemSP thumbnailInfos = subscriptions[i]["snippet"]["thumbnails"];
 						std::string url="";
 						if (thumbnailInfos)
