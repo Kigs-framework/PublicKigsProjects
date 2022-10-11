@@ -304,6 +304,8 @@ void	TwitterAnalyser::ProtectedInit()
 		break;
 	}
 
+	postFSMSetup();
+
 	mTwitterConnect->initConnection(60.0 * 60.0 * 24.0 * (double)oldFileLimitInDays);
 
 	// connect done msg
@@ -313,6 +315,17 @@ void	TwitterAnalyser::ProtectedInit()
 	DataDrivenBaseApplication::ProtectedInit();
 
 }
+
+
+// setup special cases
+void	TwitterAnalyser::postFSMSetup()
+{
+	if ((mPanelType == TwitterAnalyser::dataType::Following) && (mAnalysedType == TwitterAnalyser::dataType::Interactors))
+	{
+		mUserPanelSize = mWantedTotalPanelSize;
+	}
+}
+
 
 void	TwitterAnalyser::ProtectedUpdate()
 {

@@ -1665,7 +1665,7 @@ void	GraphDrawer::OpeningClosingUpdate(bool closing)
 
 	auto fcount=mTwitterAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mFollowingCount;
 
-	float gcoef = log10f((float)fcount);
+	float gcoef = log10f((float)fcount) / log10f(100);
 
 	std::vector<std::pair<u64, float>>	sortOpeningClosing;
 	for (const auto& c : mTwitterAnalyser->mPerPanelUsersStats)
@@ -1890,7 +1890,7 @@ void	GraphDrawer::drawOCStats(SP<KigsBitmap> bitmap)
 
 	auto fcount = mTwitterAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mFollowingCount;
 
-	float gcoef = log10f((float)fcount);
+	float gcoef = log10f((float)fcount)/log10f(100);
 
 	std::vector<float>	Opening;
 	std::vector<float>	Closing;

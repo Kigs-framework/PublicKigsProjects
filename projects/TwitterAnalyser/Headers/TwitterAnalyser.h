@@ -70,6 +70,9 @@ protected:
 	void	analyseRetweetedFSM(const std::string& lastState);
 	void	analyseInteractorsFSM(const std::string& lastState);
 
+	// setup special cases
+	void	postFSMSetup();
+
 
 	void	ProtectedInit() override;
 	void	ProtectedUpdate() override;
