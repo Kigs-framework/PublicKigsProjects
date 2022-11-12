@@ -34,10 +34,11 @@ protected:
 		AnonymousCount = 3,
 		Opening		   = 4,
 		Closing			= 5,
-		MEASURE_COUNT = 6
+		Reverse_Percent	= 6,
+		MEASURE_COUNT = 7
 	};
 
-	const std::string	mUnits[MEASURE_COUNT] = { " \%"," sc"," n",""," Op"," Cl"};
+	const std::string	mUnits[MEASURE_COUNT] = { " \%"," sc"," n",""," Op"," Cl", " r%"};
 
 	u32		mCurrentUnit = 0;
 
@@ -132,6 +133,11 @@ END_DECLARE_COREFSMSTATE()
 
 // Jaccard Drawing
 START_DECLARE_COREFSMSTATE(GraphDrawer, Jaccard)
+COREFSMSTATE_WITHOUT_METHODS()
+END_DECLARE_COREFSMSTATE()
+
+// Reverse % Drawing (only on followers/following)
+START_DECLARE_COREFSMSTATE(GraphDrawer, ReversePercent)
 COREFSMSTATE_WITHOUT_METHODS()
 END_DECLARE_COREFSMSTATE()
 

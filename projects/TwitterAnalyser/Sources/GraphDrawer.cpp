@@ -75,13 +75,24 @@ void GraphDrawer::InitModifiable()
 
 			SP<CoreFSMTransition> jaccardnexttransition = KigsCore::GetInstanceOf("jaccardnexttransition", "CoreFSMOnValueTransition");
 			jaccardnexttransition->setValue("ValueName", "GoNext");
-			jaccardnexttransition->setState("Normalized");
+			jaccardnexttransition->setState("ReversePercent");
 			jaccardnexttransition->Init();
 
 			fsm->getState("Jaccard")->addTransition(jaccardnexttransition);
 			fsm->getState("Jaccard")->addTransition(forcetransition);
 
 			percentnexttransition->setState("Jaccard");
+
+			// create reverse % state
+			fsm->addState("ReversePercent", new CoreFSMStateClass(GraphDrawer, ReversePercent)());
+
+			SP<CoreFSMTransition> reversenexttransition = KigsCore::GetInstanceOf("reversenexttransition", "CoreFSMOnValueTransition");
+			reversenexttransition->setValue("ValueName", "GoNext");
+			reversenexttransition->setState("Normalized");
+			reversenexttransition->Init();
+
+			fsm->getState("ReversePercent")->addTransition(reversenexttransition);
+			fsm->getState("ReversePercent")->addTransition(forcetransition);
 
 		}
 		else
@@ -1318,6 +1329,159 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 	drawSpiral(toShow);
 	return false;
 }
+
+
+void CoreFSMStartMethod(GraphDrawer, ReversePercent)
+{
+	mGoNext = false;
+	mCurrentUnit = Reverse_Percent;
+	mCurrentStateHasForceDraw = true;
+}
+
+void CoreFSMStopMethod(GraphDrawer, ReversePercent)
+{
+}
+
+DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ReversePercent))
+{
+	float wantedpercent = mTwitterAnalyser->mValidUserPercent;
+
+	auto getData = [&](const TwitterConnect::UserStruct& strct)->u32
+	{
+		if (mTwitterAnalyser->mPanelType == TwitterAnalyser::dataType::Followers)
+		{
+			return strct.mFollowersCount;
+		}
+		return strct.mFollowingCount;
+	};
+
+	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
+	for (auto c : mTwitterAnalyser->mInStatsUsers)
+	{
+		if (c.first != mTwitterAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
+		{
+			if (c.second.first > 3)
+			{
+				float percent = (float)c.second.first / (float)mTwitterAnalyser->mValidUserCount;
+				if (percent > wantedpercent)
+				{
+					const auto& a1User = mTwitterAnalyser->mInStatsUsers[c.first];
+					if (a1User.second.mName.ToString() == "") // not loaded
+					{
+						mTwitterAnalyser->askUserDetail(c.first);
+					}
+					else
+					{
+						toShow.push_back({ c.second.first,percent * 100.0f,c.first });
+					}
+				}
+			}
+		}
+	}
+
+	if (toShow.size() == 0)
+	{
+		drawGeneralStats();
+		return false;
+	}
+
+	float usedData = (float)getData(mTwitterAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0));
+
+	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, u64>& a1, const std::tuple<unsigned int, float, u64>& a2)
+		{
+
+			const auto& a1User = mTwitterAnalyser->mInStatsUsers[std::get<2>(a1)];
+			const auto& a2User = mTwitterAnalyser->mInStatsUsers[std::get<2>(a2)];
+
+			// apply reverse percent
+			// a1 subscribers %
+			float A1_percent = std::get<1>(a1) * 0.01f;
+			// a1 intersection size with analysed channel
+			float A1_a_inter_b = usedData * A1_percent;
+			// revpercent
+			float A1_revPercent = A1_a_inter_b/(float)getData(a1User.second);
+			if (A1_revPercent > 1.0f)
+				A1_revPercent = 1.0f;
+
+			// a2 subscribers %
+			float A2_percent = std::get<1>(a2) * 0.01f;
+			// a2 intersection size with analysed channel
+			float A2_a_inter_b = usedData * A2_percent;
+			// revpercent
+			float A2_revPercent = A2_a_inter_b/(float)getData(a2User.second);
+			if (A2_revPercent > 1.0f)
+				A2_revPercent = 1.0f;
+
+			if (A1_revPercent == A2_revPercent)
+			{
+				return std::get<2>(a1) > std::get<2>(a2);
+			}
+			return (A1_revPercent > A2_revPercent);
+
+		}
+	);
+
+	std::unordered_map<u64, unsigned int>	currentShowedChannels;
+	int toShowCount = 0;
+	for (auto& tos : toShow)
+	{
+		currentShowedChannels[std::get<2>(tos)] = 1;
+		toShowCount++;
+
+		const auto& a1User = mTwitterAnalyser->mInStatsUsers[std::get<2>(tos)];
+
+		// compute rev percent again
+		float fpercent = std::get<1>(tos) * 0.01f;
+		float A1_a_inter_b = usedData * fpercent;
+		// revpercent
+		float A1_revPercent = A1_a_inter_b/(float)getData(a1User.second);
+		if (A1_revPercent > 1.0f)
+			A1_revPercent = 1.0f;
+
+		std::get<1>(tos) = A1_revPercent * 100.0f;
+
+		if (toShowCount >= (mTwitterAnalyser->mMaxUserCount * 3))
+			break;
+	}
+
+	for (const auto& s : mShowedUser)
+	{
+		if (currentShowedChannels.find(s.first) == currentShowedChannels.end())
+		{
+			currentShowedChannels[s.first] = 0;
+		}
+		else
+		{
+			currentShowedChannels[s.first]++;
+		}
+	}
+
+	// add / remove items
+	for (const auto& update : currentShowedChannels)
+	{
+		if (update.second == 0) // to remove 
+		{
+			auto toremove = mShowedUser.find(update.first);
+			mMainInterface->removeItem((*toremove).second);
+			mShowedUser.erase(toremove);
+			//somethingChanged = true;
+		}
+		else if (update.second == 1) // to add
+		{
+			std::string thumbName = "thumbNail_" + TwitterConnect::GetIDString(update.first);
+			CMSP toAdd = CoreModifiable::Import("Thumbnail.xml", false, false, nullptr, thumbName);
+			toAdd->AddDynamicAttribute<maFloat, float>("Radius", 1.0f);
+			mShowedUser[update.first] = toAdd;
+			mMainInterface->addItem(toAdd);
+			//somethingChanged = true;
+		}
+	}
+
+	drawSpiral(toShow);
+	return false;
+}
+
+
 
 void CoreFSMStartMethod(GraphDrawer, Normalized)
 {
