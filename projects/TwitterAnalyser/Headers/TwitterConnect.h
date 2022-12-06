@@ -320,6 +320,15 @@ public:
 
 	static void	initDates(const std::string& fromdate, const std::string& todate );
 
+	static void setSinceID(const std::string& sinceID)
+	{
+		mSinceID = sinceID;
+	}
+	static void setUntilID(const std::string& untilID)
+	{
+		mUntilID = untilID;
+	}
+
 	static bool useDates()
 	{
 		return mUseDates;
@@ -378,7 +387,11 @@ protected:
 	};
 
 	// from and to dates
-	static  datestruct	mDates[2];
+	static  datestruct		mDates[2];
+
+	static  std::string		mSinceID;
+	static  std::string		mUntilID;
+
 	static  bool		mUseDates;
 
 

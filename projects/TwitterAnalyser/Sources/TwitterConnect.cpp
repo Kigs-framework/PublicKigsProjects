@@ -11,6 +11,8 @@ double		TwitterConnect::mOldFileLimit=0;
 time_t		TwitterConnect::mCurrentTime=0;
 
 TwitterConnect::datestruct	TwitterConnect::mDates[2];
+std::string		TwitterConnect::mUntilID="";
+std::string		TwitterConnect::mSinceID="";
 bool						TwitterConnect::mUseDates = false;
 
 TwitterConnect* TwitterConnect::mInstance = nullptr;
@@ -604,6 +606,16 @@ void	TwitterConnect::launchSearchTweetRequest(const std::string& hashtag, const 
 		url += "&end_time=" + mDates[1].dateAsString + "T23:59:59Z";
 	}
 
+	if (mSinceID.length())
+	{
+		url += "&since_id=" + mSinceID;
+	}
+
+	if (mUntilID.length())
+	{
+		url += "&until_id=" + mUntilID;
+	}
+
 	url += "&max_results=100";
 
 	if (nextCursor != "-1")
@@ -626,6 +638,16 @@ void	TwitterConnect::launchGetTweetRequest(u64 userid,const std::string& usernam
 	{
 		url += "&start_time=" + mDates[0].dateAsString + "T00:00:00Z";
 		url += "&end_time=" + mDates[1].dateAsString + "T23:59:59Z";
+	}
+
+	if (mSinceID.length())
+	{
+		url += "&since_id=" + mSinceID;
+	}
+
+	if (mUntilID.length())
+	{
+		url += "&until_id=" + mUntilID;
 	}
 
 	url += "&max_results=100";

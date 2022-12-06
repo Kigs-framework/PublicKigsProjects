@@ -212,9 +212,27 @@ void	TwitterAnalyser::ProtectedInit()
 			TwitterConnect::initDates(fromdate, todate);
 		}
 
+		// look for since_id and since id
+		std::string sinceID,untilID;
+		SetMemberFromParam(untilID, "UntilID");
+		SetMemberFromParam(sinceID, "SinceID");
+
+		if (untilID.length())
+		{
+			TwitterConnect::setUntilID(untilID);
+		}
+		if (sinceID.length())
+		{
+			TwitterConnect::setSinceID(sinceID);
+		}
+
 		mPanelRetreivedUsers.addUser(0);
 		SetMemberFromParam(mPanelRetreivedUsers.getUserStructAtIndex(0).mName, "UserName");
 	}
+
+
+	SetMemberFromParam(mTopUseBigger, "TopUseBigger");
+
 	u32 PanelType;
 	u32 AnalysedType;
 	SetMemberFromParam(PanelType, "PanelType");

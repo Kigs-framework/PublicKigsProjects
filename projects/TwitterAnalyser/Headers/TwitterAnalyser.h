@@ -95,6 +95,8 @@ protected:
 
 	bool								mCanGetMoreUsers = false;
 
+	bool								mTopUseBigger = false;
+
 	// analyse type
 	dataType		mPanelType = dataType::Followers;
 	dataType		mAnalysedType = dataType::Following;
@@ -306,5 +308,7 @@ protected:
 		}
 		return false;
 	}
+
+
 };
 

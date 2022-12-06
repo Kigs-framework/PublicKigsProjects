@@ -60,7 +60,8 @@ void TwitterAnalyser::TopFSM(const std::string& laststate)
 	{
 		auto retrievetweetactorstate = getFSMState(fsm, TwitterAnalyser, RetrieveTweetActors);
 		retrievetweetactorstate->mTreatFullList = true;
-		mUserPanelSize /= 2;
+		if(!mTopUseBigger)
+			mUserPanelSize /= 2;
 	}
 	break;
 	}
@@ -93,7 +94,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 			auto& tstinit = mPanelRetreivedUsers.getUserStruct(user);
 			bool alreadyInit = (tstinit.mFollowersCount + tstinit.mFollowingCount + tstinit.mName.length())>0;
 			
-			if ( (userlist[mCurrentTreatedPanelUserIndex].second > GetUpgrador()->mMinCountForDetail) && (!alreadyInit) && (!TwitterConnect::LoadUserStruct(user, tstinit, false)))
+			if ( ( (userlist[mCurrentTreatedPanelUserIndex].second > GetUpgrador()->mMinCountForDetail) || mTopUseBigger) && (!alreadyInit) && (!TwitterConnect::LoadUserStruct(user, tstinit, false)))
 			{
 				SP<CoreFSM> fsm = mFsm;
 
@@ -113,28 +114,37 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 				mCurrentTreatedPanelUserIndex++;
 			}
 		}
-		
-		// update mMinCountForDetail
-		u32 currentMinCountForDetail = GetUpgrador()->mMinCountForDetail;
-		u32 countSuperiors = 0;
-		for (auto& userinlist : userlist)
+
+		if (!mTopUseBigger)
 		{
-			if (userinlist.second > currentMinCountForDetail)
+			// update mMinCountForDetail
+			u32 currentMinCountForDetail = GetUpgrador()->mMinCountForDetail;
+			u32 countSuperiors = 0;
+			for (auto& userinlist : userlist)
 			{
-				countSuperiors++;
+				if (userinlist.second > currentMinCountForDetail)
+				{
+					countSuperiors++;
+				}
+			}
+
+			if (countSuperiors > mUserPanelSize)
+			{
+				GetUpgrador()->mMinCountForDetail++;
 			}
 		}
-
-		if (countSuperiors > mUserPanelSize)
-		{
-			GetUpgrador()->mMinCountForDetail++;
-		}
-
 		// refresh all 
 		for (auto i : userlist)
 		{
 			u64 refreshuser = i.first;
-			mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(i.second, mPanelRetreivedUsers.getUserStruct(refreshuser));
+			if (mTopUseBigger)
+			{
+				mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(mPanelRetreivedUsers.getUserStruct(refreshuser).mFollowersCount, mPanelRetreivedUsers.getUserStruct(refreshuser));
+			}
+			else
+			{
+				mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(i.second, mPanelRetreivedUsers.getUserStruct(refreshuser));
+			}
 		}
 		// per tweet management => divide per 2 the number of needed treated user
 		mTreatedUserCount++;
@@ -171,9 +181,14 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 			{
 				// just add user to panel user stats
 				auto& currentUserData = mPerPanelUsersStats[user];
-
-				mInStatsUsers[user] = std::pair<unsigned int, TwitterConnect::UserStruct>(userlist[mCurrentTreatedPanelUserIndex].second, mPanelRetreivedUsers.getUserStruct(user));
-					
+				if (mTopUseBigger)
+				{
+					mInStatsUsers[user] = std::pair<unsigned int, TwitterConnect::UserStruct>(mPanelRetreivedUsers.getUserStruct(user).mFollowersCount, mPanelRetreivedUsers.getUserStruct(user));
+				}
+				else
+				{
+					mInStatsUsers[user] = std::pair<unsigned int, TwitterConnect::UserStruct>(userlist[mCurrentTreatedPanelUserIndex].second, mPanelRetreivedUsers.getUserStruct(user));
+				}
 				mCurrentTreatedPanelUserIndex++;
 				mTreatedUserCount++;
 				if (mPanelRetreivedUsers.getUserStruct(user).mFollowersCount || mPanelRetreivedUsers.getUserStruct(user).mFollowingCount)
@@ -218,7 +233,14 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 				for (size_t i = 0; i <= mCurrentTreatedPanelUserIndex; i++)
 				{
 					u64 refreshuser = userlist[i].first;
-					mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(userlist[i].second, mPanelRetreivedUsers.getUserStruct(refreshuser));
+					if (mTopUseBigger)
+					{
+						mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(mPanelRetreivedUsers.getUserStruct(refreshuser).mFollowersCount, mPanelRetreivedUsers.getUserStruct(refreshuser));
+					}
+					else
+					{
+						mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(userlist[i].second, mPanelRetreivedUsers.getUserStruct(refreshuser));
+					}
 				}
 
 				mCurrentTreatedPanelUserIndex++;
@@ -235,7 +257,14 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(TwitterAnalyser, UpdateTopStats))
 			for (auto i : userlist)
 			{
 				u64 refreshuser = i.first;
-				mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(i.second, mPanelRetreivedUsers.getUserStruct(refreshuser));
+				if (mTopUseBigger)
+				{
+					mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(mPanelRetreivedUsers.getUserStruct(refreshuser).mFollowersCount, mPanelRetreivedUsers.getUserStruct(refreshuser));
+				}
+				else
+				{
+					mInStatsUsers[refreshuser] = std::pair<unsigned int, TwitterConnect::UserStruct>(i.second, mPanelRetreivedUsers.getUserStruct(refreshuser));
+				}
 			}
 			mUserPanelSize = mValidUserCount;
 		}
