@@ -243,7 +243,7 @@ void	boules::ProtectedClose()
 	DataDrivenBaseApplication::ProtectedClose();
 }
 
-void	boules::ProtectedInitSequence(const kstl::string& sequence)
+void	boules::ProtectedInitSequence(const std::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{
@@ -265,7 +265,7 @@ void	boules::ProtectedInitSequence(const kstl::string& sequence)
 		}
 	}
 }
-void	boules::ProtectedCloseSequence(const kstl::string& sequence)
+void	boules::ProtectedCloseSequence(const std::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{

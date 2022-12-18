@@ -1,12 +1,5 @@
 project(projects)
 add_subdirectory(YoutubeAnalyser)
 add_subdirectory(Mandelbrot)
-add_subdirectory(VoxelLandscape)
 add_subdirectory(TwitterAnalyser)
-add_subdirectory(RTNetwork)
-add_subdirectory(TLTightness)
-
-if(${KIGS_PLATFORM} STREQUAL "Windows")
-	add_subdirectory(WebScraper)
-endif()
 add_subdirectory(boules)

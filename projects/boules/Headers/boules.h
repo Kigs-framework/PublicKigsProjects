@@ -15,8 +15,8 @@ protected:
 	void	ProtectedClose() override;
 
 	
-	void	ProtectedInitSequence(const kstl::string& sequence) override;
-	void	ProtectedCloseSequence(const kstl::string& sequence) override;
+	void	ProtectedInitSequence(const std::string& sequence) override;
+	void	ProtectedCloseSequence(const std::string& sequence) override;
 
 	// ball list
 	std::vector<Ball>		mBalls;

@@ -70,7 +70,7 @@ void	Mandelbrot::ProtectedClose()
 	DataDrivenBaseApplication::ProtectedClose();
 }
 
-void	Mandelbrot::ProtectedInitSequence(const kstl::string& sequence)
+void	Mandelbrot::ProtectedInitSequence(const std::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{
@@ -79,7 +79,7 @@ void	Mandelbrot::ProtectedInitSequence(const kstl::string& sequence)
 		mBitmapDisplay->setValue("PreScale", v2f(1.4f,1.4f));
 	}
 }
-void	Mandelbrot::ProtectedCloseSequence(const kstl::string& sequence)
+void	Mandelbrot::ProtectedCloseSequence(const std::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{
