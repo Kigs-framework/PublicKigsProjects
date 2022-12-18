@@ -8,7 +8,7 @@
 
 IMPLEMENT_CLASS_INFO(GraphDrawer)
 
-GraphDrawer::GraphDrawer(const kstl::string& name, CLASS_NAME_TREE_ARG) : CoreModifiable(name, PASS_CLASS_NAME_TREE_ARG)
+GraphDrawer::GraphDrawer(const std::string& name, CLASS_NAME_TREE_ARG) : CoreModifiable(name, PASS_CLASS_NAME_TREE_ARG)
 {
 
 }
@@ -184,7 +184,7 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	
 		return;
 
 	int toShowCount = 0;
-	float dangle = 2.0f * KFLOAT_CONST_PI / 7.0f;
+	float dangle = 2.0f * fPI / 7.0f;
 	float angle = 0.0f;
 	float ray = 0.15f;
 	float dray = 0.0117f;
@@ -205,7 +205,7 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	
 			toSetup("Dock") = dock;
 
 			angle += dangle;
-			dangle = 2.0f * KFLOAT_CONST_PI / (2.0f + 50.0f * ray);
+			dangle = 2.0f * fPI / (2.0f + 50.0f * ray);
 			ray += dray;
 			dray *= 0.98f;
 			if (toPlace.second.mName.length())

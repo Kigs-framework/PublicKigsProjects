@@ -171,8 +171,8 @@ protected:
 
 	void		SaveStatFile();
 
-	void	ProtectedInitSequence(const kstl::string& sequence) override;
-	void	ProtectedCloseSequence(const kstl::string& sequence) override;
+	void	ProtectedInitSequence(const std::string& sequence) override;
+	void	ProtectedCloseSequence(const std::string& sequence) override;
 
 	// global data
 	SP<HTTPConnect>									mGoogleConnect = nullptr;

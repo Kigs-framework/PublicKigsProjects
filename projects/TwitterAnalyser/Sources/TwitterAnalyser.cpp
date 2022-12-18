@@ -173,7 +173,6 @@ void	TwitterAnalyser::ProtectedInit()
 
 	// generic twitter management class
 	DECLARE_FULL_CLASS_INFO(KigsCore::Instance(), TwitterConnect, TwitterConnect, TwitterAnalyser);
-	DECLARE_FULL_CLASS_INFO(KigsCore::Instance(), ScrapperManager, ScrapperManager, TwitterAnalyser);
 	DECLARE_FULL_CLASS_INFO(KigsCore::Instance(), GraphDrawer, GraphDrawer, TwitterAnalyser);
 
 	mTwitterConnect = KigsCore::GetInstanceOf("mTwitterConnect", "TwitterConnect");
@@ -503,7 +502,7 @@ void	TwitterAnalyser::initLogos()
 }
 
 
-void	TwitterAnalyser::ProtectedInitSequence(const kstl::string& sequence)
+void	TwitterAnalyser::ProtectedInitSequence(const std::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{
@@ -523,7 +522,7 @@ void	TwitterAnalyser::ProtectedInitSequence(const kstl::string& sequence)
 		mGraphDrawer->Init();
 	}
 }
-void	TwitterAnalyser::ProtectedCloseSequence(const kstl::string& sequence)
+void	TwitterAnalyser::ProtectedCloseSequence(const std::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{

@@ -152,7 +152,7 @@ CoreItemSP	TwitterConnect::LoadJSon(const std::string& fname, bool useOldFileLim
 	return initP;
 }
 
-TwitterConnect::TwitterConnect(const kstl::string& name, CLASS_NAME_TREE_ARG) : CoreModifiable(name, PASS_CLASS_NAME_TREE_ARG)
+TwitterConnect::TwitterConnect(const std::string& name, CLASS_NAME_TREE_ARG) : CoreModifiable(name, PASS_CLASS_NAME_TREE_ARG)
 {
 	mOldFileLimit = 60.0 * 60.0 * 24.0 * 30.0 * 3.0;
 	mCurrentTime = time(0);

@@ -83,9 +83,12 @@ void	YoutubeAnalyser::ProtectedInit()
 	mChannelName = initP["ChannelID"];
 
 	auto SetMemberFromParam = [&](auto& x, const char* id) {
-		if (initP[id]) x = initP[id].value<std::remove_reference<decltype(x)>::type>();
+		if (initP[id]) 
+		{
+			x = initP[id].value<typename std::remove_reference< decltype(x) >::type >();
+		}
 	};
-
+	
 	SetMemberFromParam(mSubscribedUserCount, "ValidUserCount");
 	SetMemberFromParam(mMaxChannelCount, "MaxChannelCount");
 	SetMemberFromParam(mValidChannelPercent, "ValidChannelPercent");
@@ -94,6 +97,8 @@ void	YoutubeAnalyser::ProtectedInit()
 
 	SetMemberFromParam(mFromDate, "FromDate");
 	SetMemberFromParam(mToDate, "ToDate");
+
+
 
 	replaceSpacesByEscapedOr(mUseKeyword);
 
@@ -894,7 +899,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 		}
 	}
 
-	float dangle = 2.0f * KFLOAT_CONST_PI / 7.0f;
+	float dangle = 2.0f * fPI / 7.0f;
 	float angle = 0.0f;
 	float ray = 0.15f;
 	float dray = 0.0117f;
@@ -923,7 +928,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 			toSetup("Dock") = dock;
 
 			angle += dangle;
-			dangle = 2.0f * KFLOAT_CONST_PI / (2.0f+50.0f*ray);
+			dangle = 2.0f * fPI / (2.0f+50.0f*ray);
 			ray += dray;
 			dray *= 0.98f;
 			toSetup["ChannelName"]("Text") = toPlace.first->mName;
@@ -1473,7 +1478,7 @@ void	YoutubeAnalyser::ProtectedClose()
 	CoreDestroyModule(HTTPRequestModule);
 }
 
-void	YoutubeAnalyser::ProtectedInitSequence(const kstl::string& sequence)
+void	YoutubeAnalyser::ProtectedInitSequence(const std::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{
@@ -1482,7 +1487,7 @@ void	YoutubeAnalyser::ProtectedInitSequence(const kstl::string& sequence)
 		mMainInterface["switchForce"]("IsTouchable") = false;
 	}
 }
-void	YoutubeAnalyser::ProtectedCloseSequence(const kstl::string& sequence)
+void	YoutubeAnalyser::ProtectedCloseSequence(const std::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{
