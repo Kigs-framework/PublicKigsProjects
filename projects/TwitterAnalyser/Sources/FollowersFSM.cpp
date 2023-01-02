@@ -3,6 +3,9 @@
 #include "CoreFSM.h"
 #include "CommonTwitterFSMStates.h"
 
+using namespace Kigs;
+using namespace Kigs::Fsm;
+using namespace Kigs::File;
 
 START_INHERITED_COREFSMSTATE(TwitterAnalyser, RetrieveUserFollow,GetUsers)
 public:

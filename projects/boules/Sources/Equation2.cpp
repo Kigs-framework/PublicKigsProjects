@@ -1,5 +1,6 @@
 #include "Equation2.h"
 
+using namespace Kigs;
 // at^2 + bt + c = 0
 // at^2 + bt + c = Y <=> at^2 + bt + c-Y = 0
 

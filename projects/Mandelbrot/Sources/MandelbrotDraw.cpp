@@ -5,9 +5,12 @@
 #include "TecLibs/Tec3D.h"
 #include "TinyImage.h"
 
+
+using namespace Kigs;
+
 int IterationMax = 64;
 
-TinyImage* gpbmp = nullptr;
+Pict::TinyImage* gpbmp = nullptr;
 
 struct RGBA
 {
@@ -206,7 +209,7 @@ void	drawRecursiveSquare(unsigned char* pixelsdata, int sizeX, int sizeY,int sta
 	}
 }
 
-void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomCenterX, float zoomCenterY, float zoomCoef, TinyImage* bmp)
+void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomCenterX, float zoomCenterY, float zoomCoef, Pict::TinyImage* bmp)
 {
 	gpbmp = bmp;
 	RGBA* rgbaPixels = (RGBA*)pixelsdata;

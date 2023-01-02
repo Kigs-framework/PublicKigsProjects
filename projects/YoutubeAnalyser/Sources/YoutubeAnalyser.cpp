@@ -18,6 +18,11 @@
 #include <unistd.h>
 #endif
 
+using namespace Kigs;
+using namespace Kigs::Http;
+using namespace Kigs::File;
+using namespace Kigs::Draw2D;
+
 //#define LOG_ALL
 #ifdef LOG_ALL
 SmartPointer<::FileHandle> LOG_File = nullptr;
@@ -1100,7 +1105,7 @@ float	YoutubeAnalyser::PerChannelUserMap::GetNormalisedAttraction(const PerChann
 void	YoutubeAnalyser::prepareForceGraphData()
 {
 
-	Histogram<float>	hist({0.0,1.0},256);
+	Utils::Histogram<float>	hist({0.0,1.0},256);
 
 	mChannelSubscriberMap.clear();
 
@@ -1616,7 +1621,7 @@ void	YoutubeAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* dow
 	{
 		if (p.first.get() == downloader)
 		{
-			SP<TinyImage> img = MakeRefCounted<JPEGClass>(data);
+			SP<Pict::TinyImage> img = MakeRefCounted<Pict::JPEGClass>(data);
 			if (img)
 			{
 				ChannelStruct* toFill = p.second.second;
@@ -1958,7 +1963,7 @@ bool		YoutubeAnalyser::LoadChannelStruct(const std::string& id, ChannelStruct& c
 
 		if (fullfilenamehandle->mStatus & FileHandle::Exist)
 		{
-			auto textureManager = KigsCore::Singleton<TextureFileManager>();
+			auto textureManager = KigsCore::Singleton<Draw::TextureFileManager>();
 			ch.mThumb.mTexture = textureManager->GetTexture(filename);
 		}
 		else

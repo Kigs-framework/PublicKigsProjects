@@ -3,6 +3,11 @@
 #include "CoreFSM.h"
 #include "CommonTwitterFSMStates.h"
 
+
+using namespace Kigs;
+using namespace Kigs::Fsm;
+using namespace Kigs::File;
+
 // specific states for replyers
 
 std::string TwitterAnalyser::searchReplyersFSM()

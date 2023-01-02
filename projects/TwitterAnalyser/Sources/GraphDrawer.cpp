@@ -5,6 +5,10 @@
 #include "CoreFSM.h"
 #include "Histogram.h"
 
+using namespace Kigs;
+using namespace Kigs::Fsm;
+using namespace Kigs::File;
+using namespace Kigs::Draw2D;
 
 IMPLEMENT_CLASS_INFO(GraphDrawer)
 
@@ -314,7 +318,7 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int,float, u64> >&	
 void	GraphDrawer::prepareForceGraphData()
 {
 
-	Histogram<float>	hist({ 0.0,1.0 }, 256);
+	Utils::Histogram<float>	hist({ 0.0,1.0 }, 256);
 
 	mAccountSubscriberMap.clear();
 
@@ -605,7 +609,7 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 
 	float average = 0.0f;
 
-	Histogram<float>	hist({ minv,maxv }, mColumnCount);
+	Utils::Histogram<float>	hist({ minv,maxv }, mColumnCount);
 	for (auto v : values)
 	{
 		float transformV=v;

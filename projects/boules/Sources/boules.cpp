@@ -1,6 +1,8 @@
-#include <boules.h>
-#include <FilePathManager.h>
-#include <NotificationCenter.h>
+#include "boules.h"
+#include "FilePathManager.h"
+#include "NotificationCenter.h"
+
+using namespace Kigs;
 
 IMPLEMENT_CLASS_INFO(boules);
 
@@ -16,7 +18,7 @@ void	boules::ProtectedInit()
 	// lets say that the update will sleep 1ms
 	SetUpdateSleepTime(1);
 
-	SP<FilePathManager> pathManager = KigsCore::Singleton<FilePathManager>();
+	SP<File::FilePathManager> pathManager = KigsCore::Singleton<File::FilePathManager>();
 	pathManager->AddToPath(".", "xml");
 
 	// Load AppInit, GlobalConfig then launch first sequence

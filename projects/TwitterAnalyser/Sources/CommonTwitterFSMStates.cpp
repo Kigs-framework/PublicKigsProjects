@@ -1,5 +1,8 @@
 #include "CommonTwitterFSMStates.h"
 
+using namespace Kigs;
+using namespace Kigs::Fsm;
+using namespace Kigs::File;
 
 void CoreFSMStartMethod(TwitterAnalyser, InitUser)
 {

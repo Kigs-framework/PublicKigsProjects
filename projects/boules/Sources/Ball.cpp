@@ -2,6 +2,7 @@
 #include "Equation2.h"
 #include "CoreModifiableAttribute.h"
 
+using namespace Kigs;
 
 // update graphics
 void	Ball::Update(double time)

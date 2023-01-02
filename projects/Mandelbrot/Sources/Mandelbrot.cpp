@@ -3,6 +3,9 @@
 #include <NotificationCenter.h>
 #include "TinyImage.h"
 
+using namespace Kigs;
+using namespace Kigs::Pict;
+
 extern void	DrawMandelbrot(unsigned char* pixelsdata, int sizeX, int sizeY, float zoomCenterX, float zoomCenterY, float zoomCoef,TinyImage* bmp);
 
 IMPLEMENT_CLASS_INFO(Mandelbrot);
@@ -19,7 +22,7 @@ void	Mandelbrot::ProtectedInit()
 	// lets say that the update will sleep 1ms
 	SetUpdateSleepTime(1);
 
-	SP<FilePathManager> pathManager = KigsCore::Singleton<FilePathManager>();
+	SP<File::FilePathManager> pathManager = KigsCore::Singleton<File::FilePathManager>();
 	pathManager->AddToPath(".", "xml");
 
 

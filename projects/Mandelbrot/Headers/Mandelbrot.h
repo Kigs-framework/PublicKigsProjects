@@ -1,33 +1,40 @@
 #pragma once
 
-#include <DataDrivenBaseApplication.h>
+#include "DataDrivenBaseApplication.h"
 #include "KigsBitmap.h"
 #include "UI/UIItem.h"
 
-class TinyImage;
-
-class Mandelbrot : public DataDrivenBaseApplication
+namespace Kigs
 {
-public:
-	DECLARE_CLASS_INFO(Mandelbrot, DataDrivenBaseApplication, Core);
-	DECLARE_CONSTRUCTOR(Mandelbrot);
+	namespace Pict
+	{
+		class TinyImage;
+	}
+	using namespace DDriven;
 
-protected:
-	void	ProtectedInit() override;
-	void	ProtectedUpdate() override;
-	void	ProtectedClose() override;
+	class Mandelbrot : public DataDrivenBaseApplication
+	{
+	public:
+		DECLARE_CLASS_INFO(Mandelbrot, DataDrivenBaseApplication, Core);
+		DECLARE_CONSTRUCTOR(Mandelbrot);
 
-	
-	void	ProtectedInitSequence(const std::string& sequence) override;
-	void	ProtectedCloseSequence(const std::string& sequence) override;
+	protected:
+		void	ProtectedInit() override;
+		void	ProtectedUpdate() override;
+		void	ProtectedClose() override;
 
-	SP<KigsBitmap>	mBitmap;
-	SP<UIItem>		mBitmapDisplay;
 
-	float			mZoomCoef;
+		void	ProtectedInitSequence(const std::string& sequence) override;
+		void	ProtectedCloseSequence(const std::string& sequence) override;
 
-	double			mStartTime = -1.0;
-	double			mRotationAngle = 0.0f;
+		SP<Draw::KigsBitmap>	mBitmap;
+		SP<Draw2D::UIItem>		mBitmapDisplay;
 
-	SP<TinyImage>	mImage = nullptr;
-};
+		float			mZoomCoef;
+
+		double			mStartTime = -1.0;
+		double			mRotationAngle = 0.0f;
+
+		SP<Pict::TinyImage>	mImage = nullptr;
+	};
+}

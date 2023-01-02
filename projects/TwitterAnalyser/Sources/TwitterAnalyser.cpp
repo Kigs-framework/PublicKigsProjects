@@ -7,6 +7,10 @@
 #include "TextureFileManager.h"
 #include "CommonTwitterFSMStates.h"
 
+using namespace Kigs;
+using namespace Kigs::Fsm;
+using namespace Kigs::File;
+
 IMPLEMENT_CLASS_INFO(TwitterAnalyser);
 
 IMPLEMENT_CONSTRUCTOR(TwitterAnalyser)

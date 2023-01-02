@@ -7,6 +7,9 @@
 #include "PNGClass.h"
 #include "GIFClass.h"
 
+using namespace Kigs;
+using namespace Kigs::File;
+
 double		TwitterConnect::mOldFileLimit=0;
 time_t		TwitterConnect::mCurrentTime=0;
 
@@ -1325,19 +1328,19 @@ void	TwitterConnect::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* down
 			std::string	url = downloader->getValue<std::string>("URL");
 			std::string::size_type pos = url.rfind('.');
 			std::string ext = url.substr(pos);
-			SP<TinyImage> img = nullptr;
+			SP<Pict::TinyImage> img = nullptr;
 
 			if (ext == ".png")
 			{
-				img = MakeRefCounted<PNGClass>(data);
+				img = MakeRefCounted<Pict::PNGClass>(data);
 			}
 			else if (ext == ".gif")
 			{
-				img = MakeRefCounted<GIFClass>(data);
+				img = MakeRefCounted<Pict::GIFClass>(data);
 			}
 			else
 			{
-				img = MakeRefCounted<JPEGClass>(data);
+				img = MakeRefCounted<Pict::JPEGClass>(data);
 				ext = ".jpg";
 			}
 			if (img->IsOK())
@@ -1359,7 +1362,7 @@ void	TwitterConnect::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* down
 				toFill->mThumb.mTexture = KigsCore::GetInstanceOf((std::string)toFill->mName + "tex", "Texture");
 				toFill->mThumb.mTexture->Init();
 
-				SmartPointer<TinyImage>	imgsp = img->shared_from_this();
+				SmartPointer<Pict::TinyImage>	imgsp = img->shared_from_this();
 				toFill->mThumb.mTexture->CreateFromImage(imgsp);
 
 			}
