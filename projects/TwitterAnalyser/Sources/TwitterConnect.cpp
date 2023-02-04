@@ -278,7 +278,7 @@ bool		TwitterConnect::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
 #ifdef LOG_ALL
 	writelog("loaded user" + std::to_string(id) + "details");
 #endif
-	ch.mName = initP["Name"];
+	ch.mName = (usString)initP["Name"];
 	ch.mID = id;
 	ch.mFollowersCount = initP["FollowersCount"];
 	ch.mFollowingCount = initP["FollowingCount"];
@@ -896,7 +896,7 @@ DEFINE_METHOD(TwitterConnect, getUserDetails)
 		UserStruct CurrentUserStruct;
 
 		CurrentUserStruct.mID = data["id"];
-		CurrentUserStruct.mName = data["username"];
+		CurrentUserStruct.mName = (usString)data["username"];
 		CurrentUserStruct.mFollowersCount = public_m["followers_count"];
 		CurrentUserStruct.mFollowingCount = public_m["following_count"];
 		CurrentUserStruct.mStatuses_count = public_m["tweet_count"];

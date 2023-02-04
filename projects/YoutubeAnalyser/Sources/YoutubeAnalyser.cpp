@@ -1695,7 +1695,7 @@ DEFINE_METHOD(YoutubeAnalyser, getChannelID)
 				if (!LoadChannelStruct(IDItem, *currentChan,true))
 				{
 					CoreItemSP infos = json["items"][0]["snippet"];
-					currentChan->mName = infos["title"];
+					currentChan->mName = (usString)infos["title"];
 					currentChan->mTotalSubscribers = json["items"][0]["statistics"]["subscriberCount"];
 					std::string imgurl = infos["thumbnails"]["default"]["url"];
 					currentChan->mThumb.mURL = imgurl;
@@ -1733,7 +1733,7 @@ DEFINE_METHOD(YoutubeAnalyser, getChannelStats)
 			CoreItemSP infos = json["items"][0]["snippet"];
 			if (infos)
 			{
-				current->mName = infos["title"];
+				current->mName = (usString)infos["title"];
 				current->mThumb.mURL = infos["thumbnails"]["default"]["url"];
 			}
 			current->mTotalSubscribers = 0;
@@ -1945,7 +1945,7 @@ bool		YoutubeAnalyser::LoadChannelStruct(const std::string& id, ChannelStruct& c
 		return false;
 	}
 	
-	ch.mName = initP["Name"];
+	ch.mName = (usString)initP["Name"];
 	ch.mTotalSubscribers = initP["TotalSubscribers"];
 	if (initP["ImgURL"])
 	{
@@ -2163,7 +2163,7 @@ DEFINE_METHOD(YoutubeAnalyser, getUserSubscribtion)
 					{
 						usString title("");
 						if(subscriptions[i]["snippet"]["title"])
-							title = subscriptions[i]["snippet"]["title"];
+							title = (usString)subscriptions[i]["snippet"]["title"];
 
 						CoreItemSP thumbnailInfos = subscriptions[i]["snippet"]["thumbnails"];
 						std::string url="";
