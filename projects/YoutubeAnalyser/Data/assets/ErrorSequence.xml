@@ -24,24 +24,24 @@
 		</Attr>
 	</Inst>
 	<Inst N="UILayer" T="UI2DLayer">
-	<Attr N="Size" V="{1280,800}"/>
+	<Attr N="Size" V="[1280,800]"/>
 	<Attr N="Priority" V="50"/>
 	<Attr N="RenderingScreen" V="RenderingScreen:theRenderingScreen"/>
 		<Inst N="Interface" T="UIItem">
-			<Attr N="Size" V="{1280,800}"/>
+			<Attr N="Size" V="[1280,800]"/>
 			<Inst N="background" T="UIPanel">
-				<Attr N="Size" V="{1280,800}"/>
+				<Attr N="Size" V="[1280,800]"/>
 				<Attr N="Priority" V="10"/>
-				<Attr N="Anchor" V="{0.500000,0.500000}"/>
-				<Attr N="Dock" V="{0.500000,0.500000}"/>
-				<Attr N="Color" V="{0.0, 0.2, 0.4, 1.0}"/>
+				<Attr N="Anchor" V="[0.500000,0.500000]"/>
+				<Attr N="Dock" V="[0.500000,0.500000]"/>
+				<Attr N="Color" V="[0.0, 0.2, 0.4, 1.0]"/>
 			</Inst>
 			<Inst N="Error" T="UIText">
 				<Attr N="Priority" V="20"/>
 				<Attr N="Text" V="Error, daily quota exceeded !"/>
-				<Attr N="Dock" V="{0.5,0.5}"/>
-				<Attr N="Anchor" V="{0.5,0.5}"/>
-				<Attr N="Size" V="{-1,-1}"/>
+				<Attr N="Dock" V="[0.5,0.5]"/>
+				<Attr N="Anchor" V="[0.5,0.5]"/>
+				<Attr N="Size" V="[-1,-1]"/>
 				<Attr N="Font" V="Calibri.ttf"/>
 				<Attr N="FontSize" V="32"/>
 				<Attr N="MaxWidth" V="400"/>	

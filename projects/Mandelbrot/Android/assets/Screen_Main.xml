@@ -24,21 +24,21 @@
 		</Attr>
 	</Inst>
 	<Inst N="UILayer" T="UI2DLayer">
-	<Attr N="Size" V="{1024,1024}"/>
+	<Attr N="Size" V="[1024,1024]"/>
 	<Attr N="Priority" V="50"/>
 	<Attr N="RenderingScreen" V="RenderingScreen:theRenderingScreen"/>
 		<Inst N="Interface" T="UIItem">
-			<Attr N="Size" V="{1024,1024}"/>
+			<Attr N="Size" V="[1024,1024]"/>
 			<Inst N="uitexture" T="UIImage">
 				<Attr N="Priority" V="0"/>
-				<Attr N="Anchor" V="{0.500000,0.500000}"/>
-				<Attr N="Dock" V="{0.500000,0.500000}"/>
-				<Attr N="Color" V="{1.0, 1.0, 1.0, 1.0}"/>
+				<Attr N="Anchor" V="[0.500000,0.500000]"/>
+				<Attr N="Dock" V="[0.500000,0.500000]"/>
+				<Attr N="Color" V="[1.0, 1.0, 1.0, 1.0]"/>
 				<Inst N="texture" T="Texture">
 					<!-- force filename to "" so the texture is not loaded --> 
 					<Attr N="FileName" V=""/>
 					<Inst N="mandelbrot" T="KigsBitmap">
-						<Attr N="Size" V="{1024,1024}"/>
+						<Attr N="Size" V="[1024,1024]"/>
 					</Inst>
 				</Inst>
 			</Inst>
