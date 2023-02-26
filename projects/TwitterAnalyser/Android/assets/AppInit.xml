@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<Inst N="TwitterAnalyser" Type="Window">
+    <Attr N="Position" V="[-1,-1]"/>
+	<Attr N="Size" V="[1920,1080]"/>
+	<Attr N="FullScreen" V="true"/>
+	<Attr N="ShowMouseCursor" V="true"/>
+	<Attr Type="string" N="PackageFileName" V="TwitterAnalyser_assets.kpkg" Dyn="true"/>
+	<Inst N="theRenderingScreen" Type="RenderingScreen">
+		<Attr N="Size" V="[0,0]"/>
+		<Attr N="DesignSize" V="[1920,1080]"/>
+		<Attr N="BitsPerZ" V="32"/>
+		<Attr N="Brightness" V="0"/>
+		<Attr N="BackDropColor" V="[0.0,0.0,0.0]"/>
+		<Attr N="VSync" V="true"/>
+	</Inst>
+
+</Inst>

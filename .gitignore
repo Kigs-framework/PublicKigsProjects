@@ -1,4 +1,9 @@
-
-projects/TwitterAnalyser/Ressources/AMLastDone.json
-projects/TwitterAnalyser/Android/assets/*
-projects/TwitterAnalyser/TmpRessources/*
+**/Android/ARM/
+**/Build/UWP/StaticDebug/
+**/Build/UWP/StaticRelease/
+**/Build/UWP/StaticReleaseTools/
+**/Ressources/AMLastDone.json
+**/Android/assets/*.kpkg
+**/TmpRessources/
+**/*.bak
+**/*.*.bak
