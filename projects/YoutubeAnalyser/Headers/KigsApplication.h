@@ -13,3 +13,5 @@
 
 //! then define it as the application class 
 #define KIGS_APPLICATION_CLASS YoutubeAnalyser
+
+#define APP_KIGS_PACKAGE_NAME "YoutubeAnalyser_assets.kpkg"

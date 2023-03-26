@@ -74,24 +74,31 @@ void	YoutubeAnalyser::ProtectedInit()
 	mOldFileLimit = 60.0 * 60.0 * 24.0 * 30.0 * 3.0;
 
 	SP<FilePathManager> pathManager = KigsCore::Singleton<FilePathManager>();
+	pathManager->AddToPath(".", "xml");
 	// when a path is given, search the file only with this path
 	pathManager->setValue("StrictPath", true);
-
 	pathManager->AddToPath(".", "json");
+
+	CoreCreateModule(HTTPRequestModule, 0);
 
 	// Init App
 	JSonFileParser L_JsonParser;
 	CoreItemSP initP = L_JsonParser.Get_JsonDictionary("launchParams.json");
 
+	// generic youtube management class
+	DECLARE_FULL_CLASS_INFO(KigsCore::Instance(), YoutubeConnect, YoutubeConnect, YoutubeAnalyser);
+	DECLARE_FULL_CLASS_INFO(KigsCore::Instance(), GraphDrawer, GraphDrawer, YoutubeAnalyser);
+
+	mYoutubeConnect = KigsCore::GetInstanceOf("mYoutubeConnect", "YoutubeConnect");
+	mYoutubeConnect->initBearer(initP);
+
+	mGraphDrawer = KigsCore::GetInstanceOf("mGraphDrawer", "GraphDrawer");
+
 	// retreive parameters
-	mKey = "&key=" + (std::string)initP["GoogleKey"];
 	mChannelName = initP["ChannelID"];
 
-	auto SetMemberFromParam = [&](auto& x, const char* id) {
-		if (initP[id]) 
-		{
-			x = initP[id].value<typename std::remove_reference< decltype(x) >::type >();
-		}
+	auto SetMemberFromParam = [&]<typename T>(T & x, const char* id) {
+		if (initP[id]) x = initP[id].value<T>();
 	};
 	
 	SetMemberFromParam(mSubscribedUserCount, "ValidUserCount");
@@ -103,8 +110,6 @@ void	YoutubeAnalyser::ProtectedInit()
 	SetMemberFromParam(mFromDate, "FromDate");
 	SetMemberFromParam(mToDate, "ToDate");
 
-
-
 	replaceSpacesByEscapedOr(mUseKeyword);
 
 	int oldFileLimitInDays=3*30;
@@ -112,9 +117,6 @@ void	YoutubeAnalyser::ProtectedInit()
 	
 	mOldFileLimit = 60.0 * 60.0 * 24.0 * (double)oldFileLimitInDays;
 
-	CoreCreateModule(HTTPRequestModule, 0);
-
-	
 	// init google api connection
 	mGoogleConnect = KigsCore::GetInstanceOf("googleConnect", "HTTPConnect");
 	mGoogleConnect->setValue("HostName", "www.googleapis.com");
@@ -131,7 +133,7 @@ void	YoutubeAnalyser::ProtectedInit()
 	if (!currentP) // new channel, launch getChannelID
 	{
 		std::string url = "/youtube/v3/channels?part=snippet,statistics&id=";
-		std::string request = url + mChannelName + mKey;
+		std::string request = url + mChannelName + mYoutubeConnect->getCurrentBearer();
 		mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelID", this);
 		printf("Request : getChannelID\n ");
 		mAnswer->Init();
@@ -145,7 +147,7 @@ void	YoutubeAnalyser::ProtectedInit()
 			mFoundChannels[mChannelID] = &mChannelInfos;
 			// request details
 			std::string url = "/youtube/v3/channels?part=statistics,snippet&id=";
-			std::string request = url + mChannelID + mKey;
+			std::string request = url + mChannelID + mYoutubeConnect->getCurrentBearer();
 			mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
 			printf("Request : getChannelStats %s \n ", mChannelID.c_str());
 			mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::INT,"dontSetState", 1);
@@ -162,6 +164,11 @@ void	YoutubeAnalyser::ProtectedInit()
 #ifdef LOG_ALL
 	LOG_File = Platform_fopen("Log_All.txt", "wb");
 #endif
+
+	mYoutubeConnect->initConnection(mOldFileLimit);
+
+	// connect done msg
+	KigsCore::Connect(mYoutubeConnect.get(), "done", this, "requestDone");
 
 	// Load AppInit, GlobalConfig then launch first sequence
 	DataDrivenBaseApplication::ProtectedInit();
@@ -264,7 +271,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			{
 				url += "&regionCode=FR&relevanceLanguage=fr&q=" + mUseKeyword;
 			}
-			std::string request = url  + mKey + nextPageToken + "&maxResults=50&order=date&type=video";
+			std::string request = url  + mYoutubeConnect->getCurrentBearer() + nextPageToken + "&maxResults=50&order=date&type=video";
 			
 			// if date use them
 			if (mFromDate.length())
@@ -354,7 +361,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			if (!initP || nextPageToken!="")
 			{
 				std::string url = "/youtube/v3/commentThreads?part=snippet%2Creplies&videoId=";
-				std::string request = url + videoID + mKey + nextPageToken +  "&maxResults=50&order=time";
+				std::string request = url + videoID + mYoutubeConnect->getCurrentBearer() + nextPageToken +  "&maxResults=50&order=time";
 				mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getCommentList", this);
 				mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "videoID", videoID.c_str());
 				mAnswer->Init();
@@ -440,7 +447,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 				if (!initP)
 				{
 					std::string url = "/youtube/v3/subscriptions?part=snippet%2CcontentDetails&channelId=";
-					std::string request = url + mCurrentProcessedUser + mKey + "&maxResults=50";
+					std::string request = url + mCurrentProcessedUser + mYoutubeConnect->getCurrentBearer() + "&maxResults=50";
 					mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getUserSubscribtion", this);
 					mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "request", request.c_str());
 					mAnswer->Init();
@@ -492,19 +499,6 @@ void	YoutubeAnalyser::ProtectedUpdate()
 								mFoundChannels[c]=toAdd;
 								toAdd->mSubscribersCount = 0;
 								toAdd->mNotSubscribedSubscribersCount = 1;
-								// load channel only when mSubscribersCount is enough
-								/*if (!LoadChannelStruct(c, *toAdd))
-								{
-									// request details
-									std::string url = "/youtube/v3/channels?part=statistics,snippet&id=";
-									std::string request = url + c + mKey;
-									mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
-									printf("Request : getChannelStats %s\n ", c.c_str());
-									mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::INT,"dontSetState", 0);
-									mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "ID", c.c_str());
-									mAnswer->Init();
-									myRequestCount++;
-								}*/
 							}
 							else
 							{
@@ -530,19 +524,6 @@ void	YoutubeAnalyser::ProtectedUpdate()
 								mFoundChannels[c] = toAdd;
 								toAdd->mSubscribersCount = 1;
 								toAdd->mNotSubscribedSubscribersCount = 0;
-								// load channel only when mSubscribersCount is enough
-								/*if (!LoadChannelStruct(c, *toAdd))
-								{
-									// request details
-									std::string url = "/youtube/v3/channels?part=statistics,snippet&id=";
-									std::string request = url + c + mKey;
-									mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
-									printf("Request : getChannelStats %s\n ", c.c_str());
-									mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::INT, "dontSetState", 0);
-									mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "ID", c.c_str());
-									mAnswer->Init();
-									myRequestCount++;
-								}*/
 							}
 							else
 							{
@@ -553,7 +534,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 									{
 										// request details
 										std::string url = "/youtube/v3/channels?part=statistics,snippet&id=";
-										std::string request = url + c + mKey;
+										std::string request = url + c + mYoutubeConnect->getCurrentBearer();
 										mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
 										printf("Request : getChannelStats %s\n ", c.c_str());
 										mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::INT, "dontSetState", 0);
@@ -607,25 +588,9 @@ void	YoutubeAnalyser::ProtectedUpdate()
 					toAdd->mNotSubscribedSubscribersCount = 1;
 				}
 
-				// load channel only when mSubscribersCount is enough
-				// check if we already know this channel
-				/*if (!LoadChannelStruct(c.first, *toAdd))
-				{
-					toAdd->mName = c.second.first;
-					toAdd->mThumb.mURL = c.second.second;
-					// request details
-					std::string url = "/youtube/v3/channels?part=statistics&id=";
-					std::string request = url + c.first + mKey;
-					mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
-					printf("Request : getChannelStats %s\n ", c.first.c_str());
-					mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "ID", c.first.c_str());
-					mAnswer->Init();
-					myRequestCount++;
-				}
-				else
-				{*/
-					mState = 4; // continue mTmpUserChannels
-				//}
+
+				mState = 4; // continue mTmpUserChannels
+				
 			}
 			else
 			{
@@ -638,7 +603,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 						(*found).second->mThumb.mURL = c.second.second;
 						// request details
 						std::string url = "/youtube/v3/channels?part=statistics&id=";
-						std::string request = url + c.first + mKey;
+						std::string request = url + c.first + mYoutubeConnect->getCurrentBearer();
 						mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
 						printf("Request : getChannelStats %s\n ", c.first.c_str());
 						mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "ID", c.first.c_str());

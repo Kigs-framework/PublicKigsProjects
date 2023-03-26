@@ -11,7 +11,7 @@ if(${KIGS_PLATFORM} STREQUAL "Windows" )
 
 	set(YoutubeAnalyser_GUID_CMAKE "34FDA678-67F1-4BF3-9996-226730D962DD" CACHE INTERNAL "YoutubeAnalyser GUID")
 
-	target_link_libraries(YoutubeAnalyser PRIVATE DataDrivenApplication HTTPRequest)
+	target_link_libraries(YoutubeAnalyser PRIVATE DataDrivenApplication CoreFSM HTTPRequest)
 
 	target_include_directories(YoutubeAnalyser PRIVATE "Headers")
 
@@ -26,5 +26,9 @@ if(${KIGS_PLATFORM} STREQUAL "Windows" )
 			${all_headers}
 			)
 	set_property(TARGET YoutubeAnalyser PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/Data")
+	
+	add_custom_command(TARGET YoutubeAnalyser  PRE_BUILD 
+										 COMMAND AssetManager.exe -i ${CMAKE_CURRENT_SOURCE_DIR}/Ressources -t ${CMAKE_CURRENT_SOURCE_DIR}/TmpRessources -o ${CMAKE_CURRENT_SOURCE_DIR}/Android/assets
+										 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../../kigs/tools/win32_executable/)
 
 endif()

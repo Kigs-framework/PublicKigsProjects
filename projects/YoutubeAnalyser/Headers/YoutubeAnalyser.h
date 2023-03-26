@@ -3,6 +3,8 @@
 #include "DataDrivenBaseApplication.h"
 #include "HTTPConnect.h"
 #include "Texture.h"
+#include "YoutubeConnect.h"
+#include "GraphDrawer.h"
 
 namespace Kigs
 {
@@ -19,12 +21,17 @@ namespace Kigs
 		DECLARE_CLASS_INFO(YoutubeAnalyser, DataDrivenBaseApplication, Core);
 		DECLARE_CONSTRUCTOR(YoutubeAnalyser);
 
+		// give direct access to members
+		friend class GraphDrawer;
+		enum class dataType
+		{
+			Followers = 0,			
+			Following = 1,
+		};
+
 	protected:
 
-		// Youtube Data API key 
-		std::string						mKey = "";
-
-		// current application state ( 
+		// current application state 
 		unsigned int					mState = 0;
 		// general application parameters
 		// wanted sample size
@@ -38,7 +45,7 @@ namespace Kigs
 		class ThumbnailStruct
 		{
 		public:
-			SP<Draw::Texture>					mTexture = nullptr;
+			SP<Draw::Texture>			mTexture = nullptr;
 			std::string					mURL;
 		};
 
@@ -206,7 +213,9 @@ namespace Kigs
 
 		// display data
 		std::unordered_map<std::string, CMSP>			mShowedChannels;
+		SP<YoutubeConnect>								mYoutubeConnect = nullptr;
 		CMSP											mMainInterface;
+		SP<GraphDrawer>									mGraphDrawer = nullptr;
 		double											mLastUpdate;
 
 		// current process data

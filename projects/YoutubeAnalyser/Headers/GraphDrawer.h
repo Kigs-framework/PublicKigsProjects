@@ -1,9 +1,10 @@
 #pragma once
 
+
 #include "CoreModifiable.h"
 #include "CoreBaseApplication.h"
 #include "CoreFSMState.h"
-#include "TwitterConnect.h"
+#include "YouTubeConnect.h"
 #include "KigsBitmap.h"
 
 namespace Kigs
@@ -11,7 +12,7 @@ namespace Kigs
 	using namespace Kigs::Core;
 	using namespace Kigs::Fsm;
 
-	class TwitterAnalyser;
+	class YoutubeAnalyser;
 
 	// manage drawing of current graph
 	class GraphDrawer : public CoreModifiable
@@ -19,11 +20,10 @@ namespace Kigs
 	protected:
 		CMSP				mMainInterface;
 
-		TwitterAnalyser* mTwitterAnalyser = nullptr;
+		YoutubeAnalyser* mYoutubeAnalyser = nullptr;
 		void	drawSpiral(std::vector<std::tuple<unsigned int, float, u64>>& toShow);
 		void	drawForce();
 		void	drawStats(SP<Draw::KigsBitmap> bitmap);
-		void	drawOCStats(SP<Draw::KigsBitmap> bitmap);
 		void	drawGeneralStats();
 
 		bool	mEverythingDone = false;
@@ -50,13 +50,11 @@ namespace Kigs
 
 		void	prepareForceGraphData();
 
-		std::unordered_map<u64, TwitterConnect::PerAccountUserMap>	mAccountSubscriberMap;
+		std::unordered_map<u64, YoutubeConnect::PerAccountUserMap>	mAccountSubscriberMap;
 
 		maBool	mDrawForce = BASE_ATTRIBUTE(DrawForce, false);
 		bool	mCurrentStateHasForceDraw = false;
 		bool	mShowMyself = false;
-
-		void	OpeningClosingUpdate(bool closing);
 
 		class Diagram
 		{
@@ -110,28 +108,8 @@ namespace Kigs
 	COREFSMSTATE_WITHOUT_METHODS()
 	END_DECLARE_COREFSMSTATE()
 
-	START_DECLARE_COREFSMSTATE(GraphDrawer, TopDraw)
-	COREFSMSTATE_WITHOUT_METHODS()
-	END_DECLARE_COREFSMSTATE()
-
 	// Normalized drawing
 	START_DECLARE_COREFSMSTATE(GraphDrawer, Normalized)
-	COREFSMSTATE_WITHOUT_METHODS()
-	END_DECLARE_COREFSMSTATE()
-
-	// Opening drawing
-	START_DECLARE_COREFSMSTATE(GraphDrawer, OpeningMeasurement)
-	COREFSMSTATE_WITHOUT_METHODS()
-	END_DECLARE_COREFSMSTATE()
-
-	// Closing drawing
-	START_DECLARE_COREFSMSTATE(GraphDrawer, ClosingMeasurement)
-	COREFSMSTATE_WITHOUT_METHODS()
-	END_DECLARE_COREFSMSTATE()
-
-	// Opening/Closing stats
-	START_DECLARE_COREFSMSTATE(GraphDrawer, OpeningClosingStats)
-	CMSP	mBitmap;
 	COREFSMSTATE_WITHOUT_METHODS()
 	END_DECLARE_COREFSMSTATE()
 
