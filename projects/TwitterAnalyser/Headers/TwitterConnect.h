@@ -62,6 +62,7 @@ namespace Kigs
 			std::string					UTCTime = "";
 			ThumbnailStruct				mThumb;
 			u64							mID;
+			bool						mTwitterBlue;
 		};
 		// structures
 		class PerAccountUserMap

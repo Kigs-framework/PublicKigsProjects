@@ -852,6 +852,8 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	// title
 	bitmap->Print("Sample statistics", 1920 / 2, 16, 1, 1920, 92, "Calibri.ttf", 1, {0,0,0,128});
 
+	// count twitter blue
+	size_t twitterBlueCount = 0;
 	// followers
 	std::vector<float> currentData;
 	for (auto u : mTwitterAnalyser->mPerPanelUsersStats)
@@ -860,11 +862,23 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 		if (userdata.mFollowersCount + userdata.mFollowingCount)
 		{
 			currentData.push_back(userdata.mFollowersCount);
+			if (userdata.mTwitterBlue)
+			{
+				twitterBlueCount++;
+			}
 		}
 	}
 
 	std::string panelsize = "(sample size = " + std::to_string(currentData.size()) + ")";
 	bitmap->Print(panelsize, 1920 / 2, 100, 1, 1920, 24, "Calibri.ttf", 1, { 0,0,0,128 });
+
+	// print twitter blue %
+	if (currentData.size())
+	{
+		std::string twitterBluePercent = "Twitter Blue percent = " + std::to_string((twitterBlueCount * 100) / currentData.size()) + "%";
+		bitmap->Print(twitterBluePercent, 1920 / 2, 120, 1, 1920, 16, "Calibri.ttf", 1, { 0,0,0,128 });
+	}
+
 
 	Diagram	diagram(bitmap);
 	diagram.mZonePos.Set(64, 256);

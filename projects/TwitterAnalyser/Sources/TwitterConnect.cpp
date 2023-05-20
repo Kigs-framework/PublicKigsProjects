@@ -284,6 +284,7 @@ bool		TwitterConnect::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
 	ch.mFollowingCount = initP["FollowingCount"];
 	ch.mStatuses_count = initP["StatusesCount"];
 	ch.UTCTime = initP["CreatedAt"]->toString();
+	ch.mTwitterBlue = initP["TwitterBlue"]->operator bool();
 	if (initP["ImgURL"])
 	{
 		ch.mThumb.mURL = initP["ImgURL"]->toString();
@@ -331,6 +332,7 @@ void		TwitterConnect::SaveUserStruct(u64 id, UserStruct& ch)
 	initP->set("FollowingCount", (int)ch.mFollowingCount);
 	initP->set("StatusesCount", (int)ch.mStatuses_count);
 	initP->set("CreatedAt", ch.UTCTime);
+	initP->set("TwitterBlue", ch.mTwitterBlue);
 
 	if (ch.mThumb.mURL != "")
 	{
@@ -669,7 +671,7 @@ void TwitterConnect::launchUserDetailRequest(const std::string& UserName, UserSt
 {
 
 	// check classic User Cache
-	std::string url = "2/users/by/username/" + UserName + "?user.fields=created_at,public_metrics,profile_image_url";
+	std::string url = "2/users/by/username/" + UserName + "?user.fields=created_at,public_metrics,profile_image_url,verified,verified_type";
 	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 
 	// 900 req per 15 minutes
@@ -681,7 +683,7 @@ void TwitterConnect::launchUserDetailRequest(u64 UserID, UserStruct& ch)
 {
 
 	// check classic User Cache
-	std::string url = "2/users/" + std::to_string(UserID) + "?user.fields=created_at,public_metrics,profile_image_url";
+	std::string url = "2/users/" + std::to_string(UserID) + "?user.fields=created_at,public_metrics,profile_image_url,verified,verified_type";
 	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
 	mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::ULONG,"UserID", UserID);
 
@@ -897,6 +899,7 @@ DEFINE_METHOD(TwitterConnect, getUserDetails)
 
 		CurrentUserStruct.mID = data["id"];
 		CurrentUserStruct.mName = (usString)data["username"];
+		CurrentUserStruct.mTwitterBlue = (data["verified"]->operator bool()) && (data["verified_type"]->toString() == "blue");
 		CurrentUserStruct.mFollowersCount = public_m["followers_count"];
 		CurrentUserStruct.mFollowingCount = public_m["following_count"];
 		CurrentUserStruct.mStatuses_count = public_m["tweet_count"];
@@ -917,6 +920,7 @@ DEFINE_METHOD(TwitterConnect, getUserDetails)
 			suspended.mFollowersCount = 0;
 			suspended.mFollowingCount = 0;
 			suspended.mStatuses_count = 0;
+			suspended.mTwitterBlue = false;
 
 			EmitSignal("UserDetailRetrieved", suspended);
 			
