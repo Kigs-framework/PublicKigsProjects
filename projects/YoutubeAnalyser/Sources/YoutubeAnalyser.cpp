@@ -11,6 +11,8 @@
 #include "UI/UIImage.h"
 #include "TextureFileManager.h"
 #include "Histogram.h"
+#include "CoreFSM.h"
+#include "YoutubeFSMStates.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -42,6 +44,173 @@ void closeLog()
 }
 
 #endif
+
+
+void	YoutubeAnalyser::createFSMStates()
+{
+	SP<CoreFSM> fsm = mFsm;
+
+	// go to wait state (push)
+	SP<CoreFSMTransition> waittransition = KigsCore::GetInstanceOf("waittransition", "CoreFSMOnValueTransition");
+	waittransition->setValue("TransitionBehavior", "Push");
+	waittransition->setValue("ValueName", "NeedWait");
+	waittransition->setState("Wait");
+	waittransition->Init();
+
+	// pop when objective is reached (pop)
+	SP<CoreFSMTransition> popwhendone = KigsCore::GetInstanceOf("popwhendone", "CoreFSMOnMethodTransition");
+	popwhendone->setValue("TransitionBehavior", "Pop");
+	popwhendone->setValue("MethodName", "checkDone");
+	popwhendone->setState("");
+	popwhendone->Init();
+
+	mTransitionList["waittransition"] = waittransition;
+	mTransitionList["popwhendone"] = popwhendone;
+	
+	// init state
+	fsm->addState("Init", new CoreFSMStateClass(YoutubeAnalyser, InitChannel)());
+
+
+	fsm->getState("Init")->addTransition(mTransitionList["waittransition"]);
+
+	// pop wait state transition
+	SP<CoreFSMTransition> waitendtransition = KigsCore::GetInstanceOf("waitendtransition", "CoreFSMOnValueTransition");
+	waitendtransition->setValue("TransitionBehavior", "Pop");
+	waitendtransition->setValue("ValueName", "NeedWait");
+	waitendtransition->setValue("NotValue", true); // end wait when NeedWait is false
+	waitendtransition->Init();
+
+	mTransitionList["waitendtransition"] = waitendtransition;
+
+	// create Wait state
+	fsm->addState("Wait", new CoreFSMStateClass(YoutubeAnalyser, Wait)());
+	// Wait state can pop back to previous state
+	fsm->getState("Wait")->addTransition(waitendtransition);
+
+	// this one is needed for all cases
+	fsm->addState("Done", new CoreFSMStateClass(YoutubeAnalyser, Done)());
+
+	// transition to done state when checkDone returns true
+	SP<CoreFSMTransition> donetransition = KigsCore::GetInstanceOf("donetransition", "CoreFSMOnMethodTransition");
+	donetransition->setState("Done");
+	donetransition->setValue("MethodName", "checkDone");
+	donetransition->Init();
+
+	mTransitionList["donetransition"] = donetransition;
+
+
+	// go to RetrieveVideo
+	SP<CoreFSMTransition> retrievevideotransition = KigsCore::GetInstanceOf("retrievevideotransition", "CoreFSMInternalSetTransition");
+	retrievevideotransition->setState("RetrieveVideo");
+	retrievevideotransition->Init();
+
+	// create GetVideo transition (Push)
+	SP<CoreFSMTransition> getvideotransition = KigsCore::GetInstanceOf("getvideotransition", "CoreFSMInternalSetTransition");
+	getvideotransition->setValue("TransitionBehavior", "Push");
+	getvideotransition->setState("GetVideo");
+	getvideotransition->Init();
+
+	// create ProcessVideo transition (Push)
+	SP<CoreFSMTransition> processvideotransition = KigsCore::GetInstanceOf("processvideotransition", "CoreFSMInternalSetTransition");
+	processvideotransition->setValue("TransitionBehavior", "Push");
+	processvideotransition->setState("ProcessVideo");
+	processvideotransition->Init();
+
+	fsm->getState("Init")->addTransition(retrievevideotransition);
+
+	// create RetrieveVideo state
+	fsm->addState("RetrieveVideo", new CoreFSMStateClass(YoutubeAnalyser, RetrieveVideo)());
+	fsm->getState("RetrieveVideo")->addTransition(getvideotransition);
+	fsm->getState("RetrieveVideo")->addTransition(processvideotransition);
+	fsm->getState("RetrieveVideo")->addTransition(mTransitionList["donetransition"]);
+
+	// create GetVideo state
+	fsm->addState("GetVideo", new CoreFSMStateClass(YoutubeAnalyser, GetVideo)());
+	fsm->getState("GetVideo")->addTransition(mTransitionList["waittransition"]);
+
+
+	// create GetComment transition (Push)
+	SP<CoreFSMTransition> getcommenttransition = KigsCore::GetInstanceOf("getcommenttransition", "CoreFSMInternalSetTransition");
+	getcommenttransition->setValue("TransitionBehavior", "Push");
+	getcommenttransition->setState("GetComment");
+	getcommenttransition->Init();
+
+	// create TreatAuthors transition (Push)
+	SP<CoreFSMTransition> treatauthorstransition = KigsCore::GetInstanceOf("treatauthorstransition", "CoreFSMInternalSetTransition");
+	treatauthorstransition->setValue("TransitionBehavior", "Push");
+	treatauthorstransition->setState("TreatAuthors");
+	treatauthorstransition->Init();
+
+	// create ProcessVideo state
+	fsm->addState("ProcessVideo", new CoreFSMStateClass(YoutubeAnalyser, ProcessVideo)());
+	fsm->getState("ProcessVideo")->addTransition(getcommenttransition);
+	fsm->getState("ProcessVideo")->addTransition(treatauthorstransition);
+	fsm->getState("ProcessVideo")->addTransition(mTransitionList["donetransition"]);
+	fsm->getState("ProcessVideo")->addTransition(mTransitionList["waittransition"]);
+
+
+	// create GetAuthorInfos transition (Push)
+	SP<CoreFSMTransition> getauthorinfostransition = KigsCore::GetInstanceOf("getauthorinfostransition", "CoreFSMInternalSetTransition");
+	getauthorinfostransition->setValue("TransitionBehavior", "Push");
+	getauthorinfostransition->setState("GetAuthorInfos");
+	getauthorinfostransition->Init();
+
+	// create TreatAuthors state
+	fsm->addState("TreatAuthors", new CoreFSMStateClass(YoutubeAnalyser, TreatAuthors)());
+	fsm->getState("TreatAuthors")->addTransition(getauthorinfostransition);
+	fsm->getState("TreatAuthors")->addTransition(mTransitionList["waittransition"]);
+
+
+	// create RetrieveSubscriptions transition (Push)
+	SP<CoreFSMTransition> retrievesubscriptiontransition = KigsCore::GetInstanceOf("retrievesubscriptiontransition", "CoreFSMInternalSetTransition");
+	retrievesubscriptiontransition->setValue("TransitionBehavior", "Push");
+	retrievesubscriptiontransition->setState("RetrieveSubscriptions");
+	retrievesubscriptiontransition->Init();
+
+	// create GetAuthorInfos state
+	fsm->addState("GetAuthorInfos", new CoreFSMStateClass(YoutubeAnalyser, GetAuthorInfos)());
+	fsm->getState("GetAuthorInfos")->addTransition(retrievesubscriptiontransition);
+	fsm->getState("GetAuthorInfos")->addTransition(mTransitionList["waittransition"]);
+
+
+	// create RetrieveSubscriptions state
+	fsm->addState("RetrieveSubscriptions", new CoreFSMStateClass(YoutubeAnalyser, RetrieveSubscriptions)());
+	fsm->getState("RetrieveSubscriptions")->addTransition(mTransitionList["waittransition"]);
+
+	
+
+	/*
+
+	// this one is needed for all cases
+	fsm->addState("GetUserListDetail", new CoreFSMStateClass(YoutubeAnalyser, GetUserListDetail)());
+	// only wait or pop
+	fsm->getState("GetUserListDetail")->addTransition(waittransition);
+
+	// go to GetUserListDetail state (push)
+	SP<CoreFSMTransition> userlistdetailtransition = KigsCore::GetInstanceOf("userlistdetailtransition", "CoreFSMOnValueTransition");
+	userlistdetailtransition->setValue("TransitionBehavior", "Push");
+	userlistdetailtransition->setValue("ValueName", "NeedUserListDetail");
+	userlistdetailtransition->setState("GetUserListDetail");
+	userlistdetailtransition->Init();
+
+	mTransitionList["userlistdetailtransition"] = userlistdetailtransition;
+
+	// this one is needed for all cases
+	fsm->addState("Done", new CoreFSMStateClass(YoutubeAnalyser, Done)());
+	// only wait or pop
+	fsm->getState("Done")->addTransition(userlistdetailtransition);
+
+
+
+	// transition to done state when checkDone returns true
+	SP<CoreFSMTransition> donetransition = KigsCore::GetInstanceOf("donetransition", "CoreFSMOnMethodTransition");
+	donetransition->setState("Done");
+	donetransition->setValue("MethodName", "checkDone");
+	donetransition->Init();
+
+	mTransitionList["donetransition"] = donetransition;*/
+
+}
 
 IMPLEMENT_CLASS_INFO(YoutubeAnalyser);
 
@@ -117,58 +286,26 @@ void	YoutubeAnalyser::ProtectedInit()
 	
 	mOldFileLimit = 60.0 * 60.0 * 24.0 * (double)oldFileLimitInDays;
 
-	// init google api connection
-	mGoogleConnect = KigsCore::GetInstanceOf("googleConnect", "HTTPConnect");
-	mGoogleConnect->setValue("HostName", "www.googleapis.com");
-	mGoogleConnect->setValue("Type", "HTTPS");
-	mGoogleConnect->setValue("Port", "443");
-	mGoogleConnect->Init();
-	
-	// search if current channel is in Cached data
-
-	std::string currentChannelProgress = "Cache/" + mChannelName + "/";
-	currentChannelProgress += mChannelName + ".json";
-	CoreItemSP currentP = LoadJSon(currentChannelProgress);
-
-	if (!currentP) // new channel, launch getChannelID
-	{
-		std::string url = "/youtube/v3/channels?part=snippet,statistics&id=";
-		std::string request = url + mChannelName + mYoutubeConnect->getCurrentBearer();
-		mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelID", this);
-		printf("Request : getChannelID\n ");
-		mAnswer->Init();
-		myRequestCount++;
-	}
-	else // load current channel
-	{
-		mChannelID = currentP["channelID"];
-		if (!LoadChannelStruct(mChannelID, mChannelInfos, true))
-		{
-			mFoundChannels[mChannelID] = &mChannelInfos;
-			// request details
-			std::string url = "/youtube/v3/channels?part=statistics,snippet&id=";
-			std::string request = url + mChannelID + mYoutubeConnect->getCurrentBearer();
-			mAnswer = mGoogleConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
-			printf("Request : getChannelStats %s \n ", mChannelID.c_str());
-			mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::INT,"dontSetState", 1);
-			mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "ID", mChannelID.c_str());
-			mAnswer->Init();
-			myRequestCount++;
-		}
-		else
-		{
-			mState = 1;
-		}
-	}
-
-#ifdef LOG_ALL
-	LOG_File = Platform_fopen("Log_All.txt", "wb");
-#endif
-
 	mYoutubeConnect->initConnection(mOldFileLimit);
 
 	// connect done msg
 	KigsCore::Connect(mYoutubeConnect.get(), "done", this, "requestDone");
+
+	initCoreFSM();
+
+	// add FSM
+	SP<CoreFSM> fsm = KigsCore::GetInstanceOf("fsm", "CoreFSM");
+	// need to add fsm to the object to control
+	addItem(fsm);
+	mFsm = fsm;
+
+	createFSMStates();
+	
+#ifdef LOG_ALL
+	LOG_File = Platform_fopen("Log_All.txt", "wb");
+#endif
+
+
 
 	// Load AppInit, GlobalConfig then launch first sequence
 	DataDrivenBaseApplication::ProtectedInit();
@@ -179,6 +316,8 @@ void	YoutubeAnalyser::ProtectedUpdate()
 {
 	DataDrivenBaseApplication::ProtectedUpdate();
 	
+	return;
+	/*
 	if (mDrawForceBased)
 	{
 		DrawForceBased();
@@ -495,7 +634,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 							auto found = mFoundChannels.find(c);
 							if (found == mFoundChannels.end())
 							{
-								ChannelStruct* toAdd = new ChannelStruct();
+								YoutubeConnect::ChannelStruct* toAdd = new YoutubeConnect::ChannelStruct();
 								mFoundChannels[c]=toAdd;
 								toAdd->mSubscribersCount = 0;
 								toAdd->mNotSubscribedSubscribersCount = 1;
@@ -520,7 +659,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 							auto found = mFoundChannels.find(c);
 							if (found == mFoundChannels.end())
 							{
-								ChannelStruct* toAdd = new ChannelStruct();
+								YoutubeConnect::ChannelStruct* toAdd = new YoutubeConnect::ChannelStruct();
 								mFoundChannels[c] = toAdd;
 								toAdd->mSubscribersCount = 1;
 								toAdd->mNotSubscribedSubscribersCount = 0;
@@ -575,7 +714,7 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			if (found == mFoundChannels.end())
 			{
 
-				ChannelStruct* toAdd = new ChannelStruct();
+				YoutubeConnect::ChannelStruct* toAdd = new YoutubeConnect::ChannelStruct();
 				mFoundChannels[c.first] = toAdd;
 				if (mCurrentUser.mHasSubscribed)
 				{
@@ -703,12 +842,12 @@ void	YoutubeAnalyser::ProtectedUpdate()
 			refreshAllThumbs();
 		}
 	}
-	
+	*/
 }
 
 void	YoutubeAnalyser::refreshAllThumbs()
 {
-	if (mySubscribedWriters < 10)
+/*	if (mySubscribedWriters < 10)
 	{
 		return;
 	}
@@ -723,7 +862,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 	}
 	
 	// get all parsed channels and get the ones with more than mValidChannelPercent subscribed users
-	std::vector<std::pair<ChannelStruct*,std::string>>	toShow;
+	std::vector<std::pair<YoutubeConnect::ChannelStruct*,std::string>>	toShow;
 	for (auto c : mFoundChannels)
 	{
 		if (c.second->mSubscribersCount > 1)
@@ -743,7 +882,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 
 	if (mCurrentMeasure == Similarity) // Jaccard 
 	{
-		std::sort(toShow.begin(), toShow.end(), [this](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
+		std::sort(toShow.begin(), toShow.end(), [this](const std::pair<YoutubeConnect::ChannelStruct*, std::string>& a1, const std::pair<YoutubeConnect::ChannelStruct*, std::string>& a2)
 			{
 				if (a1.first->mTotalSubscribers == 0)
 				{
@@ -785,7 +924,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 	}
 	else
 	{
-		std::sort(toShow.begin(), toShow.end(), [&](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
+		std::sort(toShow.begin(), toShow.end(), [&](const std::pair<YoutubeConnect::ChannelStruct*, std::string>& a1, const std::pair<YoutubeConnect::ChannelStruct*, std::string>& a2)
 			{
 
 				if (mCurrentMeasure != Normalized)
@@ -992,7 +1131,7 @@ void	YoutubeAnalyser::refreshAllThumbs()
 				}
 				else
 				{
-					LoadChannelStruct(toPlace.second, *toPlace.first,true);
+					YoutubeConnect::LoadChannelStruct(toPlace.second, *toPlace.first,true);
 				}
 
 			}
@@ -1030,12 +1169,12 @@ void	YoutubeAnalyser::refreshAllThumbs()
 			mMainInterface["switchForce"]("IsTouchable") = true;
 
 		}
-	}
+	}*/
 }
 
 float	YoutubeAnalyser::PerChannelUserMap::GetNormalisedSimilitude(const PerChannelUserMap& other)
 {
-	unsigned int count = 0;
+	/*unsigned int count = 0;
 	for (int i = 0; i < mSize; i++)
 	{
 		if (other.m[i] & m[i])
@@ -1046,12 +1185,13 @@ float	YoutubeAnalyser::PerChannelUserMap::GetNormalisedSimilitude(const PerChann
 
 	float result = ((float)count) / ((float)(mSubscribedCount + other.mSubscribedCount - count));
 
-	return result;
+	return result;*/
+	return 0.0f;
 }
 
 float	YoutubeAnalyser::PerChannelUserMap::GetNormalisedAttraction(const PerChannelUserMap& other)
 {
-	unsigned int count = 0;
+	/*unsigned int count = 0;
 	for (int i = 0; i < mSize; i++)
 	{
 		if (other.m[i] & m[i])
@@ -1064,13 +1204,14 @@ float	YoutubeAnalyser::PerChannelUserMap::GetNormalisedAttraction(const PerChann
 
 	float result = ((float)count) / minSCount;
 
-	return result;
+	return result;*/
+	return 0.0f;
 }
 
 void	YoutubeAnalyser::prepareForceGraphData()
 {
 
-	Utils::Histogram<float>	hist({0.0,1.0},256);
+	/*Utils::Histogram<float>	hist({0.0,1.0}, 256);
 
 	mChannelSubscriberMap.clear();
 
@@ -1181,12 +1322,12 @@ void	YoutubeAnalyser::prepareForceGraphData()
 			++index2;
 		}
 		++index1;
-	}
+	}*/
 }
 
 void	YoutubeAnalyser::DrawForceBased()
 {
-	v2f center(1280.0 / 2.0, 800.0 / 2.0);
+	/*v2f center(1280.0 / 2.0, 800.0 / 2.0);
 
 	const float timeDelay = 10.0f;
 	const float timeDivisor = 0.04f;
@@ -1260,19 +1401,6 @@ void	YoutubeAnalyser::DrawForceBased()
 			{
 				if (&l1 == &l2)
 				{
-					/*// check with central image
-					v2f	v(current.mPos);
-					v -= thumbcenter;
-					float dist = Norm(v);
-					v.Normalize();
-
-					float r = (current.mRadius + 120) * currentTime;
-					if (dist < r)
-					{
-						float coef = (r - dist) * 120.0 / (r);
-						current.mPos += v * (coef);
-					}
-					*/
 					continue;
 				}
 
@@ -1323,7 +1451,7 @@ void	YoutubeAnalyser::DrawForceBased()
 		current.mThumbnail("Dock") = dock;
 	}
 
-
+	*/
 }
 
 void		YoutubeAnalyser::SaveStatFile()
@@ -1339,7 +1467,7 @@ void		YoutubeAnalyser::SaveStatFile()
 	filename = FilePathManager::MakeValidFileName(filename);
 
 	// get all parsed channels and get the ones with more than mValidChannelPercent subscribed users
-	std::vector<std::pair<ChannelStruct*, std::string>>	toSave;
+	std::vector<std::pair<YoutubeConnect::ChannelStruct*, std::string>>	toSave;
 	for (auto c : mFoundChannels)
 	{
 		if (c.second->mSubscribersCount >= 1)
@@ -1352,7 +1480,7 @@ void		YoutubeAnalyser::SaveStatFile()
 		}
 	}
 
-	std::sort(toSave.begin(), toSave.end(), [](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
+	std::sort(toSave.begin(), toSave.end(), [](const std::pair<YoutubeConnect::ChannelStruct*, std::string>& a1, const std::pair<YoutubeConnect::ChannelStruct*, std::string>& a2)
 		{
 			if (a1.first->mSubscribersCount == a2.first->mSubscribersCount)
 			{
@@ -1362,7 +1490,7 @@ void		YoutubeAnalyser::SaveStatFile()
 		}
 	);
 
-	std::vector<std::pair<ChannelStruct*, std::string>>	toSaveUnsub;
+	std::vector<std::pair<YoutubeConnect::ChannelStruct*, std::string>>	toSaveUnsub;
 	float unsubWriters = myPublicWriters -mySubscribedWriters;
 	for (auto c : mFoundChannels)
 	{
@@ -1376,7 +1504,7 @@ void		YoutubeAnalyser::SaveStatFile()
 		}
 	}
 
-	std::sort(toSaveUnsub.begin(), toSaveUnsub.end(), [](const std::pair<ChannelStruct*, std::string>& a1, const std::pair<ChannelStruct*, std::string>& a2)
+	std::sort(toSaveUnsub.begin(), toSaveUnsub.end(), [](const std::pair<YoutubeConnect::ChannelStruct*, std::string>& a1, const std::pair<YoutubeConnect::ChannelStruct*, std::string>& a2)
 		{
 			if (a1.first->mNotSubscribedSubscribersCount == a2.first->mNotSubscribedSubscribersCount)
 			{
@@ -1455,12 +1583,27 @@ void	YoutubeAnalyser::ProtectedInitSequence(const std::string& sequence)
 		mMainInterface = GetFirstInstanceByName("UIItem", "Interface");
 		mMainInterface["switchForce"]("IsHidden") = true;
 		mMainInterface["switchForce"]("IsTouchable") = false;
+
+		// launch fsm
+		SP<CoreFSM> fsm = mFsm;
+		fsm->setStartState("Init");
+		fsm->Init();
+
+		mGraphDrawer->setInterface(mMainInterface);
+		mGraphDrawer->Init();
+
 	}
 }
 void	YoutubeAnalyser::ProtectedCloseSequence(const std::string& sequence)
 {
 	if (sequence == "sequencemain")
 	{
+		mGraphDrawer = nullptr;
+		SP<CoreFSM> fsm = mFsm;
+		mFsm = nullptr;
+		removeItem(fsm);
+
+
 		mMainInterface = nullptr;
 
 		// delete all channel structs
@@ -1473,7 +1616,6 @@ void	YoutubeAnalyser::ProtectedCloseSequence(const std::string& sequence)
 		mFoundChannels.clear();
 		mShowedChannels.clear();
 		mChannelInfos.mThumb.mTexture = nullptr;
-		mDownloaderList.clear();
 		mChannelSubscriberMap.clear();
 
 
@@ -1484,771 +1626,18 @@ void	YoutubeAnalyser::ProtectedCloseSequence(const std::string& sequence)
 }
 
 
-CoreItemSP	YoutubeAnalyser::RetrieveJSON(CoreModifiable* sender)
-{
-	void* resultbuffer = nullptr;
-	sender->getValue("ReceivedBuffer", resultbuffer);
-
-	if (resultbuffer)
-	{
-		CoreRawBuffer* r = (CoreRawBuffer*)resultbuffer;
-		std::string_view received(r->data(), r->size());
-
-		std::string validstring(received);
-
-		if (validstring.length() == 0)
-		{
-			mState = 10;
-			mErrorCode = 405;
-		}
-		else
-		{
-
-			usString	utf8string((UTF8Char*)validstring.c_str());
-
-			JSonFileParserUTF16 L_JsonParser;
-			CoreItemSP result = L_JsonParser.Get_JsonDictionaryFromString(utf8string);
-
-			if (result["error"])
-			{
-				std::string reason = result["error"]["errors"][0]["reason"];
-				int code = result["error"]["code"];
-				if (code == 403)
-				{
-					if ((reason == "quotaExceeded") || (reason == "dailyLimitExceeded"))
-					{
-						mState = 10;
-						mErrorCode = code;
-					}
-				}
-			}
-
-
-			if (mState != 10)
-			{
-				return result;
-			}
-		}
-	}
-
-	return nullptr;
-}
-
-CoreItemSP	YoutubeAnalyser::LoadJSon(const std::string& fname,bool utf16)
-{
-	auto pathManager = KigsCore::Singleton<FilePathManager>();
-	SmartPointer<::FileHandle> filenamehandle = pathManager->FindFullName(fname);
-
-	// Windows specific code 
-#ifdef WIN32
-
-	if ((filenamehandle->mStatus & FileHandle::Exist) && (mOldFileLimit>1.0))
-	{
-		struct _stat resultbuf;
-
-		if (_stat(filenamehandle->mFullFileName.c_str(), &resultbuf) == 0)
-		{
-			auto mod_time = resultbuf.st_mtime;
-
-			double diffseconds= difftime(mCurrentTime, mod_time);
-
-			if (diffseconds > mOldFileLimit)
-			{
-				return nullptr;
-			}
-		}
-	}
-
-
-#endif
-	CoreItemSP initP;
-	if (utf16)
-	{
-		JSonFileParserUTF16 L_JsonParser;
-		initP = L_JsonParser.Get_JsonDictionary(filenamehandle);
-	}
-	else
-	{
-		JSonFileParser L_JsonParser;
-		initP = L_JsonParser.Get_JsonDictionary(filenamehandle);
-	}
-	return initP;
-}
-
-
-void	YoutubeAnalyser::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader)
-{
-	
-	// search used downloader in vector
-	std::vector<std::pair<CMSP, std::pair<std::string,ChannelStruct*>> > tmpList;
-
-	for (const auto& p : mDownloaderList)
-	{
-		if (p.first.get() == downloader)
-		{
-			SP<Pict::TinyImage> img = MakeRefCounted<Pict::JPEGClass>(data);
-			if (img)
-			{
-				ChannelStruct* toFill = p.second.second;
-
-				std::string filename= "Cache/Thumbs/";
-				filename += p.second.first;
-				filename += ".jpg";
-				
-				// export image
-				SmartPointer<::FileHandle> L_File = Platform_fopen(filename.c_str(), "wb");
-				if (L_File->mFile)
-				{
-					Platform_fwrite(data->buffer(),1, data->length(), L_File.get());
-					Platform_fclose(L_File.get());
-				}
-
-				toFill->mThumb.mTexture = KigsCore::GetInstanceOf((std::string)toFill->mName + "tex", "Texture");
-				toFill->mThumb.mTexture->Init();
-
-				toFill->mThumb.mTexture->CreateFromImage(img);
-			}
-		}
-		else
-		{
-			tmpList.push_back(p);
-		}
-	}
-	mDownloaderList = std::move(tmpList);
-}
-
-DEFINE_METHOD(YoutubeAnalyser, getChannelID)
-{
-	auto json=RetrieveJSON(sender);
-
-	if (json)
-	{
-		CoreItemSP IDItem = json["items"][0]["id"];
-
-		if (IDItem)
-		{
-			ChannelStruct* currentChan = nullptr;
-			bool isMainChannel=false;
-			if (mChannelID == "") // main channel
-			{
-				isMainChannel = true;
-				mChannelID = IDItem;
-				currentChan = &mChannelInfos;
-
-				// save channel id
-				{
-					JSonFileParser L_JsonParser;
-					CoreItemSP initP = MakeCoreMap();
-					initP->set("channelID", mChannelID);
-
-					std::string filename = "Cache/" + mChannelName + "/";
-					filename += mChannelName + ".json";
-					L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
-				}
-			}
-			else
-			{
-				auto f = mFoundChannels.find((std::string)IDItem);
-				if (f != mFoundChannels.end())
-				{
-					currentChan = (*f).second;
-				}
-			}
-
-			if (currentChan)
-			{
-				if (!LoadChannelStruct(IDItem, *currentChan,true))
-				{
-					CoreItemSP infos = json["items"][0]["snippet"];
-					currentChan->mName = (usString)infos["title"];
-					currentChan->mTotalSubscribers = json["items"][0]["statistics"]["subscriberCount"];
-					std::string imgurl = infos["thumbnails"]["default"]["url"];
-					currentChan->mThumb.mURL = imgurl;
-					SaveChannelStruct(IDItem, *currentChan);
-					LaunchDownloader(IDItem, *currentChan);
-				}
-				if(isMainChannel)
-					mState = 1;
-
-				return true;
-			}
-
-		}
-	}
-	mState = 10; // Error
-	return true;
-}
-
-DEFINE_METHOD(YoutubeAnalyser, getChannelStats)
-{
-	if (mState >= 10)
-	{
-		return true;
-	}
-	auto json = RetrieveJSON(sender);
-
-	if (json)
-	{
-		if (json["items"][0]["id"])
-		{
-			std::string id = json["items"][0]["id"];
-
-			ChannelStruct* current = mFoundChannels[id];
-
-			CoreItemSP infos = json["items"][0]["snippet"];
-			if (infos)
-			{
-				current->mName = (usString)infos["title"];
-				current->mThumb.mURL = infos["thumbnails"]["default"]["url"];
-			}
-			current->mTotalSubscribers = 0;
-			CoreItemSP subscount = json["items"][0]["statistics"]["subscriberCount"];
-			if (subscount)
-			{
-				current->mTotalSubscribers = subscount;
-			}
-			
-			SaveChannelStruct(id, *current);
-		}
-		else // data unavailable, save "empty" file
-		{
-			std::string id;
-			sender->getValue("ID", id);
-			ChannelStruct* current = mFoundChannels[id];
-			SaveChannelStruct(id, *current);
-		}
-		int nextState = 0;
-		if (sender->getValue("dontSetState", nextState))
-		{
-			// if nextState is > 0 then set mState using nextState
-			if (nextState > 0)
-			{
-				mState = nextState;
-			}
-		
-		}
-		else
-		{
-			mState = 4;
-		}
-		return true;
-	}
-	mState = 10; // Error
-	return true;
-}
-
-void		YoutubeAnalyser::SaveAuthorList(const std::string& nextPage,const std::string& videoID, unsigned int localParsedComments)
-{
-	std::string filename = "Cache/" + mChannelName + "/videos/";
-
-	filename += videoID + "_videos.json";
-
-	CoreItemSP initP = LoadJSon(filename);
-
-
-	if (!initP)
-	{
-		initP = MakeCoreMap();
-	}
-
-	if (nextPage != "")
-	{
-		initP->set("nextPageToken", nextPage);
-	}
-	else
-	{
-		initP->erase("nextPageToken");
-	}
-
-	CoreItemSP v = initP["authors"];
-	if (!v)
-	{
-		v = MakeCoreVector();
-	}
-
-	// add new authors
-	for (const auto& auth : mAuthorListToProcess)
-	{
-		v->set("", auth);
-	}
-
-	initP->set("authors", v);
-	
-	CoreItemSP parsedComments = initP["ParsedComments"];
-	if (!parsedComments)
-	{
-		parsedComments = 0;
-	}
-	parsedComments = ((int)parsedComments) + localParsedComments;
-	
-	initP->set("ParsedComments", parsedComments);
-
-	JSonFileParser L_JsonParser;
-	L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
-}
-
-void YoutubeAnalyser::SaveVideoList(const std::string& nextPage)
-{
-
-	std::string filename = "Cache/" + mChannelName + "/videos/";
-	filename += mChannelID;
-	
-	// if date use them
-	if (mFromDate.length())
-	{
-		filename += "_from_" + mFromDate + "_";
-	}
-	if (mToDate.length())
-	{
-		filename += "_to_" + mToDate + "_";
-	}
-
-	filename += ".json";
-
-	CoreItemSP initP = LoadJSon(filename);
-
-	if (!initP)
-	{
-		initP = MakeCoreMap();
-	}
-
-	if (nextPage != "")
-	{
-		initP->set("nextPageToken", nextPage);
-	}
-	else
-	{
-		initP->erase("nextPageToken");
-	}
-
-	CoreItemSP v = MakeCoreVector();
-	// titles
-	CoreItemSP nv = MakeCoreVector();
-
-	// mVideoListToProcess is never reset, so just write the full list
-	for (const auto& vid : mVideoListToProcess)
-	{
-		v->set("", vid.first);
-		nv->set("", vid.second);
-	}
-
-	initP->set("videos", v);
-	initP->set("videosTitles", nv);
-	JSonFileParser L_JsonParser;
-	L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
-
-}
-
-void		YoutubeAnalyser::SaveAuthor(const std::string& id)
-{
-	JSonFileParser L_JsonParser;
-	CoreItemSP initP = MakeCoreMap();
-
-	auto it = mFoundUsers.find(id);
-	if (it != mFoundUsers.end())
-	{
-		UserStruct& currentUser = (*it).second;
-		CoreItemSP channelList = MakeCoreVector();
-
-		for (const auto& c : currentUser.mPublicChannels)
-		{
-			channelList->set("", c);
-		}
-
-		if (currentUser.mHasSubscribed)
-		{
-			channelList->set("", mChannelID);
-		}
-			
-		if(channelList->size())
-		{
-			initP->set("channels", channelList);
-		}
-
-		std::string filename = "Cache/Authors/";
-		filename += id + ".json";
-
-		L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
-	}
-
-}
-
-void		YoutubeAnalyser::SaveChannelStruct(const std::string& id, const ChannelStruct& ch)
-{
-	JSonFileParserUTF16 L_JsonParser;
-	CoreItemSP initP = MakeCoreMapUS();
-	initP->set("Name",ch.mName);
-	initP->set("TotalSubscribers", (int)ch.mTotalSubscribers);
-	if(ch.mThumb.mURL != "")
-	{
-		initP->set("ImgURL", (usString)ch.mThumb.mURL);
-	}
-
-	std::string folderName = id.substr(0, 4);
-	str_toupper(folderName);
-
-	std::string filename = "Cache/Channels/";
-	filename += folderName + "/" + id + ".json";
-
-	L_JsonParser.Export((CoreMap<usString>*)initP.get(),filename);
-}
-
-// load json channel file dans fill ChannelStruct
-bool		YoutubeAnalyser::LoadChannelStruct(const std::string& id, ChannelStruct& ch, bool requestThumb)
-{
-	std::string filename = "Cache/Channels/";
-
-	std::string folderName = id.substr(0, 4);
-	str_toupper(folderName);
-
-	filename += folderName + "/" + id + ".json";
-
-	CoreItemSP initP = LoadJSon(filename,true);
-
-	if (!initP) // file not found, return
-	{
-		return false;
-	}
-	
-	ch.mName = (usString)initP["Name"];
-	ch.mTotalSubscribers = initP["TotalSubscribers"];
-	if (initP["ImgURL"])
-	{
-		ch.mThumb.mURL = initP["ImgURL"];
-	}
-	if (requestThumb && !ch.mThumb.mTexture)
-	{
-		
-		filename = "Cache/Thumbs/";
-		filename += id;
-		filename += ".jpg";
-
-		auto pathManager = KigsCore::Singleton<FilePathManager>();
-		SmartPointer<::FileHandle> fullfilenamehandle = pathManager->FindFullName(filename);
-
-		if (fullfilenamehandle->mStatus & FileHandle::Exist)
-		{
-			auto textureManager = KigsCore::Singleton<Draw::TextureFileManager>();
-			ch.mThumb.mTexture = textureManager->GetTexture(filename);
-		}
-		else
-		{
-			if (ch.mThumb.mURL != "")
-			{
-				LaunchDownloader(id, ch);
-			}
-		}
-	}
-	return true;
-}
-
-
-DEFINE_METHOD(YoutubeAnalyser, getVideoList)
-{
-
-	auto json = RetrieveJSON(sender);
-
-	std::string nextPageToken;
-
-	if (json)
-	{
-		if (json["nextPageToken"])
-		{
-			nextPageToken = json["nextPageToken"];
-		}
-
-		CoreItemSP videoList = json["items"];
-
-		if (videoList)
-		{
-			if (videoList->size())
-			{
-				for (int i = 0; i < videoList->size(); i++)
-				{
-					CoreItemSP video = videoList[i];
-					if (video["id"]["kind"])
-					{
-						std::string kind = video["id"]["kind"];
-						if (kind == "youtube#video")
-						{
-							if (video["id"]["videoId"])
-							{
-
-								std::string cid = video["snippet"]["channelId"];
-								if ((cid != mChannelID) || (mUseKeyword==""))
-								{
-									mVideoListToProcess.push_back({ (std::string)video["id"]["videoId"],(std::string)video["snippet"]["title"] });
-									
-								}
-							}
-						}
-					}
-				}
-			}
-
-			// save list state
-			{
-				SaveVideoList(nextPageToken);
-			}
-
-			mState = 2; // process video
-
-			return true;
-		}
-	}
-
-	mState = 10; // error
-	
-	return true;
-}
-
-DEFINE_METHOD(YoutubeAnalyser, getCommentList)
-{
-	auto json = RetrieveJSON(sender);
-	std::string nextPageToken;
-
-	if (json)
-	{
-		if (json["nextPageToken"])
-		{
-			nextPageToken = json["nextPageToken"];
-		}
-		CoreItemSP commentThreads = json["items"];
-
-		unsigned int localParsedComments=0;
-
-		if (commentThreads)
-		{
-			if (commentThreads->size())
-			{
-				for (int i = 0; i < commentThreads->size(); i++)
-				{
-					CoreItemSP topComment = commentThreads[i]["snippet"]["topLevelComment"]["snippet"];
-					if (topComment)
-					{
-						localParsedComments++;
-					
-						CoreItemSP authorChannelID = topComment["authorChannelId"]["value"];
-						if (authorChannelID)
-						{
-							std::string authorID = authorChannelID;
-
-							// check if not already processed
-							if (mFoundUsers.find(authorID) == mFoundUsers.end())
-							{
-								if (mCurrentAuthorList.find(authorID) == mCurrentAuthorList.end())
-								{
-									mAuthorListToProcess.push_back(authorID);
-									mCurrentAuthorList.insert(authorID);
-								}
-							}
-						}
-					}
-					int answerCount = commentThreads[i]["snippet"]["totalReplyCount"];
-					if (answerCount)
-					{
-						for (int j = 0; j < answerCount; j++)
-						{
-							CoreItemSP replies = commentThreads[i]["replies"]["comments"][j]["snippet"];
-							if (replies)
-							{
-								localParsedComments++;
-								CoreItemSP authorChannelID = replies["authorChannelId"]["value"];
-								if (authorChannelID)
-								{
-									std::string authorID = authorChannelID;
-
-									// check if not already processed
-									if (mFoundUsers.find(authorID) == mFoundUsers.end())
-									{
-										if (mCurrentAuthorList.find(authorID) == mCurrentAuthorList.end())
-										{
-											mAuthorListToProcess.push_back(authorID);
-											mCurrentAuthorList.insert(authorID);
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		// save authors state
-		{
-			std::string id = sender->getValue<std::string>("videoID");
-			SaveAuthorList(nextPageToken,id, localParsedComments);
-		}
-
-		mParsedComments += localParsedComments;
-
-		mState = 3; // process author
-		return true;
-	}
-
-	mState = 10;
-	return true;
-}
-
-DEFINE_METHOD(YoutubeAnalyser, getUserSubscribtion)
-{
-	bool isNewPage=false;
-	sender->getValue("NewPage", isNewPage);
-	
-	if (!isNewPage) // first page
-	{
-		mCurrentUser.mHasSubscribed = false;
-		mCurrentUser.mPublicChannels.clear();
-		mTmpUserChannels.clear();
-	}
-
-	std::string nextPageToken;
-
-	auto json = RetrieveJSON(sender);
-
-	bool isLastPage = true;
-
-	if (json)
-	{
-		if (json["nextPageToken"])
-		{
-			isLastPage = false;
-			nextPageToken = json["nextPageToken"];
-		}
-
-		CoreItemSP subscriptions = json["items"];
-		if (subscriptions)
-		{
-			if (subscriptions->size())
-			{
-				for (int i = 0; i < subscriptions->size(); i++)
-				{
-					CoreItemSP subscription = subscriptions[i]["snippet"]["resourceId"]["channelId"];
-					if (subscription)
-					{
-						usString title("");
-						if(subscriptions[i]["snippet"]["title"])
-							title = (usString)subscriptions[i]["snippet"]["title"];
-
-						CoreItemSP thumbnailInfos = subscriptions[i]["snippet"]["thumbnails"];
-						std::string url="";
-						if (thumbnailInfos)
-						{
-							url = thumbnailInfos["default"]["url"];
-						} 
-						std::string chanID = subscription;
-
-						if (chanID == mChannelID) // ok this user subscribes to analysed channel
-						{
-							mCurrentUser.mHasSubscribed = true;
-						}
-						else // don't had myChannelID
-						{
-							mTmpUserChannels.push_back({ chanID,{title,url} });
-						}
-					}
-				}
-			}
-		}
-	}
-	if (isLastPage)
-	{
-		bool isPublicWriter = false;
-		if (mTmpUserChannels.size())
-		{
-			myPublicWriters++;
-			isPublicWriter = true;
-		}
-		if (mCurrentUser.mHasSubscribed)
-		{
-			mNotSubscribedUserForThisVideo = 0;
-			mySubscribedWriters++;
-			mCurrentVideoUserFound++;
-			for (const auto& c : mTmpUserChannels)
-			{
-				mCurrentUser.mPublicChannels.push_back(c.first);
-
-			}
-			mSubscriberList.push_back(mCurrentProcessedUser);
-			mFoundUsers[mCurrentProcessedUser] = mCurrentUser;
-
-		}
-		else  // add user without subscription
-		{
-			if (isPublicWriter)
-			{
-				mNotSubscribedUserForThisVideo++;
-				// parsed 40 users and none has subscribed to this channel
-				// so set bad video flag
-				if (mNotSubscribedUserForThisVideo > 20)
-				{
-					mBadVideo = true;
-				}
-			}
-			for (const auto& c : mTmpUserChannels)
-			{
-				mCurrentUser.mPublicChannels.push_back(c.first);
-			}
-			mFoundUsers[mCurrentProcessedUser] = mCurrentUser;
-		}
-		SaveAuthor(mCurrentProcessedUser);
-
-		mState = 4; // process mTmpUserChannels
-	}
-	else
-	{
-		// call it again
-		std::string request;
-		sender->getValue("request", request);
-		std::string requestPage = request + "&pageToken=" + nextPageToken;
-		mAnswer = mGoogleConnect->retreiveGetAsyncRequest(requestPage.c_str(), "getUserSubscribtion", this);
-		mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::STRING, "request", request.c_str());
-		mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::BOOL, "NewPage", true);
-		mAnswer->Init();
-		printf("Request : getUserSubscribtion again\n ");
-		myRequestCount++;
-	}
-	
-	return true;
-}
-
-void		YoutubeAnalyser::LaunchDownloader(const std::string& id, ChannelStruct& ch)
-{
-	// first, check that downloader for the same thumb is not already launched
-
-	for (const auto& d : mDownloaderList)
-	{
-		if (d.second.first == id) // downloader found
-		{
-			return;
-		}
-	}
-
-	if (ch.mThumb.mURL == "") // need a valid url
-	{
-		return;
-	}
-
-	CMSP CurrentDownloader = KigsCore::GetInstanceOf("downloader", "ResourceDownloader");
-	CurrentDownloader->setValue("URL", ch.mThumb.mURL);
-	KigsCore::Connect(CurrentDownloader.get(), "onDownloadDone", this, "thumbnailReceived");
-
-	mDownloaderList.push_back({ CurrentDownloader , {id,&ch} });
-
-	CurrentDownloader->Init();
-}
-
 void	YoutubeAnalyser::switchDisplay()
 {
 	mMainInterface["switchForce"]("IsHidden") = true;
 	mMainInterface["switchForce"]("IsTouchable") = false;
 
-	mCurrentMeasure = (Measure)((mCurrentMeasure + 1) % MEASURE_COUNT);
+	mGraphDrawer->nextDrawType();
 }
 
 void	YoutubeAnalyser::switchForce()
 {
-	if (!mDrawForceBased)
+	bool currentDrawForceState = mGraphDrawer->getValue<bool>("DrawForce");
+	if (!currentDrawForceState)
 	{
 		mThumbcenter = (v2f)mMainInterface["thumbnail"]("Dock");
 		mThumbcenter.x *= 1280.0f;
@@ -2256,8 +1645,6 @@ void	YoutubeAnalyser::switchForce()
 
 		mMainInterface["thumbnail"]("Dock") = v2f(0.94f, 0.08f);
 
-		prepareForceGraphData();
-		mForcedBaseStartingTime= GetApplicationTimer()->GetTime();
 
 		mMainInterface["switchV"]("IsHidden") = true;
 		mMainInterface["switchV"]("IsTouchable") = false;
@@ -2273,6 +1660,41 @@ void	YoutubeAnalyser::switchForce()
 		mMainInterface["switchForce"]("IsTouchable") = false;
 		mMainInterface["switchForce"]("Dock") = v2f(0.950f, 0.050f);
 	}
-	mDrawForceBased = !mDrawForceBased;
+	currentDrawForceState = !currentDrawForceState;
+	mGraphDrawer->setValue("DrawForce", currentDrawForceState);
 
+}
+
+
+
+void	YoutubeAnalyser::mainChannelID(const std::string& id)
+{
+	if (id != "")
+	{
+		mChannelID = id;
+	}
+
+	YoutubeConnect::SaveChannelID(mChannelName, mChannelID);
+
+	KigsCore::Disconnect(mYoutubeConnect.get(), "ChannelIDRetrieved", this, "mainChannelID");
+
+	requestDone(); // pop wait state
+}
+
+void	YoutubeAnalyser::getChannelStats(const YoutubeConnect::ChannelStruct& chan)
+{
+	if (chan.mID != "")
+	{
+		YoutubeConnect::SaveChannelStruct(chan);
+	}
+
+	KigsCore::Disconnect(mYoutubeConnect.get(), "ChannelStatsRetrieved", this, "getChannelStats");
+
+	requestDone(); // pop wait state
+}
+
+
+void	YoutubeAnalyser::requestDone()
+{
+	mNeedWait = false;
 }

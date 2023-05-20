@@ -23,13 +23,10 @@ namespace Kigs
 
 		// give direct access to members
 		friend class GraphDrawer;
-		enum class dataType
-		{
-			Followers = 0,			
-			Following = 1,
-		};
 
 	protected:
+
+		void	createFSMStates();
 
 		// current application state 
 		unsigned int					mState = 0;
@@ -41,24 +38,6 @@ namespace Kigs
 		float							mValidChannelPercent = 0.02f;
 		// if set, don't get videolist from channel but from keyword
 		std::string						mUseKeyword = "";
-
-		class ThumbnailStruct
-		{
-		public:
-			SP<Draw::Texture>			mTexture = nullptr;
-			std::string					mURL;
-		};
-
-		class ChannelStruct
-		{
-		public:
-			// channel name
-			usString					mName;
-			unsigned int				mSubscribersCount = 0;
-			unsigned int				mNotSubscribedSubscribersCount = 0;
-			unsigned int				mTotalSubscribers = 0;
-			ThumbnailStruct				mThumb;
-		};
 
 		class PerChannelUserMap
 		{
@@ -125,24 +104,7 @@ namespace Kigs
 			float	GetNormalisedAttraction(const PerChannelUserMap& other);
 		};
 
-		class UserStruct
-		{
-		public:
-			// list of Channel IDs
-			std::vector<std::string>	mPublicChannels;
-			bool						mHasSubscribed = false;
-			bool	isSubscriberOf(const std::string& chan) const
-			{
-				for (auto& c : mPublicChannels)
-				{
-					if (c == chan)
-					{
-						return true;
-					}
-				}
-				return false;
-			}
-		};
+		
 
 		void	DrawForceBased();
 		bool	mDrawForceBased = false;
@@ -153,35 +115,20 @@ namespace Kigs
 		void	ProtectedUpdate() override;
 		void	ProtectedClose() override;
 
-		DECLARE_METHOD(getChannelID);
-		DECLARE_METHOD(getChannelStats);
-		DECLARE_METHOD(getVideoList);
-		DECLARE_METHOD(getCommentList);
-		DECLARE_METHOD(getUserSubscribtion);
-
-		COREMODIFIABLE_METHODS(getChannelID, getVideoList, getCommentList, getUserSubscribtion, getChannelStats);
-
 		void	refreshAllThumbs();
 
 		void	prepareForceGraphData();
 
-		void	thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader);
 		void	switchDisplay();
 		void	switchForce();
-		WRAP_METHODS(thumbnailReceived, switchDisplay, switchForce);
+		void	mainChannelID(const std::string& id);
+		void	getChannelStats(const YoutubeConnect::ChannelStruct& chan);
+		void	requestDone();
+
+		WRAP_METHODS( switchDisplay, switchForce, mainChannelID, getChannelStats);
 
 		// utility
-
-		CoreItemSP	RetrieveJSON(CoreModifiable* sender);
 		CoreItemSP	LoadJSon(const std::string& fname, bool utf16 = false);
-
-		void		LaunchDownloader(const std::string& id, ChannelStruct& ch);
-
-		void		SaveChannelStruct(const std::string& id, const ChannelStruct& ch);
-		bool		LoadChannelStruct(const std::string& id, ChannelStruct& ch, bool requestThumb = false);
-		void		SaveVideoList(const std::string& nextPage);
-		void		SaveAuthorList(const std::string& nextPage, const std::string& videoID, unsigned int localParsedComments);
-		void		SaveAuthor(const std::string& id);
 
 		void		SaveStatFile();
 
@@ -190,11 +137,11 @@ namespace Kigs
 
 		// global data
 		SP<HTTPConnect>									mGoogleConnect = nullptr;
-		SP<HTTPAsyncRequest>							mAnswer = nullptr;
-		std::vector<std::pair<CMSP, std::pair<std::string, ChannelStruct*>> >		mDownloaderList;
 		std::string										mChannelName;
 		std::string										mChannelID;
-		ChannelStruct									mChannelInfos;
+
+		YoutubeConnect::ChannelStruct					mChannelInfos;
+
 		unsigned int									mErrorCode = 0;
 
 		unsigned int									mySubscribedWriters = 0;
@@ -203,13 +150,20 @@ namespace Kigs
 		unsigned int									myRequestCount = 0;
 
 		//all treated users
-		std::unordered_map<std::string, UserStruct>		mFoundUsers;
+		std::unordered_map<std::string, YoutubeConnect::UserStruct>		mFoundUsers;
+
+		// all subscribed authors infos
+		std::unordered_map<std::string, YoutubeConnect::ChannelStruct>	mSubscribedAuthorInfos;
+
+		// all not subscribed authors infos
+		std::unordered_map<std::string, YoutubeConnect::ChannelStruct>	mNotSubscribedAuthorInfos;
+
 
 		//list of subscribed users
-		std::vector<std::string>						mSubscriberList;
+		std::vector<std::string>							mSubscriberList;
 		std::unordered_map<std::string, PerChannelUserMap>	mChannelSubscriberMap;
 
-		std::unordered_map<std::string, ChannelStruct*>	mFoundChannels;
+		std::unordered_map<std::string, YoutubeConnect::ChannelStruct*>	mFoundChannels;
 
 		// display data
 		std::unordered_map<std::string, CMSP>			mShowedChannels;
@@ -220,12 +174,10 @@ namespace Kigs
 
 		// current process data
 		std::vector<std::pair<std::string, std::string>>	mVideoListToProcess;
-		unsigned int									mCurrentProcessedVideo = 0;
-		std::vector<std::string>						mAuthorListToProcess;
-		std::set<std::string>							mCurrentAuthorList;
-		std::string										mCurrentProcessedUser;
-		unsigned int									mCurrentVideoUserFound = 0;
-		UserStruct										mCurrentUser;
+		std::set<std::string>								mAlreadyTreatedAuthors;
+		unsigned int										mCurrentProcessedVideo = 0;
+		std::string											mCurrentProcessedUser;
+		unsigned int										mCurrentVideoUserFound = 0;
 		std::vector<std::pair<std::string, std::pair<usString, std::string>> >	mTmpUserChannels;
 
 		bool mBadVideo = false;
@@ -251,7 +203,12 @@ namespace Kigs
 
 		const std::string	mUnity[MEASURE_COUNT] = { "\%","sc","n" };
 
-
 		Measure		mCurrentMeasure = Percent;
+
+		CMSP												mFsm;
+		std::unordered_map<KigsID, SP<CoreFSMTransition>>	mTransitionList;
+
+		// wait request was treated
+		maBool	mNeedWait = BASE_ATTRIBUTE(NeedWait, false);
 	};
 }

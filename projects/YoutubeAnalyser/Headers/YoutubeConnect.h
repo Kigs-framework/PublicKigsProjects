@@ -38,6 +38,25 @@ namespace Kigs
 			std::string					mURL = "";
 		};
 
+		struct ChannelStruct
+		{
+			// channel name
+			usString					mName;
+			std::string					mID;
+			unsigned int				mSubscribersCount = 0;
+			unsigned int				mNotSubscribedSubscribersCount = 0;
+			unsigned int				mTotalSubscribers = 0;
+			unsigned int				mViewCount = 0;
+			ThumbnailStruct				mThumb;
+		};
+
+		struct videoStruct
+		{
+			std::string					mID;
+			std::string					mChannelID;
+			usString					mName;
+		};
+
 		struct YTComment
 		{
 			u64		mAuthorID;		
@@ -55,14 +74,22 @@ namespace Kigs
 		class UserStruct
 		{
 		public:
-			usString					mName = std::string("");
-			unsigned int				mFollowersCount = 0;
-			unsigned int				mFollowingCount = 0;
-			unsigned int				mStatuses_count = 0;
-			std::string					UTCTime = "";
-			ThumbnailStruct				mThumb;
-			u64							mID;
+			// list of Channel IDs
+			std::vector<std::string>	mPublicChannels;
+			bool						mHasSubscribed = false;
+			bool	isSubscriberOf(const std::string& chan) const
+			{
+				for (auto& c : mPublicChannels)
+				{
+					if (c == chan)
+					{
+						return true;
+					}
+				}
+				return false;
+			}
 		};
+
 		// structures
 		class PerAccountUserMap
 		{
@@ -129,38 +156,29 @@ namespace Kigs
 			float	GetNormalisedAttraction(const PerAccountUserMap& other);
 		};
 
-		unsigned int				NextBearer()
-		{
-			mCurrentBearer = (mCurrentBearer + (unsigned int)1) % mYoutubeBear.size();
-			return mCurrentBearer;
-		}
-		unsigned int				CurrentBearer()
-		{
-			return mCurrentBearer;
-		}
-
 		std::string	getCurrentBearer()
 		{
 			return mYoutubeBear[mCurrentBearer];
+			mCurrentBearer = (mCurrentBearer + (unsigned int)1) % mYoutubeBear.size();
 		}
 
 		// HTTP Request management
-		SP<HTTPConnect>									mTwitterConnect = nullptr;
+		SP<HTTPConnect>									mYoutubeConnect = nullptr;
 		SP<HTTPAsyncRequest>							mAnswer = nullptr;
 
 		static CoreItemSP	LoadJSon(const std::string& fname, bool useOldFileLimit = true, bool utf16 = false);
-		static void		SaveJSon(const std::string& fname, const CoreItemSP& json, bool utf16 = false);
+		static void			SaveJSon(const std::string& fname, const CoreItemSP& json, bool utf16 = false);
 
-		static bool		checkValidFile(const std::string& fname, SmartPointer<Kigs::File::FileHandle>& filenamehandle, double OldFileLimit);
+		static bool			checkValidFile(const std::string& fname, SmartPointer<Kigs::File::FileHandle>& filenamehandle, double OldFileLimit);
 
 		// manage wait time between requests
-		void	RequestLaunched(double toWait)
+		void				RequestLaunched(double toWait)
 		{
 			mNextRequestDelay = toWait / mYoutubeBear.size();
 			mLastRequestTime = KigsCore::GetCoreApplication()->GetApplicationTimer()->GetTime();
 		}
 
-		bool	CanLaunchRequest()
+		bool				CanLaunchRequest()
 		{
 			double dt = KigsCore::GetCoreApplication()->GetApplicationTimer()->GetTime() - mLastRequestTime;
 			if (dt > mNextRequestDelay)
@@ -170,29 +188,37 @@ namespace Kigs
 			return false;
 		}
 
-		float	getDelay()
+		float				getDelay()
 		{
 			double dt = mNextRequestDelay - (KigsCore::GetCoreApplication()->GetApplicationTimer()->GetTime() - mLastRequestTime);
 			return dt;
 		}
 
-		void	initBearer(CoreItemSP f);
-		void	initConnection(double oldfiletime);
+		void					initBearer(CoreItemSP f);
+		void					initConnection(double oldfiletime);
+
+		static bool				LoadChannelID(const std::string& channelName, std::string& channelID);
+		static void				SaveChannelID(const std::string& channelName, const std::string& channelID);
+
+		static bool				LoadChannelStruct(const std::string& channelID, ChannelStruct& ch, bool requestThumb);
+		static void				SaveChannelStruct(const ChannelStruct& ch);
+
+		static CoreItemSP		LoadVideoList(const std::string& channelID);
+		static void				SaveVideoList(const std::string& channelID, const std::vector<videoStruct>& videoList,const std::string& nextPage);
+
+		static CoreItemSP		LoadCommentList(const std::string& channelID, const std::string& videoID);
+		static void				SaveCommentList(const std::string& channelID, const std::string& videoID, const std::vector<std::string>& authorList, const std::string& nextPage);
+
+		static CoreItemSP		LoadAuthorFile(const std::string& authorID);
+		static void				SaveAuthorFile(const std::string& authorID, const std::vector<std::string>& subscrList,const std::string& nextPage);
 
 
-		static void		LaunchDownloader(u64 id, UserStruct& ch);
-		static bool		LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb);
-		static void		SaveUserStruct(u64 id, UserStruct& ch);
-		static std::string	GetUserFolderFromID(u64 id);
-		static std::string	GetIDString(u64 id);
-		static std::string  CleanURL(const std::string& url);
-		static std::vector<u64>		LoadIDVectorFile(const std::string& filename, bool& fileExist, bool oldfilelimit = true);
-		static void					SaveFollowFile(u64 id, const std::vector<u64>& v, const std::string& followtype);
-		static bool					LoadFollowFile(u64 id, std::vector<u64>& follow, const std::string& followtype);
-		static void					SaveIDVectorFile(const std::vector<u64>& v, const std::string& filename);
+		static void				LaunchDownloader(ChannelStruct& ch);
+		
+		static std::string		CleanURL(const std::string& url);
 
 		template<typename T>
-		static bool	LoadDataFile(const std::string& filename, std::vector<T>& loaded, bool useOldFileLimit = true)
+		static bool				LoadDataFile(const std::string& filename, std::vector<T>& loaded, bool useOldFileLimit = true)
 		{
 			SmartPointer<Kigs::File::FileHandle> L_File;
 
@@ -218,7 +244,7 @@ namespace Kigs
 		}
 
 		template<typename T>
-		static void	SaveDataFile(const std::string& filename, const std::vector<T>& saved)
+		static void				SaveDataFile(const std::string& filename, const std::vector<T>& saved)
 		{
 			SmartPointer<Kigs::File::FileHandle> L_File = Kigs::File::Platform_fopen(filename.c_str(), "wb");
 			if (L_File->mFile)
@@ -228,23 +254,11 @@ namespace Kigs
 			}
 		}
 
-		static bool	LoadThumbnail(u64 id, UserStruct& ch);
-
-
-		void	launchUserDetailRequest(const std::string& UserName, UserStruct& ch);
-		void	launchUserDetailRequest(u64 userid, UserStruct& ch);
-		// followers or following
-		void	launchGetFollow(u64 userid, const std::string& followtype, const std::string& nextToken = "-1");
-		void	launchGetFavoritesRequest(u64 userid, const std::string& nextToken = "-1");
-		void	launchGetTweetRequest(u64 userid, const std::string& username, const std::string& nextToken = "-1");
-		void	launchSearchTweetRequest(const std::string& hashtag, const std::string& nextToken = "-1");
-		void	launchGetLikers(u64 tweetid, const std::string& nextToken = "-1");
-		void	launchGetReplyers(u64 conversationID, const std::string& nextToken = "-1");
-		void	launchGetRetweeters(u64 tweetid, const std::string& nextToken = "-1");
-
-		//static bool	LoadTweetsFile(std::vector<Twts>& tweetlist, const std::string& username, const std::string& fname = "");
-		//static void	SaveTweetsFile(const std::vector<Twts>& tweetlist, const std::string& username, const std::string& fname = "");
-
+		void					launchGetChannelID(const std::string& channelName);
+		void					launchGetChannelStats(const std::string& channelID);
+		void					launchGetVideo(const std::string& channelID, const std::string& nextPage);
+		void					launchGetComments(const std::string& channelID, const std::string& videoID, const std::string& nextPage);
+		void					launchGetSubscriptions(const std::string& authorID, const std::string& nextPage);
 
 		u32		getRequestCount()
 		{
@@ -272,30 +286,6 @@ namespace Kigs
 			}
 		}
 
-		//static void	FilterTweets(u64 authorid, std::vector<YoutubeConnect::Twts>& twts, bool excludeRT, bool excludeReplies);
-
-		static CoreItemSP	LoadLikersFile(u64 tweetid, const std::string& username);
-		static void			SaveLikersFile(const std::vector<std::string>& tweetLikers, u64 tweetid, const std::string& username);
-
-		static bool			LoadLikersFile(u64 tweetid, std::vector<u64>& likers);
-		static void			SaveLikersFile(const std::vector<u64>& tweetLikers, u64 tweetid);
-
-		static bool			LoadReplyersFile(u64 tweetid, std::vector<u64>& replyers);
-		static void			SaveReplyersFile(const std::vector<u64>& tweetReplyers, u64 tweetid);
-
-		static bool			LoadRetweetersFile(u64 tweetid, std::vector<u64>& rtweeters);
-		static void			SaveRetweetersFile(const std::vector<u64>& RTers, u64 tweetid);
-
-
-		//static bool			LoadFavoritesFile(const std::string& username, std::vector<YoutubeConnect::Twts>& fav);
-		//static bool			LoadFavoritesFile(u64 userid, std::vector<YoutubeConnect::Twts>& fav);
-
-		//static void			SaveFavoritesFile(const std::string& username, const std::vector<YoutubeConnect::Twts>& favs);
-		//static void			SaveFavoritesFile(u64 userid, const std::vector<YoutubeConnect::Twts>& favs);
-
-		// export tweet text
-		static void			SaveTweet(const usString& text, u64 authorID, u64 tweetID);
-
 		static std::string getHashtagFilename(const std::string& HashTag)
 		{
 			std::string result = "HashTag" + HashTag;
@@ -318,15 +308,6 @@ namespace Kigs
 
 		static void	initDates(const std::string& fromdate, const std::string& todate);
 
-		static void setSinceID(const std::string& sinceID)
-		{
-			mSinceID = sinceID;
-		}
-		static void setUntilID(const std::string& untilID)
-		{
-			mUntilID = untilID;
-		}
-
 		static bool useDates()
 		{
 			return mUseDates;
@@ -343,30 +324,23 @@ namespace Kigs
 
 	protected:
 
-		void	launchGenericRequest(float waitDelay);
-
-		void	sendRequest(); // send waiting request
-		void	resendRequest(); // send again same request
-
-		WRAP_METHODS(resendRequest, sendRequest, thumbnailReceived);
-
-		DECLARE_METHOD(getUserDetails);
-		//DECLARE_METHOD(getTweets);
-		DECLARE_METHOD(getLikers);
-		DECLARE_METHOD(getFollow);
-		//DECLARE_METHOD(getFavorites);
-		DECLARE_METHOD(getReplyers);
+		WRAP_METHODS( thumbnailReceived);
 
 
-		COREMODIFIABLE_METHODS(getUserDetails, getFollow,  getLikers, getReplyers);
+		DECLARE_METHOD(getChannelID);
+		DECLARE_METHOD(getChannelStats);
+		DECLARE_METHOD(getVideoList);
+		DECLARE_METHOD(getCommentList);
+		DECLARE_METHOD(getUserSubscription);
+
+		COREMODIFIABLE_METHODS(getChannelID, getChannelStats, getVideoList, getCommentList, getUserSubscription);
+
 		CoreItemSP	RetrieveJSON(CoreModifiable* sender);
 
-		std::vector<std::pair<CMSP, std::pair<u64, UserStruct*>> >		mDownloaderList;
+		std::vector<std::pair<CMSP, std::pair<std::string, ChannelStruct*>> >		mDownloaderList;
 
 		static YoutubeConnect* mInstance;
 
-		bool			mWaitQuota = false;
-		u32				mWaitQuotaCount = 0;
 		unsigned int	mApiErrorCode = 0;
 
 		std::vector<u64>	mCurrentIDVector;
@@ -386,9 +360,6 @@ namespace Kigs
 
 		// from and to dates
 		static  datestruct		mDates[2];
-
-		static  std::string		mSinceID;
-		static  std::string		mUntilID;
 
 		static  bool		mUseDates;
 

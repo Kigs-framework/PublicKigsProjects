@@ -14,8 +14,6 @@ double		YoutubeConnect::mOldFileLimit = 0;
 time_t		YoutubeConnect::mCurrentTime = 0;
 
 YoutubeConnect::datestruct	YoutubeConnect::mDates[2];
-std::string		YoutubeConnect::mUntilID = "";
-std::string		YoutubeConnect::mSinceID = "";
 bool						YoutubeConnect::mUseDates = false;
 
 YoutubeConnect* YoutubeConnect::mInstance = nullptr;
@@ -133,13 +131,37 @@ void	YoutubeConnect::initConnection(double oldfiletime)
 {
 	mOldFileLimit = oldfiletime;
 
-
 	// init twitter connection
-	mTwitterConnect = KigsCore::GetInstanceOf("YoutubeConnect", "HTTPConnect");
-	mTwitterConnect->setValue("HostName", "api.twitter.com");
-	mTwitterConnect->setValue("Type", "HTTPS");
-	mTwitterConnect->setValue("Port", "443");
-	mTwitterConnect->Init();
+	mYoutubeConnect = KigsCore::GetInstanceOf("googleConnect", "HTTPConnect");
+	mYoutubeConnect->setValue("HostName", "www.googleapis.com");
+	mYoutubeConnect->setValue("Type", "HTTPS");
+	mYoutubeConnect->setValue("Port", "443");
+	mYoutubeConnect->Init();
+}
+
+bool			YoutubeConnect::LoadChannelID(const std::string& channelName, std::string& channelID)
+{
+	std::string filename = "Cache/" + channelName + "/" + channelName + ".json";
+	CoreItemSP currentP = LoadJSon(filename,true);
+
+	if (!currentP) // new channel, launch getChannelID
+	{
+		return false;
+	}
+
+	channelID=currentP["channelID"];
+
+	return true;
+}
+void			YoutubeConnect::SaveChannelID(const std::string& channelName, const std::string& channelID)
+{
+	std::string filename = "Cache/" + channelName + "/" + channelName + ".json";
+
+	JSonFileParser L_JsonParser;
+	CoreItemSP initP = MakeCoreMap();
+	initP->set("channelID", channelID);
+
+	L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
 }
 
 void ReplaceStr(std::string& str,
@@ -154,13 +176,14 @@ void ReplaceStr(std::string& str,
 	}
 }
 
-void		YoutubeConnect::LaunchDownloader(u64 id, UserStruct& ch)
+
+void		YoutubeConnect::LaunchDownloader(ChannelStruct& ch)
 {
 	// first, check that downloader for the same thumb is not already launched
 
-	for (const auto& d : YoutubeConnect::mInstance->mDownloaderList)
+	for (const auto& d : mInstance->mDownloaderList)
 	{
-		if (d.second.first == id) // downloader found
+		if (d.second.first == ch.mID) // downloader found
 		{
 			return;
 		}
@@ -171,30 +194,15 @@ void		YoutubeConnect::LaunchDownloader(u64 id, UserStruct& ch)
 		return;
 	}
 
-	std::string biggerThumb = ch.mThumb.mURL;
-	ReplaceStr(biggerThumb, "_normal", "_bigger");
-
 	CMSP CurrentDownloader = KigsCore::GetInstanceOf("downloader", "ResourceDownloader");
-	CurrentDownloader->setValue("URL", biggerThumb);
-	KigsCore::Connect(CurrentDownloader.get(), "onDownloadDone", YoutubeConnect::mInstance, "thumbnailReceived");
+	CurrentDownloader->setValue("URL", ch.mThumb.mURL);
+	KigsCore::Connect(CurrentDownloader.get(), "onDownloadDone", mInstance, "thumbnailReceived");
 
-	YoutubeConnect::mInstance->mDownloaderList.push_back({ CurrentDownloader , {id,&ch} });
+	mInstance->mDownloaderList.push_back({ CurrentDownloader , {ch.mID,&ch} });
 
 	CurrentDownloader->Init();
 }
 
-std::string	YoutubeConnect::GetUserFolderFromID(u64 id)
-{
-	std::string result;
-
-	for (int i = 0; i < 4; i++)
-	{
-		result += '0' + (id % 10);
-		id = id / 10;
-	}
-
-	return result;
-}
 
 std::string  YoutubeConnect::CleanURL(const std::string& url)
 {
@@ -214,434 +222,286 @@ std::string  YoutubeConnect::CleanURL(const std::string& url)
 	return result;
 }
 
-std::string	YoutubeConnect::GetIDString(u64 id)
+CoreItemSP		YoutubeConnect::LoadVideoList(const std::string& channelID)
 {
-	char	idstr[64];
-	sprintf(idstr, "%llu", id);
+	std::string filename = "Cache/" + channelID + "/videos/";
+	filename += channelID;
 
-	return idstr;
+	// if date use them
+	if (mUseDates)
+	{
+		filename += "_from_" + mDates[0].dateAsString + "_";
+		filename += "_to_" + mDates[1].dateAsString + "_";
+	}
+
+	filename += ".json";
+
+	CoreItemSP initP = LoadJSon(filename,true,true);
+	return initP;
 }
 
-// load json channel file dans fill ChannelStruct
-bool		YoutubeConnect::LoadUserStruct(u64 id, UserStruct& ch, bool requestThumb)
+void				YoutubeConnect::SaveVideoList(const std::string& channelID, const std::vector<videoStruct>& videoList, const std::string& nextPage)
 {
-	std::string filename = "Cache/Users/";
+	std::string filename = "Cache/" + channelID + "/videos/";
+	filename += channelID;
 
-	std::string folderName = GetUserFolderFromID(id);
-
-	filename += folderName + "/" + GetIDString(id) + ".json";
-
-	CoreItemSP initP = LoadJSon(filename, true, true);
-
-	if (!initP) // file not found, return
+	// if date use them
+	if (mUseDates)
 	{
-		return false;
+		filename += "_from_" + mDates[0].dateAsString + "_";
+		filename += "_to_" + mDates[1].dateAsString + "_";
 	}
-#ifdef LOG_ALL
-	writelog("loaded user" + std::to_string(id) + "details");
-#endif
-	ch.mName = (usString)initP["Name"];
-	ch.mID = id;
-	ch.mFollowersCount = initP["FollowersCount"];
-	ch.mFollowingCount = initP["FollowingCount"];
-	ch.mStatuses_count = initP["StatusesCount"];
-	ch.UTCTime = initP["CreatedAt"]->toString();
-	if (initP["ImgURL"])
-	{
-		ch.mThumb.mURL = initP["ImgURL"]->toString();
-	}
-	if (requestThumb && !ch.mThumb.mTexture)
-	{
-		if (!LoadThumbnail(id, ch))
-		{
-			if (ch.mThumb.mURL != "")
-			{
-				LaunchDownloader(id, ch);
-			}
-		}
-	}
-	return true;
-}
 
-void		YoutubeConnect::SaveTweet(const usString& text, u64 authorID, u64 tweetID)
-{
-#ifdef SAVE_TWEETS
+	filename += ".json";
+
+	CoreItemSP initP = LoadJSon(filename);
+
+	if (!initP)
+	{
+		initP = MakeCoreMap();
+	}
+
+	if (nextPage != "")
+	{
+		initP->set("nextPageToken", nextPage);
+	}
+	else
+	{
+		initP->erase("nextPageToken");
+	}
+
+	CoreItemSP v = MakeCoreVector();
+	// titles
+	CoreItemSP nv = MakeCoreVector();
+
+	for (const auto& vid : videoList)
+	{
+		v->set("", vid.mID);
+		nv->set("", vid.mName);
+	}
+
+	initP->set("videos", v);
+	initP->set("videosTitles", nv);
 	JSonFileParserUTF16 L_JsonParser;
-	CoreItemSP initP = MakeCoreMapUS();
-	initP->set("text", text);
-
-	std::string folderName = GetUserFolderFromID(authorID);
-
-	std::string filename = "Cache/Users/";
-	filename += folderName + "/" + GetIDString(authorID) + "/Tweets/" + GetIDString(tweetID) + ".json";
-
 	L_JsonParser.Export((CoreMap<usString>*)initP.get(), filename);
-#endif
 }
 
-
-void		YoutubeConnect::SaveUserStruct(u64 id, UserStruct& ch)
+CoreItemSP		YoutubeConnect::LoadCommentList(const std::string& channelID, const std::string& videoID)
 {
-#ifdef LOG_ALL
-	writelog("save user" + std::to_string(id) + "details");
-#endif
+	std::string filename = "Cache/" + channelID + "/videos/";
+	filename += videoID + "_videos.json";
 
+	CoreItemSP initP = LoadJSon(filename, true, false);
+	return initP;
+}
+
+void				YoutubeConnect::SaveCommentList(const std::string& channelID, const std::string& videoID, const std::vector<std::string>& authorList, const std::string& nextPage)
+{
+	std::string filename = "Cache/" + channelID + "/videos/";
+	filename += videoID + "_videos.json";
+
+	// start a new file (don't happened)
+	CoreItemSP initP = MakeCoreMap();
+
+	if (nextPage != "")
+	{
+		initP->set("nextPageToken", nextPage);
+	}
+	
+	CoreItemSP v = MakeCoreVector();
+
+	// add authors
+	for (const auto& auth : authorList)
+	{
+		v->set("", auth);
+	}
+
+	initP->set("authors", v);
+
+	JSonFileParser L_JsonParser;
+	L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
+}
+
+CoreItemSP		YoutubeConnect::LoadAuthorFile(const std::string& authorID)
+{
+	std::string filename = "Cache/Authors/";
+	filename += authorID + ".json";
+	CoreItemSP initP = LoadJSon(filename, true, false);
+	return initP;
+}
+void			YoutubeConnect::SaveAuthorFile(const std::string& authorID, const std::vector<std::string>& subscrList, const std::string& nextPage)
+{
+	std::string filename = "Cache/Authors/";
+	filename += authorID + ".json";
+
+	// start a new file (don't happened)
+	CoreItemSP initP = MakeCoreMap();
+
+	if (nextPage != "")
+	{
+		initP->set("nextPageToken", nextPage);
+	}
+
+	CoreItemSP v = MakeCoreVector();
+
+	if (subscrList.size())
+	{
+		// add channels
+		for (const auto& channel : subscrList)
+		{
+			v->set("", channel);
+		}
+
+		initP->set("channels", v);
+	}
+
+	JSonFileParser L_JsonParser;
+	L_JsonParser.Export((CoreMap<std::string>*)initP.get(), filename);
+}
+
+void		YoutubeConnect::SaveChannelStruct(const ChannelStruct& ch)
+{
 	JSonFileParserUTF16 L_JsonParser;
 	CoreItemSP initP = MakeCoreMapUS();
 	initP->set("Name", ch.mName);
-	initP->set("FollowersCount", (int)ch.mFollowersCount);
-	initP->set("FollowingCount", (int)ch.mFollowingCount);
-	initP->set("StatusesCount", (int)ch.mStatuses_count);
-	initP->set("CreatedAt", ch.UTCTime);
+	initP->set("TotalSubscribers", (int)ch.mTotalSubscribers);
+	initP->set("ViewCount", (int)ch.mViewCount);
 
 	if (ch.mThumb.mURL != "")
 	{
 		initP->set("ImgURL", (usString)ch.mThumb.mURL);
 	}
 
-	std::string folderName = GetUserFolderFromID(id);
+	std::string folderName = ch.mID.substr(0, 4);
+	str_toupper(folderName);
 
-	std::string filename = "Cache/Users/";
-	filename += folderName + "/" + GetIDString(id) + ".json";
+	std::string filename = "Cache/Channels/";
+	filename += folderName + "/" + ch.mID + ".json";
 
 	L_JsonParser.Export((CoreMap<usString>*)initP.get(), filename);
 }
 
-bool		YoutubeConnect::LoadThumbnail(u64 id, UserStruct& ch)
+
+
+// load json channel file dans fill YoutubeConnect::ChannelStruct
+bool		YoutubeConnect::LoadChannelStruct(const std::string& id, ChannelStruct& ch, bool requestThumb)
 {
-	SmartPointer<::FileHandle> fullfilenamehandle;
+	std::string filename = "Cache/Channels/";
 
-	std::vector<std::string> ExtensionList = { ".jpg",".png" ,".gif" };
+	std::string folderName = id.substr(0, 4);
+	str_toupper(folderName);
 
-	for (const auto& xt : ExtensionList)
+	filename += folderName + "/" + id + ".json";
+
+	CoreItemSP initP = LoadJSon(filename, true,true);
+
+	if (!initP) // file not found, return
 	{
-		std::string filename = "Cache/Thumbs/";
-		filename += GetIDString(id);
-		filename += xt;
+		return false;
+	}
 
-		if (checkValidFile(filename, fullfilenamehandle, mOldFileLimit))
+	ch.mID = id;
+	ch.mName = (usString)initP["Name"];
+	ch.mTotalSubscribers = initP["TotalSubscribers"];
+	ch.mViewCount = initP["ViewCount"];
+	if (initP["ImgURL"])
+	{
+		ch.mThumb.mURL = initP["ImgURL"];
+	}
+	if (requestThumb && !ch.mThumb.mTexture)
+	{
+
+		filename = "Cache/Thumbs/";
+		filename += id;
+		filename += ".jpg";
+
+		auto pathManager = KigsCore::Singleton<FilePathManager>();
+		SmartPointer<::FileHandle> fullfilenamehandle = pathManager->FindFullName(filename);
+
+		if (fullfilenamehandle->mStatus & FileHandle::Exist)
 		{
-			auto textureManager = KigsCore::Singleton<TextureFileManager>();
+			auto textureManager = KigsCore::Singleton<Draw::TextureFileManager>();
 			ch.mThumb.mTexture = textureManager->GetTexture(filename);
-			return true;
+		}
+		else
+		{
+			if (ch.mThumb.mURL != "")
+			{
+				LaunchDownloader(ch);
+			}
 		}
 	}
-	return false;
-}
-
-bool YoutubeConnect::LoadLikersFile(u64 tweetid, std::vector<u64>& likers)
-{
-	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".likers";
-
-	// if dated search, then don't use old file limit here ?
-	bool result = LoadDataFile<u64>(filename, likers);
-
-	return result;
-}
-
-void		YoutubeConnect::SaveLikersFile(const std::vector<u64>& tweetLikers, u64 tweetid)
-{
-	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".likers";
-
-	SaveDataFile<u64>(filename, tweetLikers);
+	return true;
 }
 
 
-bool	YoutubeConnect::LoadReplyersFile(u64 tweetid, std::vector<u64>& replyers)
+void	YoutubeConnect::launchGetChannelID(const std::string& channelName)
 {
-	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".replyers";
-
-	// if dated search, then don't use old file limit here ?
-	bool result = LoadDataFile<u64>(filename, replyers);
-
-	return result;
-}
-void	YoutubeConnect::SaveReplyersFile(const std::vector<u64>& tweetReplyers, u64 tweetid)
-{
-	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".replyers";
-
-	SaveDataFile<u64>(filename, tweetReplyers);
+	std::string url = "/youtube/v3/channels?part=snippet,statistics&id=";
+	std::string request = url + channelName + getCurrentBearer();
+	mAnswer = mYoutubeConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelID", this);
+	mAnswer->Init();
+	mRequestCount++;
 }
 
-
-bool YoutubeConnect::LoadRetweetersFile(u64 tweetid, std::vector<u64>& rttwers)
+void	YoutubeConnect::launchGetChannelStats(const std::string& channelID)
 {
-	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".retweeters";
-
-	// if dated search, then don't use old file limit here ?
-	bool result = LoadDataFile<u64>(filename, rttwers);
-
-	return result;
+	// request details
+	std::string url = "/youtube/v3/channels?part=statistics,snippet&id=";
+	std::string request = url + channelID + getCurrentBearer();
+	mAnswer = mYoutubeConnect->retreiveGetAsyncRequest(request.c_str(), "getChannelStats", this);
+	mAnswer->Init();
+	mRequestCount++;
 }
 
-void			YoutubeConnect::SaveRetweetersFile(const std::vector<u64>& RTers, u64 tweetid)
+void	YoutubeConnect::launchGetVideo(const std::string& channelID, const std::string& nextPage)
 {
-	std::string filename = "Cache/Tweets/" + GetUserFolderFromID(tweetid) + "/" + GetIDString(tweetid) + ".retweeters";
+	// get latest video list
+	// GET https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={CHANNEL_ID}&maxResults=10&order=date&type=video&key={YOUR_API_KEY}
+	// https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=25&q=surfing&key={YOUR_API_KEY}
 
-	SaveDataFile<u64>(filename, RTers);
-}
+	std::string url = "/youtube/v3/search?part=snippet";
 
-CoreItemSP		YoutubeConnect::LoadLikersFile(u64 tweetid, const std::string& username)
-{
-	std::string filename = "Cache/Tweets/" + username + "/" + GetIDString(tweetid) + ".json";
+	url += "&channelId=" + channelID;
+	
+	std::string request = url + getCurrentBearer() + nextPage + "&maxResults=50&order=date&type=video";
 
-	// if dated search, then don't use old file limit here ?
-	CoreItemSP likers = LoadJSon(filename);
-	return likers;
-}
-
-
-void		YoutubeConnect::SaveLikersFile(const std::vector<std::string>& tweetLikers, u64 tweetid, const std::string& username)
-{
-	std::string filename = "Cache/Tweets/" + username + "/" + GetIDString(tweetid) + ".json";
-
-	CoreItemSP likers = MakeCoreVector();
-	for (const auto& l : tweetLikers)
+	if (mUseDates)
 	{
-		likers->set("", l);
+		request += "&publishedAfter=" + mDates[0].dateAsString + "T00:00:00Z";
+		request += "&publishedBefore=" + mDates[1].dateAsString + "T23:59:00Z";
 	}
 
-	SaveJSon(filename, likers, false);
-
+	mAnswer = mYoutubeConnect->retreiveGetAsyncRequest(request.c_str(), "getVideoList", this);
+	mAnswer->Init();
+	mRequestCount++;
 }
 
-void	YoutubeConnect::launchGenericRequest(float waitDelay)
+void	YoutubeConnect::launchGetComments(const std::string& channelID, const std::string& videoID, const std::string& nextPage)
 {
-	mAnswer->AddHeader(mYoutubeBear[NextBearer()]);
-	mAnswer->AddDynamicAttribute<maInt, int>("BearerIndex", CurrentBearer());
-	mAnswer->AddDynamicAttribute<maFloat, float>("WaitDelay", waitDelay);
-
-	double waitdelay = KigsCore::GetCoreApplication()->GetApplicationTimer()->GetTime() - mLastRequestTime;
-	mNextRequestDelay -= waitdelay;
-
-	if (mNextRequestDelay < 0.0)
-	{
-		mAnswer->Init();
-		mRequestCount++;
-		RequestLaunched(waitDelay);
-	}
-	else
-	{
-		Upgrade("DelayedFuncUpgrador");
-		setValue("DelayedFunction", "sendRequest");
-		setValue("Delay", mNextRequestDelay);
-	}
+	std::string url = "/youtube/v3/commentThreads?part=snippet%2Creplies&videoId=";
+	std::string request = url + videoID + getCurrentBearer() + nextPage + "&maxResults=50&order=time";
+	mAnswer = mYoutubeConnect->retreiveGetAsyncRequest(request.c_str(), "getCommentList", this);
+	mAnswer->Init();
+	mRequestCount++;
 }
 
-
-void	YoutubeConnect::launchGetFavoritesRequest(u64 userid, const std::string& nextCursor)
+void	YoutubeConnect::launchGetSubscriptions(const std::string& authorID, const std::string& nextPage)
 {
-	// use since ID, max ID here to retrieve tweets in a given laps of time
-	std::string url = "2/users/" + GetIDString(userid) + "/liked_tweets?expansions=author_id,referenced_tweets.id.author_id&tweet.fields=author_id,public_metrics,created_at,text,referenced_tweets";
-
-	// can't restrict to date for favorites with API V2
-/*	if (mDates[0].dateAsInt && mDates[1].dateAsInt)
+	std::string url = "/youtube/v3/subscriptions?part=snippet%2CcontentDetails&channelId=";
+	std::string request = url + authorID + getCurrentBearer() + "&maxResults=50";
+	if (nextPage != "")
 	{
-		url += "&start_time=" + mDates[0].dateAsString + "T00:00:00Z";
-		url += "&end_time=" + mDates[1].dateAsString + "T23:59:59Z";
-	}*/
-
-	url += "&max_results=100";
-
-	if (nextCursor != "-1")
-	{
-		url += "&pagination_token=" + nextCursor;
+		request+="&pageToken=" + nextPage;
 	}
-
-	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFavorites", this);
-
-	// 75 req per 15 minutes
-	launchGenericRequest(12.5);
+	mAnswer = mYoutubeConnect->retreiveGetAsyncRequest(request.c_str(), "getUserSubscription", this);
+	mAnswer->Init();
+	mRequestCount++;
 }
-
-void	YoutubeConnect::launchSearchTweetRequest(const std::string& hashtag, const std::string& nextCursor)
-{
-	std::string url = "2/tweets/search/recent?query=" + getHashtagURL(hashtag) + "&expansions=author_id,referenced_tweets.id,referenced_tweets.id.author_id&tweet.fields=author_id,conversation_id,public_metrics,created_at,text,referenced_tweets";
-
-	if (mDates[0].dateAsInt && mDates[1].dateAsInt)
-	{
-		url += "&start_time=" + mDates[0].dateAsString + "T00:00:00Z";
-		url += "&end_time=" + mDates[1].dateAsString + "T23:59:59Z";
-	}
-
-	if (mSinceID.length())
-	{
-		url += "&since_id=" + mSinceID;
-	}
-
-	if (mUntilID.length())
-	{
-		url += "&until_id=" + mUntilID;
-	}
-
-	url += "&max_results=100";
-
-	if (nextCursor != "-1")
-	{
-		url += "&next_token=" + nextCursor;
-	}
-	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getTweets", this);
-
-	// 450 req per 15 minutes
-	launchGenericRequest(2.5);
-
-}
-
-
-void	YoutubeConnect::launchGetTweetRequest(u64 userid, const std::string& username, const std::string& nextCursor)
-{
-	std::string url = "2/users/" + std::to_string(userid) + "/tweets?expansions=author_id,referenced_tweets.id.author_id&tweet.fields=author_id,conversation_id,public_metrics,created_at,text,referenced_tweets";
-
-	if (mDates[0].dateAsInt && mDates[1].dateAsInt)
-	{
-		url += "&start_time=" + mDates[0].dateAsString + "T00:00:00Z";
-		url += "&end_time=" + mDates[1].dateAsString + "T23:59:59Z";
-	}
-
-	if (mSinceID.length())
-	{
-		url += "&since_id=" + mSinceID;
-	}
-
-	if (mUntilID.length())
-	{
-		url += "&until_id=" + mUntilID;
-	}
-
-	url += "&max_results=100";
-
-	if (nextCursor != "-1")
-	{
-		url += "&pagination_token=" + nextCursor;
-	}
-	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getTweets", this);
-
-	// 1500 req per 15 minutes
-	launchGenericRequest(1.0);
-}
-
-void YoutubeConnect::launchUserDetailRequest(const std::string& UserName, UserStruct& ch)
-{
-
-	// check classic User Cache
-	std::string url = "2/users/by/username/" + UserName + "?user.fields=created_at,public_metrics,profile_image_url";
-	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
-
-	// 900 req per 15 minutes
-	launchGenericRequest(1.5);
-
-}
-
-void YoutubeConnect::launchUserDetailRequest(u64 UserID, UserStruct& ch)
-{
-
-	// check classic User Cache
-	std::string url = "2/users/" + std::to_string(UserID) + "?user.fields=created_at,public_metrics,profile_image_url";
-	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getUserDetails", this);
-	mAnswer->AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::ULONG, "UserID", UserID);
-
-	// 900 req per 15 minutes
-	launchGenericRequest(1.5);
-
-}
-void	YoutubeConnect::launchGetLikers(u64 tweetid, const std::string& nextToken)
-{
-	std::string url = "2/tweets/" + std::to_string(tweetid) + "/liking_users";
-
-	url += "?max_results=100";
-	if (nextToken != "-1")
-	{
-		url += "&pagination_token=" + nextToken;
-	}
-	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getLikers", this);
-
-	// 75 req per 15 minutes
-	launchGenericRequest(12.5);
-}
-
-void	YoutubeConnect::launchGetReplyers(u64 conversationID, const std::string& nextToken)
-{
-	std::string url = "2/tweets/search/recent?query=conversation_id:" + std::to_string(conversationID) + "&tweet.fields=author_id";
-
-	url += "&max_results=100";
-	if (nextToken != "-1")
-	{
-		url += "&next_token=" + nextToken;
-	}
-
-	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getReplyers", this);
-	// 450 req per 15 minutes
-	launchGenericRequest(2.5);
-}
-
-
-void	YoutubeConnect::launchGetRetweeters(u64 tweetid, const std::string& nextToken)
-{
-	std::string url = "2/tweets/" + std::to_string(tweetid) + "/retweeted_by";
-
-	url += "?max_results=100";
-	if (nextToken != "-1")
-	{
-		url += "&pagination_token=" + nextToken;
-	}
-	// warning use same callback as getLikers
-	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getLikers", this);
-
-	// 75 req per 15 minutes
-	launchGenericRequest(12.5);
-}
-
-
-void	YoutubeConnect::launchGetFollow(u64 userid, const std::string& followtype, const std::string& nextToken)
-{
-
-	std::string url = "2/users/" + GetIDString(userid) + "/" + followtype + "?max_results=1000";
-	if (nextToken != "-1")
-	{
-		url += "&pagination_token=" + nextToken;
-	}
-
-	mAnswer = mTwitterConnect->retreiveGetAsyncRequest(url.c_str(), "getFollow", this);
-
-	// 1 req per minute
-	launchGenericRequest(60.5);
-
-}
-
-std::vector<u64>		YoutubeConnect::LoadIDVectorFile(const std::string& filename, bool& fileExist, bool useoldfilelimit)
-{
-	fileExist = false;
-	std::vector<u64> loaded;
-	if (LoadDataFile<u64>(filename, loaded, useoldfilelimit))
-	{
-		fileExist = true;
-	}
-
-	return loaded;
-}
-
-bool		YoutubeConnect::LoadFollowFile(u64 id, std::vector<u64>& following, const std::string& followtype)
-{
-	std::string filename = "Cache/Users/" + GetUserFolderFromID(id) + "/" + GetIDString(id) + "_" + followtype + ".ids";
-	bool fileexist = false;
-	following = LoadIDVectorFile(filename, fileexist);
-	return fileexist;
-}
-
-void		YoutubeConnect::SaveFollowFile(u64 id, const std::vector<u64>& v, const std::string& followtype)
-{
-	std::string filename = "Cache/Users/" + GetUserFolderFromID(id) + "/" + GetIDString(id) + "_" + followtype + ".ids";
-	SaveIDVectorFile(v, filename);
-}
-
-void	YoutubeConnect::SaveIDVectorFile(const std::vector<u64>& v, const std::string& filename)
-{
-	SaveDataFile<u64>(filename, v);
-}
-
 
 CoreItemSP	YoutubeConnect::RetrieveJSON(CoreModifiable* sender)
 {
+	int errorState = 0;
 	void* resultbuffer = nullptr;
 	sender->getValue("ReceivedBuffer", resultbuffer);
 
@@ -654,7 +514,8 @@ CoreItemSP	YoutubeConnect::RetrieveJSON(CoreModifiable* sender)
 
 		if (validstring.length() == 0)
 		{
-			printf("");
+			//mState = 10;
+			//mErrorCode = 405;
 		}
 		else
 		{
@@ -664,74 +525,23 @@ CoreItemSP	YoutubeConnect::RetrieveJSON(CoreModifiable* sender)
 			JSonFileParserUTF16 L_JsonParser;
 			CoreItemSP result = L_JsonParser.Get_JsonDictionaryFromString(utf8string);
 
-			if (result["title"])
-			{
-				std::string t(result["title"]);
-				if (t == "Too Many Requests")
-				{
-					Upgrade("DelayedFuncUpgrador");
-					setValue("DelayedFunction", "resendRequest");
-					setValue("Delay", 120.0f); // wait 2 minutes
-					mWaitQuota = true;
-					mWaitQuotaCount++;
-					return nullptr;
-				}
-			}
-
 			if (result["error"])
 			{
-				return nullptr;
+				std::string reason = result["error"]["errors"][0]["reason"];
+				int code = result["error"]["code"];
+				if (code == 403)
+				{
+					if ((reason == "quotaExceeded") || (reason == "dailyLimitExceeded"))
+					{
+						errorState = 10;
+					}
+				}
 			}
-			if (result["errors"])
+
+			if (errorState != 10)
 			{
-				if (result["errors"][0]["code"])
-				{
-					int code = result["errors"][0]["code"];
-					mApiErrorCode = code;
-					if (code == 88)
-					{
-						Upgrade("DelayedFuncUpgrador");
-						setValue("DelayedFunction", "resendRequest");
-						setValue("Delay", 120.0f); // wait 2 minutes
-						mWaitQuota = true;
-						mWaitQuotaCount++;
-						return nullptr;
-					}
-
-					if (code == 32)
-					{
-						HTTPAsyncRequest* request = (HTTPAsyncRequest*)sender;
-						mWaitQuota = true;
-						mWaitQuotaCount++;
-						Upgrade("DelayedFuncUpgrador");
-						setValue("DelayedFunction", "resendRequest");
-						setValue("Delay", 120.0f); // wait 2 minutes
-						request->ClearHeaders();
-						int bearerIndex = request->getValue<int>("BearerIndex");
-						// remove bearer from list
-						mYoutubeBear.erase(mYoutubeBear.begin() + bearerIndex);
-						mAnswer->AddHeader(mYoutubeBear[NextBearer()]);
-						mAnswer->setValue("BearerIndex", CurrentBearer());
-						return nullptr;
-					}
-
-				}
-				if (result["errors"][0]["title"])
-				{
-					// check if data was retrieved
-					if (!result["data"] || (result["data"]->size() == 0))
-					{
-						std::string t(result["errors"][0]["title"]);
-						if ((t == "Not Found Error") || (t == "Forbidden") || (t == "Authorization Error"))
-						{
-							mApiErrorCode = 63;
-							return nullptr;
-						}
-					}
-				}
+				return result;
 			}
-
-			return result;
 
 		}
 	}
@@ -739,472 +549,237 @@ CoreItemSP	YoutubeConnect::RetrieveJSON(CoreModifiable* sender)
 	return nullptr;
 }
 
-DEFINE_METHOD(YoutubeConnect, getUserDetails)
+DEFINE_METHOD(YoutubeConnect, getChannelID)
+{
+	auto json = RetrieveJSON(sender);
+	std::string channelID;
+	if (json)
+	{
+		CoreItemSP IDItem = json["items"][0]["id"];
+
+		if (IDItem)
+		{
+			channelID = IDItem;
+		}
+	}
+	// TODO manage error
+	EmitSignal("ChannelIDRetrieved", channelID);
+	return true;
+}
+
+DEFINE_METHOD(YoutubeConnect, getChannelStats)
 {
 	auto json = RetrieveJSON(sender);
 
+	ChannelStruct newChannel;
+	newChannel.mID = "";
+
 	if (json)
 	{
-		CoreItemSP	data = json["data"];
-		CoreItemSP	public_m = data["public_metrics"];
-
-		UserStruct CurrentUserStruct;
-
-		CurrentUserStruct.mID = data["id"];
-		CurrentUserStruct.mName = (usString)data["username"];
-		CurrentUserStruct.mFollowersCount = public_m["followers_count"];
-		CurrentUserStruct.mFollowingCount = public_m["following_count"];
-		CurrentUserStruct.mStatuses_count = public_m["tweet_count"];
-		CurrentUserStruct.UTCTime = data["created_at"]->toString();
-		CurrentUserStruct.mThumb.mURL = CleanURL(data["profile_image_url"]);
-
-		EmitSignal("UserDetailRetrieved", CurrentUserStruct);
-	}
-	else if (!mWaitQuota)
-	{
-
-		if (mApiErrorCode == 63) // user suspended
+		if (json["items"][0]["id"])
 		{
-			u64 id = sender->getValue<u64>("UserID");
-			UserStruct suspended;
-			suspended.mName = usString("Unknown");
-			suspended.mID = id;
-			suspended.mFollowersCount = 0;
-			suspended.mFollowingCount = 0;
-			suspended.mStatuses_count = 0;
+			newChannel.mID = json["items"][0]["id"];
 
-			EmitSignal("UserDetailRetrieved", suspended);
-
-			mApiErrorCode = 0;
+			CoreItemSP infos = json["items"][0]["snippet"];
+			if (infos)
+			{
+				newChannel.mName = (usString)infos["title"];
+				newChannel.mThumb.mURL = infos["thumbnails"]["default"]["url"];
+			}
+			newChannel.mTotalSubscribers = 0;
+			newChannel.mViewCount = 0;
+			CoreItemSP subscount = json["items"][0]["statistics"]["subscriberCount"];
+			if (subscount)
+			{
+				newChannel.mTotalSubscribers = subscount;
+			}
+			CoreItemSP viewcount = json["items"][0]["statistics"]["viewCount"];
+			if (viewcount)
+			{
+				newChannel.mViewCount = viewcount;
+			}
 		}
-
 	}
+
+	EmitSignal("ChannelStatsRetrieved", newChannel);
 
 	return true;
 }
 
-
-/*
-DEFINE_METHOD(YoutubeConnect, getTweets)
+DEFINE_METHOD(YoutubeConnect, getVideoList)
 {
+	
 	auto json = RetrieveJSON(sender);
 
-	std::vector<Twts> retrievedTweets;
-	std::string nextStr = "-1";
+
+	std::vector<videoStruct> videoVector;
+
+	std::string nextPageToken;
 
 	if (json)
 	{
-
-		CoreItemSP tweetsArray = json["data"];
-		if (tweetsArray)
+		if (json["nextPageToken"])
 		{
+			nextPageToken = json["nextPageToken"];
+		}
 
-			CoreItemSP includesTweets = json["includes"]["tweets"];
+		CoreItemSP videoList = json["items"];
 
-			auto searchRetweeted = [this, includesTweets](u64 twtid)->CoreItemSP
+		if (videoList)
+		{
+			if (videoList->size())
 			{
-				if (includesTweets)
+				for (int i = 0; i < videoList->size(); i++)
 				{
-					for (auto t : includesTweets)
+					CoreItemSP video = videoList[i];
+					if (video["id"]["kind"])
 					{
-						if ((u64)t["id"] == twtid)
+						std::string kind = video["id"]["kind"];
+						if (kind == "youtube#video")
 						{
-							return t;
+							if (video["id"]["videoId"])
+							{
+
+								std::string cid = video["snippet"]["channelId"];
+
+								videoStruct toAdd;
+								toAdd.mChannelID = cid;
+								toAdd.mID = video["id"]["videoId"];
+								toAdd.mName = (usString)video["snippet"]["title"];
+
+								videoVector.push_back(toAdd);
+							}
 						}
 					}
 				}
-				CoreItemSP empty;
-				return empty;
-			};
+			}
+		}
+	}
 
-			unsigned int tweetcount = tweetsArray->size();
+	EmitSignal("videoRetrieved", videoVector, nextPageToken);
 
-			for (unsigned int i = 0; i < tweetcount; i++)
+	return true;
+}
+
+DEFINE_METHOD(YoutubeConnect, getCommentList)
+{
+	auto json = RetrieveJSON(sender);
+	std::string nextPageToken;
+
+	std::set<std::string>	authorList;
+
+	if (json)
+	{
+		if (json["nextPageToken"])
+		{
+			nextPageToken = json["nextPageToken"];
+		}
+		CoreItemSP commentThreads = json["items"];
+
+		if (commentThreads)
+		{
+			if (commentThreads->size())
 			{
-				CoreItemSP currentTweet = tweetsArray[i];
-				CoreItemSP RTStatus = currentTweet["referenced_tweets"];
-
-				u64	isReplyAuthor = 0;
-
-				u64 tweetid = currentTweet["id"];
-				// retrieve tweet date and data of the current tweet, not the rtweted one
-				std::string tweetdate = currentTweet["created_at"];
-
-				usString text(currentTweet["text"]);
-
-				u32 like_count = currentTweet["public_metrics"]["like_count"];
-				u32 rt_count = currentTweet["public_metrics"]["retweet_count"];
-				u32 quote_count = currentTweet["public_metrics"]["quote_count"];
-
-				if (RTStatus)
+				for (int i = 0; i < commentThreads->size(); i++)
 				{
-					u32 referenced_tweets_count = RTStatus->size();
-
-					for (auto r : RTStatus)
+					CoreItemSP topComment = commentThreads[i]["snippet"]["topLevelComment"]["snippet"];
+					if (topComment)
 					{
-						if (r["type"])
+
+						CoreItemSP authorChannelID = topComment["authorChannelId"]["value"];
+						if (authorChannelID)
 						{
-							std::string type(r["type"]);
-							if (type == "replied_to")
+							std::string authorID = authorChannelID;
+							authorList.insert(authorID);
+						}
+					}
+					int answerCount = commentThreads[i]["snippet"]["totalReplyCount"];
+					if (answerCount)
+					{
+						for (int j = 0; j < answerCount; j++)
+						{
+							CoreItemSP replies = commentThreads[i]["replies"]["comments"][j]["snippet"];
+							if (replies)
 							{
-								u64 repliedid = r["id"];
-								CoreItemSP repliedTweet = searchRetweeted(repliedid);
-								if (repliedTweet)
-									isReplyAuthor = repliedTweet["author_id"];
-							}
-							else if (type == "retweeted")
-							{
-								// change tweet id and get authorid
-								tweetid = r["id"];
-								currentTweet = searchRetweeted(tweetid);
-								if (!currentTweet)
+								CoreItemSP authorChannelID = replies["authorChannelId"]["value"];
+								if (authorChannelID)
 								{
-									currentTweet = tweetsArray[i];
+									std::string authorID = authorChannelID;
+									authorList.insert(authorID);
 								}
-								// consider a tweet is a RT or a Reply not both, and RT is prioritary 
-								isReplyAuthor = 0;
-								break;
 							}
 						}
 					}
 				}
-				u64 authorid = currentTweet["author_id"];
-
-				SaveTweet(text, authorid, tweetid);
-
-				u32		creationDate = GetU32YYYYMMDD(tweetdate).first;
-
-				u64     conversation_id = -1;
-				if (currentTweet["conversation_id"])
-				{
-					conversation_id = currentTweet["conversation_id"];
-				}
-
-				retrievedTweets.push_back({ authorid,tweetid,conversation_id,like_count,rt_count,quote_count,creationDate,isReplyAuthor });
-
 			}
 		}
-
-		CoreItemSP meta = json["meta"];
-		if (meta)
-		{
-			if (meta["next_token"])
-			{
-				nextStr = meta["next_token"]->toString();
-				if (nextStr == "0")
-				{
-					nextStr = "-1";
-				}
-			}
-		}
-
 	}
 
-	if (!mWaitQuota) // can't access favorite for this user
-	{
-		EmitSignal("TweetRetrieved", retrievedTweets, nextStr);
-	}
-
-	return true;
-}
-*/
-
-DEFINE_METHOD(YoutubeConnect, getReplyers)
-{
-	auto json = RetrieveJSON(sender);
-
-	if (json)
-	{
-
-		std::vector<u64> retrievedReplyers;
-		CoreItemSP tweetsArray = json["data"];
-		if (tweetsArray)
-		{
-			unsigned int tweetcount = tweetsArray->size();
-
-			for (unsigned int i = 0; i < tweetcount; i++)
-			{
-				CoreItemSP currentTweet = tweetsArray[i];
-
-				u64 authorid = currentTweet["author_id"];
-
-				retrievedReplyers.push_back(authorid);
-
-			}
-		}
-
-		std::string nextStr = "-1";
-
-		CoreItemSP meta = json["meta"];
-		if (meta)
-		{
-			if (meta["next_token"])
-			{
-				nextStr = meta["next_token"]->toString();
-				if (nextStr == "0")
-				{
-					nextStr = "-1";
-				}
-			}
-		}
-
-		EmitSignal("ReplyersRetrieved", retrievedReplyers, nextStr);
-
-	}
+	EmitSignal("commentRetrieved", authorList, nextPageToken);
 
 	return true;
 }
 
+DEFINE_METHOD(YoutubeConnect, getUserSubscription)
+{	
+	std::string nextPageToken;
 
+	std::vector<std::string>	subscripList;
 
-DEFINE_METHOD(YoutubeConnect, getLikers)
-{
 	auto json = RetrieveJSON(sender);
 
 	if (json)
 	{
-		std::vector<u64> retrievedLikers;
-		CoreItemSP likersArray = json["data"];
-		if (likersArray)
+		if (json["nextPageToken"])
 		{
-			unsigned int likerscount = likersArray->size();
-
-			for (unsigned int i = 0; i < likerscount; i++)
-			{
-				CoreItemSP currentLiker = likersArray[i];
-
-				u64 likerid = currentLiker["id"];
-				retrievedLikers.push_back(likerid);
-			}
+			nextPageToken = json["nextPageToken"];
 		}
 
-		std::string nextStr = "-1";
-
-		CoreItemSP meta = json["meta"];
-		if (meta)
+		CoreItemSP subscriptions = json["items"];
+		if (subscriptions)
 		{
-			if (meta["next_token"])
+			if (subscriptions->size())
 			{
-				nextStr = meta["next_token"]->toString();
-				if (nextStr == "0")
+				for (int i = 0; i < subscriptions->size(); i++)
 				{
-					nextStr = "-1";
-				}
-			}
-		}
-
-		EmitSignal("LikersRetrieved", retrievedLikers, nextStr);
-
-	}
-
-
-	return true;
-}
-
-
-/*
-
-DEFINE_METHOD(YoutubeConnect, getFavorites)
-{
-	auto json = RetrieveJSON(sender);
-	std::vector<Twts> currentFavorites;
-	std::string nextStr = "-1";
-
-	if (json)
-	{
-		CoreItemSP tweetsArray = json["data"];
-
-		if (tweetsArray)
-		{
-			CoreItemSP includesTweets = json["includes"]["tweets"];
-
-			auto searchRetweeted = [this, includesTweets](u64 twtid)->CoreItemSP
-			{
-				for (auto t : includesTweets)
-				{
-					if ((u64)t["id"] == twtid)
+					CoreItemSP subscription = subscriptions[i]["snippet"]["resourceId"]["channelId"];
+					if (subscription)
 					{
-						return t;
+						
+						std::string chanID = subscription;
+						subscripList.push_back(chanID);
+						
 					}
 				}
-				CoreItemSP empty;
-				return empty;
-			};
-
-			unsigned int tweetcount = tweetsArray->size();
-
-			for (unsigned int i = 0; i < tweetcount; i++)
-			{
-				CoreItemSP currentTweet = tweetsArray[i];
-
-				CoreItemSP RTStatus = currentTweet["referenced_tweets"];
-
-				u32	isReply = 0;
-				u64 tweetid = currentTweet["id"];
-
-				if (RTStatus)
-				{
-					u32 referenced_tweets_count = RTStatus->size();
-
-					for (auto r : RTStatus)
-					{
-						if (r["type"])
-						{
-							std::string type(r["type"]);
-							if (type == "replied_to")
-							{
-								isReply = 1;
-							}
-							else if (type == "retweeted")
-							{
-								// change tweet id and get authorid
-								tweetid = r["id"];
-								currentTweet = searchRetweeted(tweetid);
-								break;
-							}
-						}
-					}
-				}
-
-
-				std::string tweetdate = currentTweet["created_at"];
-
-				u64 authorid = currentTweet["author_id"];
-
-				usString text(currentTweet["text"]);
-
-				SaveTweet(text, authorid, tweetid);
-
-				u32 like_count = currentTweet["public_metrics"]["like_count"];
-				u32 rt_count = currentTweet["public_metrics"]["retweet_count"];
-				u32 quote_count = currentTweet["public_metrics"]["quote_count"];
-
-				u32		creationDate = GetU32YYYYMMDD(tweetdate).first;
-
-				{
-					currentFavorites.push_back({ authorid,tweetid,like_count,rt_count,quote_count,creationDate,isReply });
-				}
-			}
-		}
-		CoreItemSP meta = json["meta"];
-		if (meta)
-		{
-			if (meta["next_token"])
-			{
-				nextStr = meta["next_token"];
-				if (nextStr == "0")
-				{
-					nextStr = "-1";
-				}
 			}
 		}
 	}
 
-	if (!mWaitQuota) // can't access favorite for this user
-	{
-		EmitSignal("FavoritesRetrieved", currentFavorites, nextStr);
-	}
+
+	EmitSignal("subscriptionRetrieved", subscripList, nextPageToken);
+
 
 	return true;
-}
-*/
-
-DEFINE_METHOD(YoutubeConnect, getFollow)
-{
-	auto json = RetrieveJSON(sender);
-
-	std::vector<u64>	follow;
-	std::string nextStr = "-1";
-
-	if (json)
-	{
-		CoreItemSP followArray = json["data"];
-		if (followArray)
-		{
-			unsigned int idcount = followArray->size();
-			for (unsigned int i = 0; i < idcount; i++)
-			{
-				u64 id = followArray[i]["id"];
-				follow.push_back(id);
-			}
-		}
-
-		CoreItemSP meta = json["meta"];
-		if (meta)
-		{
-			if (meta["next_token"])
-			{
-				nextStr = meta["next_token"]->toString();
-				if (nextStr == "0")
-				{
-					nextStr = "-1";
-				}
-			}
-		}
-	}
-
-	if (!mWaitQuota)
-	{
-		EmitSignal("FollowRetrieved", follow, nextStr);
-	}
-
-	return true;
-}
-
-
-void	YoutubeConnect::resendRequest()
-{
-	KigsCore::addAsyncRequest(mAnswer);
-	mAnswer->Init();
-	mRequestCount++;
-	RequestLaunched(60.5); // max request time to be sure
-	mWaitQuota = false;
-}
-
-
-void	YoutubeConnect::sendRequest()
-{
-	mAnswer->Init();
-	RequestLaunched(mAnswer->getValue<float>("WaitDelay"));
-	mRequestCount++;
 }
 
 void	YoutubeConnect::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* downloader)
 {
 
 	// search used downloader in vector
-	std::vector<std::pair<CMSP, std::pair<u64, UserStruct*>> > tmpList;
+	std::vector<std::pair<CMSP, std::pair<std::string, YoutubeConnect::ChannelStruct*>> > tmpList;
 
 	for (const auto& p : mDownloaderList)
 	{
 		if (p.first.get() == downloader)
 		{
-
-			std::string	url = downloader->getValue<std::string>("URL");
-			std::string::size_type pos = url.rfind('.');
-			std::string ext = url.substr(pos);
-			SP<Pict::TinyImage> img = nullptr;
-
-			if (ext == ".png")
+			SP<Pict::TinyImage> img = MakeRefCounted<Pict::JPEGClass>(data);
+			if (img)
 			{
-				img = MakeRefCounted<Pict::PNGClass>(data);
-			}
-			else if (ext == ".gif")
-			{
-				img = MakeRefCounted<Pict::GIFClass>(data);
-			}
-			else
-			{
-				img = MakeRefCounted<Pict::JPEGClass>(data);
-				ext = ".jpg";
-			}
-			if (img->IsOK())
-			{
-				UserStruct* toFill = p.second.second;
+				YoutubeConnect::ChannelStruct* toFill = p.second.second;
 
 				std::string filename = "Cache/Thumbs/";
-				filename += GetIDString(p.second.first);
-				filename += ext;
+				filename += p.second.first;
+				filename += ".jpg";
 
 				// export image
 				SmartPointer<::FileHandle> L_File = Platform_fopen(filename.c_str(), "wb");
@@ -1217,20 +792,7 @@ void	YoutubeConnect::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* down
 				toFill->mThumb.mTexture = KigsCore::GetInstanceOf((std::string)toFill->mName + "tex", "Texture");
 				toFill->mThumb.mTexture->Init();
 
-				SmartPointer<Pict::TinyImage>	imgsp = img->shared_from_this();
-				toFill->mThumb.mTexture->CreateFromImage(imgsp);
-
-			}
-			else
-			{
-				// thumb has probably changed, the user file have to be removed
-				u64 id = p.second.first;
-				std::string folderName = GetUserFolderFromID(id);
-
-				std::string filename = "Cache/Users/";
-				filename += folderName + "/" + GetIDString(id) + ".json";
-
-				ModuleFileManager::RemoveFile(filename.c_str());
+				toFill->mThumb.mTexture->CreateFromImage(img);
 			}
 		}
 		else
@@ -1240,6 +802,7 @@ void	YoutubeConnect::thumbnailReceived(CoreRawBuffer* data, CoreModifiable* down
 	}
 	mDownloaderList = std::move(tmpList);
 }
+
 
 std::pair<u32, u32>	YoutubeConnect::GetU32YYYYMMDD(const std::string& utcdate)
 {
