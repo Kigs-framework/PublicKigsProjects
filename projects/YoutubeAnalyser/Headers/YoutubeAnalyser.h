@@ -24,10 +24,6 @@ namespace Kigs
 		// give direct access to members
 		friend class GraphDrawer;
 
-	protected:
-
-		void	createFSMStates();
-
 		// current application state 
 		unsigned int					mState = 0;
 		// general application parameters
@@ -103,6 +99,12 @@ namespace Kigs
 			float	GetNormalisedSimilitude(const PerChannelUserMap& other);
 			float	GetNormalisedAttraction(const PerChannelUserMap& other);
 		};
+
+
+	protected:
+
+		void	createFSMStates();
+
 
 		
 

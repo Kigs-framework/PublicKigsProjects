@@ -112,13 +112,13 @@ void GraphDrawer::InitModifiable()
 
 void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int, float, u64> >& toShow)
 {
-	// TODO
-	/*
-	drawGeneralStats();
-	if (mYoutubeAnalyser->mCurrentVideoUserFound < 10)
-		return;
 
-	int toShowCount = 0;
+	drawGeneralStats();
+	// TODO
+	if (mYoutubeAnalyser->mCurrentVideoUserFound < 10)
+	return;
+
+	/*int toShowCount = 0;
 	float dangle = 2.0f * fPI / 7.0f;
 	float angle = 0.0f;
 	float ray = 0.15f;
@@ -228,7 +228,7 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int, float, u64> >&
 					}
 					else
 					{
-						TwitterConnect::LoadUserStruct(std::get<2>(toS), toPlace.second, true);
+						YoutubeConnect::LoadUserStruct(std::get<2>(toS), toPlace.second, true);
 					}
 				}
 			}
@@ -780,10 +780,10 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 
 void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 {
-	// TODO
-	/*
+
 	drawGeneralStats();
-	bitmap->Clear({ 0,0,0,0 });
+	// TODO
+	/*	bitmap->Clear({ 0,0,0,0 });
 
 	// title
 	bitmap->Print("Sample statistics", 1920 / 2, 16, 1, 1920, 92, "Calibri.ttf", 1, { 0,0,0,128 });
@@ -945,86 +945,55 @@ void	GraphDrawer::nextDrawType()
 
 void	GraphDrawer::drawGeneralStats()
 {
-	//TODO
-	/*
+
 	char textBuffer[256];
-	sprintf(textBuffer, "Treated %s : %d", mYoutubeAnalyser->PanelUserName[(size_t)mYoutubeAnalyser->mPanelType].c_str(), mYoutubeAnalyser->mTreatedUserCount);
+	sprintf(textBuffer, "Treated writers : %d", mYoutubeAnalyser->mFoundUsers.size());
 
-	mMainInterface["TreatedFollowers"]("Text") = textBuffer;
+	mMainInterface["TreatedWriters"]("Text") = textBuffer;
 
-	sprintf(textBuffer, "%s %s count : %d", mYoutubeAnalyser->PanelUserName[(size_t)mYoutubeAnalyser->mPanelType].c_str(),
-		mYoutubeAnalyser->PanelUserName[(size_t)mYoutubeAnalyser->mAnalysedType].c_str(),
-		(int)mYoutubeAnalyser->mInStatsUsers.size());
+	sprintf(textBuffer, "Subscribed writers : %d", mYoutubeAnalyser->mSubscribedAuthorInfos.size());
+	mMainInterface["SubscWriters"]("Text") = textBuffer;
+	if (mYoutubeAnalyser->mFoundUsers.size())
+	{
+		sprintf(textBuffer, "Public writers : %d%%", (int)((100 * mYoutubeAnalyser->myPublicWriters) / mYoutubeAnalyser->mFoundUsers.size()));
+		mMainInterface["PublicWriters"]("Text") = textBuffer;
+	}
 
-	mMainInterface["FoundFollowings"]("Text") = textBuffer;
-
-	sprintf(textBuffer, "Invalid %s count : %d", mYoutubeAnalyser->PanelUserName[(size_t)mYoutubeAnalyser->mPanelType].c_str(), mYoutubeAnalyser->mTreatedUserCount - mYoutubeAnalyser->mCurrentVideoUserFound);
-
-	mMainInterface["FakeFollowers"]("Text") = textBuffer;
+	sprintf(textBuffer, "Found Channels : %d", mYoutubeAnalyser->mFoundChannels.size());
+	mMainInterface["FoundChannels"]("Text") = textBuffer;
+	sprintf(textBuffer, "Parsed Comments : %d", mYoutubeAnalyser->mParsedComments);
+	mMainInterface["ParsedComments"]("Text") = textBuffer;
 
 	if (!mEverythingDone)
 	{
-		sprintf(textBuffer, "Twitter API requests : %d", mYoutubeAnalyser->mTwitterConnect->getRequestCount());
+		sprintf(textBuffer, "Youtube Data API requests : %d", mYoutubeAnalyser->myRequestCount);
 		mMainInterface["RequestCount"]("Text") = textBuffer;
-
-		if (mYoutubeAnalyser->mTwitterConnect->mWaitQuota)
-		{
-			sprintf(textBuffer, "Wait quota count: %d", mYoutubeAnalyser->mTwitterConnect->mWaitQuotaCount);
-		}
-		else
-		{
-			double requestWait = mYoutubeAnalyser->mTwitterConnect->getDelay();
-			if (requestWait < 0.0)
-			{
-				requestWait = 0.0;
-			}
-			sprintf(textBuffer, "Next request in : %f", requestWait);
-		}
-
-
-		mMainInterface["RequestWait"]("Text") = textBuffer;
 	}
 	else
 	{
-		if (TwitterConnect::useDates())
-		{
-			mMainInterface["RequestCount"]("Text") = "From: " + TwitterConnect::getDate(0) + "  To: " + TwitterConnect::getDate(1);
-		}
-		else
-		{
-			mMainInterface["RequestCount"]("Text") = "";
-		}
-		mMainInterface["RequestWait"]("Text") = "";
+		
+		mMainInterface["RequestCount"]("Text") = "";
 
 		mMainInterface["switchForce"]("IsHidden") = !mCurrentStateHasForceDraw;
 		mMainInterface["switchForce"]("IsTouchable") = mCurrentStateHasForceDraw;
 
 	}
 
-	if (mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mThumb.mTexture && mMainInterface["thumbnail"])
+	if (mYoutubeAnalyser->mChannelInfos.mThumb.mTexture && mMainInterface["thumbnail"])
 	{
 		const SP<UIImage>& tmp = mMainInterface["thumbnail"];
 
 		if (!tmp->HasTexture())
 		{
-			tmp->addItem(mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mThumb.mTexture);
-
-			usString	thumbname = mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mName;
-
-			if (mYoutubeAnalyser->mUseHashTags)
-			{
-				thumbname = std::string(" ");
-				thumbname += mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mName;
-			}
-			mMainInterface["thumbnail"]["UserName"]("Text") = thumbname;
+			tmp->addItem(mYoutubeAnalyser->mChannelInfos.mThumb.mTexture);
+			mMainInterface["thumbnail"]["ChannelName"]("Text") = mYoutubeAnalyser->mChannelInfos.mName;
 		}
-
 	}
 	else if (mMainInterface["thumbnail"])
 	{
-		TwitterConnect::LoadUserStruct(mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID, mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0), true);
+		YoutubeConnect::LoadChannelStruct(mYoutubeAnalyser->mChannelID, mYoutubeAnalyser->mChannelInfos, true);
 	}
-	*/
+
 }
 
 
@@ -1042,10 +1011,10 @@ void CoreFSMStopMethod(GraphDrawer, Percent)
 DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 {
 	// TODO
-	/*
-	float wantedpercent = mYoutubeAnalyser->mValidUserPercent;
-
 	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
+	
+	/*float wantedpercent = mYoutubeAnalyser->mValidChannelPercent;
+
 	for (auto c : mYoutubeAnalyser->mInStatsUsers)
 	{
 		if (c.first != mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
@@ -1059,13 +1028,14 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 				}
 			}
 		}
-	}
-
+	}*/
+	
 	if (toShow.size() == 0)
 	{
 		drawGeneralStats();
 		return false;
 	}
+	
 	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, u64>& a1, const std::tuple<unsigned int, float, u64>& a2)
 		{
 			if (std::get<0>(a1) == std::get<0>(a2))
@@ -1075,7 +1045,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 			return (std::get<0>(a1) > std::get<0>(a2));
 		}
 	);
-
+	/*
 	std::unordered_map<u64, unsigned int>	currentShowedChannels;
 	int toShowCount = 0;
 	for (const auto& tos : toShow)
@@ -1142,8 +1112,9 @@ void CoreFSMStopMethod(GraphDrawer, Jaccard)
 DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 {
 	// TODO
+	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
 	/*
-	float wantedpercent = mYoutubeAnalyser->mValidUserPercent;
+	float wantedpercent = mYoutubeAnalyser - mValidUserPercent;
 
 	auto getData = [&](const TwitterConnect::UserStruct& strct)->u32
 	{
@@ -1154,7 +1125,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 		return strct.mFollowingCount;
 	};
 
-	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
+	
 	for (auto c : mYoutubeAnalyser->mInStatsUsers)
 	{
 		if (c.first != mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
@@ -1177,13 +1148,13 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 			}
 		}
 	}
-
+	*/
 	if (toShow.size() == 0)
 	{
 		drawGeneralStats();
 		return false;
 	}
-
+	/*
 	float usedData = (float)getData(mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0));
 
 	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, u64>& a1, const std::tuple<unsigned int, float, u64>& a2)

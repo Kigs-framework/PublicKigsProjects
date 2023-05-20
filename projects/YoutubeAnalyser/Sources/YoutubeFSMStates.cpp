@@ -461,6 +461,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetAuthorInfos))
 			if (channels)
 			{
 				thisUpgrador->mIsValidAuthor = true;
+				myPublicWriters++;
 				for (int i = 0; i < channels->size(); i++)
 				{
 					std::string chanID = channels[i];
