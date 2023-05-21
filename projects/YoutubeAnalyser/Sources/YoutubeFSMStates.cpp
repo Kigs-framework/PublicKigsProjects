@@ -247,6 +247,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, ProcessVideo))
 		return false;
 	}
 
+	// need to retreive more videos ?
 	if (mVideoListToProcess.size() == mCurrentProcessedVideo)
 	{
 		// pop current state
@@ -255,7 +256,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, ProcessVideo))
 		return false;
 	}
 
-	if (thisUpgrador->mStateStep == 0)
+	if (thisUpgrador->mStateStep == 0) // start new video management
 	{
 		thisUpgrador->mVideoID = mVideoListToProcess[mCurrentProcessedVideo].first;
 		// set current video title 
@@ -276,7 +277,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, ProcessVideo))
 
 		thisUpgrador->mStateStep = 1;
 	}
-	else if(thisUpgrador->mStateStep == 1)
+	else if(thisUpgrador->mStateStep == 1) // check if more comments are available
 	{
 		CoreItemSP initP = YoutubeConnect::LoadCommentList(mChannelID, thisUpgrador->mVideoID);
 
@@ -297,8 +298,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, ProcessVideo))
 		}
 		else
 		{
-			
-			if (thisUpgrador->mAuthorList.size())
+			if (thisUpgrador->mAuthorList.size()) // if some authors were found, goto step 2
 			{
 				thisUpgrador->mStateStep = 2;
 			}
@@ -309,7 +309,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, ProcessVideo))
 			}
 		}
 	}
-	else if(thisUpgrador->mStateStep == 2)
+	else if(thisUpgrador->mStateStep == 2) // now treat authors
 	{
 		SP<CoreFSM> fsm = mFsm;
 		auto treatAuthors = ((CoreFSMStateClass(YoutubeAnalyser, TreatAuthors)*)fsm->getState("TreatAuthors"));
@@ -325,7 +325,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, ProcessVideo))
 		thisUpgrador->activateTransition("treatauthorstransition");
 
 		mCurrentProcessedVideo++;
-		thisUpgrador->mStateStep = 0;
+		thisUpgrador->mStateStep = 0; // once authors where treated, go to next video
 
 	}
 
@@ -389,13 +389,13 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, TreatAuthors))
 	SP<CoreFSM> fsm = mFsm;
 	auto getAuthorInfos = ((CoreFSMStateClass(YoutubeAnalyser, GetAuthorInfos)*)fsm->getState("GetAuthorInfos"));
 
-	if (thisUpgrador->mStateStep == 0)
+	if (thisUpgrador->mStateStep == 0) // init author treatment
 	{
 		getAuthorInfos->mAuthorID = thisUpgrador->mAuthorList[thisUpgrador->mCurrentTreatedAuthor];
 		getAuthorInfos->mIsValidAuthor = false; // reinit
 		thisUpgrador->mStateStep = 1;
 	}
-	else if (thisUpgrador->mStateStep == 1)
+	else if (thisUpgrador->mStateStep == 1) // check this author was not already treated
 	{
 		// check if not already treated
 		if (mAlreadyTreatedAuthors.find(getAuthorInfos->mAuthorID) != mAlreadyTreatedAuthors.end())
@@ -409,12 +409,12 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, TreatAuthors))
 			thisUpgrador->mStateStep = 2;
 		}
 	}
-	else if (thisUpgrador->mStateStep == 2)
+	else if (thisUpgrador->mStateStep == 2) // get author informations
 	{
 		thisUpgrador->activateTransition("getauthorinfostransition");
 		thisUpgrador->mStateStep = 3;
 	}
-	else if (thisUpgrador->mStateStep == 3)
+	else if (thisUpgrador->mStateStep == 3) // this author is node, go to next one
 	{
 		mAlreadyTreatedAuthors.insert(getAuthorInfos->mAuthorID);
 		if (getAuthorInfos->mIsValidAuthor)
@@ -448,7 +448,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetAuthorInfos))
 	SP<CoreFSM> fsm = mFsm;
 	auto retrievesubscstate = ((CoreFSMStateClass(YoutubeAnalyser, RetrieveSubscriptions)*)fsm->getState("RetrieveSubscriptions"));
 
-	if (thisUpgrador->mStateStep == 0)
+	if (thisUpgrador->mStateStep == 0) // init author subscription 
 	{
 		CoreItemSP initP = YoutubeConnect::LoadAuthorFile(thisUpgrador->mAuthorID);
 		if (initP)
@@ -474,18 +474,59 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetAuthorInfos))
 					thisUpgrador->mCurrentUser.mPublicChannels.push_back(chanID);
 				}
 			}
-			if (initP["nextPageToken"])
+			if (initP["nextPageToken"]) // if more subscriptions available, get them
 			{
 				thisUpgrador->mStateStep = 1;
 				retrievesubscstate->mAuthorID = thisUpgrador->mAuthorID;
 				retrievesubscstate->mSubscriptions = thisUpgrador->mCurrentUser.mPublicChannels;
 				retrievesubscstate->mNextPageToken = initP["nextPageToken"];
 			}
-			else
+			else // all subscription were found
 			{
 				mFoundUsers[thisUpgrador->mAuthorID] = thisUpgrador->mCurrentUser;
 				if (thisUpgrador->mIsValidAuthor)
 				{
+					// add subscribed channels to map
+					for (const auto& c : thisUpgrador->mCurrentUser.mPublicChannels)
+					{
+						// add new found channel
+						auto found = mFoundChannels.find(c);
+						if (found == mFoundChannels.end())
+						{
+							YoutubeConnect::ChannelStruct* toAdd = new YoutubeConnect::ChannelStruct();
+							toAdd->mID = c;
+							toAdd->mName = "";
+							toAdd->mThumb.mTexture = nullptr;
+							toAdd->mThumb.mURL = "";
+							toAdd->mTotalSubscribers = 0;
+							toAdd->mViewCount = 0;
+
+							mFoundChannels[c] = toAdd;
+							if (thisUpgrador->mCurrentUser.mHasSubscribed)
+							{
+								toAdd->mSubscribersCount = 1;
+								toAdd->mNotSubscribedSubscribersCount = 0;
+							}
+							else
+							{
+								toAdd->mSubscribersCount = 0;
+								toAdd->mNotSubscribedSubscribersCount = 1;
+							}
+						}
+						else
+						{
+							if (thisUpgrador->mCurrentUser.mHasSubscribed)
+							{
+								(*found).second->mSubscribersCount++;
+							}
+							else
+							{
+								(*found).second->mNotSubscribedSubscribersCount++;
+							}
+						}
+					}
+
+
 					thisUpgrador->mStateStep = 2; // get channel infos
 				}
 				else
@@ -495,7 +536,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetAuthorInfos))
 				}
 			}
 		}
-		else
+		else // need to retrieve subscription
 		{
 			thisUpgrador->mStateStep = 1;
 			retrievesubscstate->mAuthorID = thisUpgrador->mAuthorID;
@@ -503,7 +544,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetAuthorInfos))
 			retrievesubscstate->mNextPageToken = "";
 		}
 	}
-	else if (thisUpgrador->mStateStep == 1)
+	else if (thisUpgrador->mStateStep == 1) // retrieve subscription
 	{
 		// retrieve user subscription
 		thisUpgrador->activateTransition("retrievesubscriptiontransition");
@@ -511,18 +552,18 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetAuthorInfos))
 		// once retrieved, go back to step 0 to load the file
 		thisUpgrador->mStateStep = 0;
 	}
-	else if (thisUpgrador->mStateStep == 2)
+	else if (thisUpgrador->mStateStep == 2) // get infos for this author (only if author is valid <=> has public subscription)
 	{
 		
 		// do we already have infos ?
 		YoutubeConnect::ChannelStruct	loaded;
 		if (YoutubeConnect::LoadChannelStruct(thisUpgrador->mAuthorID, loaded, false))
 		{
-			if (thisUpgrador->mCurrentUser.mHasSubscribed)
+			if (thisUpgrador->mCurrentUser.mHasSubscribed) // add this author to subscriber list
 			{
-				mSubscribedAuthorInfos[thisUpgrador->mAuthorID] = loaded;
+				mSubscribedAuthorInfos[thisUpgrador->mAuthorID] = loaded; 
 			}
-			else
+			else // add this author to not subscriber list
 			{
 				mNotSubscribedAuthorInfos[thisUpgrador->mAuthorID] = loaded;
 			}
@@ -537,7 +578,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetAuthorInfos))
 		}
 	
 	}
-	else if (thisUpgrador->mStateStep == 3)
+	else if (thisUpgrador->mStateStep == 3) // retrieve informations for this author
 	{
 		KigsCore::Connect(mYoutubeConnect.get(), "ChannelStatsRetrieved", this, "getChannelStats");
 		mYoutubeConnect->launchGetChannelStats(thisUpgrador->mAuthorID);
@@ -569,16 +610,17 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, RetrieveSubscriptions)
 	}
 	auto thisUpgrador = GetUpgrador();
 
-	if (thisUpgrador->mStateStep == 0)
+	if (thisUpgrador->mStateStep == 0) // retrieve subscription, do it again until mNextPageToken is empty
 	{
 		KigsCore::Connect(mYoutubeConnect.get(), "subscriptionRetrieved", this, "manageRetrievedSubscriptions");
 		mYoutubeConnect->launchGetSubscriptions(thisUpgrador->mAuthorID, thisUpgrador->mNextPageToken);
 		GetUpgrador()->activateTransition("waittransition");
 		mNeedWait = true;
 	}
-	else if (thisUpgrador->mStateStep == 1)
+	else if (thisUpgrador->mStateStep == 1) // no more subscription to get
 	{
 		thisUpgrador->mStateStep = 0;
+		thisUpgrador->mNextPageToken = "";
 		thisUpgrador->popState();
 	}
 

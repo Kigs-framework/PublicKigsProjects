@@ -21,14 +21,14 @@ namespace Kigs
 		CMSP				mMainInterface;
 
 		YoutubeAnalyser* mYoutubeAnalyser = nullptr;
-		void	drawSpiral(std::vector<std::tuple<unsigned int, float, u64>>& toShow);
+		void	drawSpiral(std::vector<std::tuple<unsigned int, float, std::string>>& toShow);
 		void	drawForce();
 		void	drawStats(SP<Draw::KigsBitmap> bitmap);
 		void	drawGeneralStats();
 
 		bool	mEverythingDone = false;
 
-		std::unordered_map<u64, CMSP>									mShowedUser;
+		std::unordered_map<std::string, CMSP>									mShowedUser;
 
 		enum Measure
 		{

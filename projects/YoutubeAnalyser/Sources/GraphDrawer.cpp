@@ -110,27 +110,24 @@ void GraphDrawer::InitModifiable()
 
 }
 
-void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int, float, u64> >& toShow)
+void	GraphDrawer::drawSpiral(std::vector < std::tuple<unsigned int, float, std::string>>& toShow)
 {
 
 	drawGeneralStats();
-	// TODO
-	if (mYoutubeAnalyser->mCurrentVideoUserFound < 10)
-	return;
 
-	/*int toShowCount = 0;
+	int toShowCount = 0;
 	float dangle = 2.0f * fPI / 7.0f;
 	float angle = 0.0f;
 	float ray = 0.15f;
 	float dray = 0.0117f;
 	for (const auto& toS : toShow)
 	{
-		if ((std::get<2>(toS) == mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID) && !mShowMyself)
+		if ((std::get<2>(toS) == mYoutubeAnalyser->mChannelID) && !mShowMyself)
 		{
 			continue;
 		}
 
-		auto& toPlace = mYoutubeAnalyser->mInStatsUsers[std::get<2>(toS)];
+		auto& toPlace = mYoutubeAnalyser->mFoundChannels[std::get<2>(toS)];
 
 		auto found = mShowedUser.find(std::get<2>(toS));
 		if (found != mShowedUser.end())
@@ -143,15 +140,15 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int, float, u64> >&
 			dangle = 2.0f * fPI / (2.0f + 50.0f * ray);
 			ray += dray;
 			dray *= 0.98f;
-			if (toPlace.second.mName.length())
+			if (toPlace->mName.length())
 			{
-				toSetup["ChannelName"]("Text") = toPlace.second.mName;
+				toSetup["ChannelName"]("Text") = toPlace->mName;
 			}
 			else
 			{
-				if (!TwitterConnect::LoadUserStruct(std::get<2>(toS), toPlace.second, true))
+				if (!YoutubeConnect::LoadChannelStruct(std::get<2>(toS), *toPlace, true))
 				{
-					mYoutubeAnalyser->askUserDetail(std::get<2>(toS));
+					//mYoutubeAnalyser->askUserDetail(std::get<2>(toS));
 				}
 			}
 
@@ -217,23 +214,22 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int, float, u64> >&
 
 			const SP<UIImage>& checkTexture = toSetup;
 
-			if (toPlace.second.mName.length())
+			if (toPlace->mName.length())
 			{
 				if (!checkTexture->HasTexture())
 				{
-					//somethingChanged = true;
-					if (toPlace.second.mThumb.mTexture)
+					if (toPlace->mThumb.mTexture)
 					{
-						checkTexture->addItem(toPlace.second.mThumb.mTexture);
+						checkTexture->addItem(toPlace->mThumb.mTexture);
 					}
 					else
 					{
-						YoutubeConnect::LoadUserStruct(std::get<2>(toS), toPlace.second, true);
+						YoutubeConnect::LoadChannelStruct(std::get<2>(toS), *toPlace, true);
 					}
 				}
 			}
 
-			if (toShowCount >= mYoutubeAnalyser->mMaxUserCount)
+			if (toShowCount >= mYoutubeAnalyser->mMaxChannelCount)
 			{
 				dock.Set(-5.0f, -5.0f);
 				toSetup("Dock") = dock;
@@ -243,7 +239,6 @@ void	GraphDrawer::drawSpiral(std::vector<std::tuple<unsigned int, float, u64> >&
 		toShowCount++;
 
 	}
-	*/
 }
 
 void	GraphDrawer::prepareForceGraphData()
@@ -1010,25 +1005,21 @@ void CoreFSMStopMethod(GraphDrawer, Percent)
 
 DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 {
-	// TODO
-	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
+	std::vector<std::tuple<unsigned int, float, std::string>>	toShow;
 	
-	/*float wantedpercent = mYoutubeAnalyser->mValidChannelPercent;
+	float wantedpercent = mYoutubeAnalyser->mValidChannelPercent;
 
-	for (auto c : mYoutubeAnalyser->mInStatsUsers)
+	for (auto c : mYoutubeAnalyser->mFoundChannels)
 	{
-		if (c.first != mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
+		if (c.second->mSubscribersCount > 1)
 		{
-			if (c.second.first > 3)
+			float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
+			if (percent > wantedpercent)
 			{
-				float percent = (float)c.second.first / (float)mYoutubeAnalyser->mCurrentVideoUserFound;
-				if (percent > wantedpercent)
-				{
-					toShow.push_back({ c.second.first,percent * 100.0f,c.first });
-				}
+				toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
 			}
 		}
-	}*/
+	}
 	
 	if (toShow.size() == 0)
 	{
@@ -1036,7 +1027,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 		return false;
 	}
 	
-	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, u64>& a1, const std::tuple<unsigned int, float, u64>& a2)
+	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, std::string>& a1, const std::tuple<unsigned int, float, std::string>& a2)
 		{
 			if (std::get<0>(a1) == std::get<0>(a2))
 			{
@@ -1045,17 +1036,17 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 			return (std::get<0>(a1) > std::get<0>(a2));
 		}
 	);
-	/*
-	std::unordered_map<u64, unsigned int>	currentShowedChannels;
+	
+	std::unordered_map<std::string, unsigned int>	currentShowedChannels;
 	int toShowCount = 0;
 	for (const auto& tos : toShow)
 	{
 		currentShowedChannels[std::get<2>(tos)] = 1;
 		toShowCount++;
 
-		const auto& a1User = mYoutubeAnalyser->mInStatsUsers[std::get<2>(tos)];
+		const auto& a1User = mYoutubeAnalyser->mFoundChannels[std::get<2>(tos)];
 
-		if (toShowCount >= (mYoutubeAnalyser->mMaxUserCount * 3))
+		if (toShowCount >= (mYoutubeAnalyser->mMaxChannelCount * 3))
 			break;
 	}
 
@@ -1083,7 +1074,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 		}
 		else if (update.second == 1) // to add
 		{
-			std::string thumbName = "thumbNail_" + TwitterConnect::GetIDString(update.first);
+			std::string thumbName = "thumbNail_" + update.first;
 			CMSP toAdd = CoreModifiable::Import("Thumbnail.xml", false, false, nullptr, thumbName);
 			toAdd->AddDynamicAttribute<maFloat, float>("Radius", 1.0f);
 			mShowedUser[update.first] = toAdd;
@@ -1093,7 +1084,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 	}
 
 	drawSpiral(toShow);
-	*/
+	
 	return false;
 }
 
