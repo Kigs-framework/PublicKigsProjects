@@ -24,13 +24,13 @@
 		</Attr>
 	</Inst>
 	<Inst N="UILayer" T="UI2DLayer">
-	<Attr N="Size" V="[1280,800]"/>
+	<Attr N="Size" V="[1920,1080]"/>
 	<Attr N="Priority" V="50"/>
 	<Attr N="RenderingScreen" V="RenderingScreen:theRenderingScreen"/>
 		<Inst N="Interface" T="UIItem">
-			<Attr N="Size" V="[1280,800]"/>
+			<Attr N="Size" V="[1920,1080]"/>
 			<Inst N="background" T="UIPanel">
-				<Attr N="Size" V="[1280,800]"/>
+				<Attr N="Size" V="[1920,1080]"/>
 				<Attr N="Priority" V="0"/>
 				<Attr N="Anchor" V="[0.500000,0.500000]"/>
 				<Attr N="Dock" V="[0.500000,0.500000]"/>

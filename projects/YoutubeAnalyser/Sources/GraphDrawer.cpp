@@ -236,6 +236,7 @@ void	GraphDrawer::drawSpiral(std::vector < std::tuple<unsigned int, float, std::
 			}
 
 		}
+	
 		toShowCount++;
 
 	}
@@ -251,12 +252,14 @@ void	GraphDrawer::prepareForceGraphData()
 	// for each showed channel
 	for (auto& c : mShowedUser)
 	{
-		const auto& UserStatsList = mYoutubeAnalyser->mPerPanelUsersStats;
+		const auto& UserStatsList = mYoutubeAnalyser->mSubscribedAuthorInfos;
+
 		YoutubeConnect::PerAccountUserMap	toAdd(UserStatsList.size());
 		int sindex = 0;
 		int subcount = 0;
 		for (auto& s : UserStatsList)
 		{
+
 			if (mYoutubeAnalyser->isUserOf(s.first, c.first))
 			{
 				toAdd.SetSubscriber(sindex);
@@ -494,8 +497,9 @@ template<typename T>
 void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 {
 	KigsBitmap::KigsBitmapPixel	black(0, 0, 0, 255);
+	KigsBitmap::KigsBitmapPixel	lightGrey(220, 220, 220, 255);
 	// print title
-	mBitmap->Print(mTitle, mZonePos.x + mZoneSize.x / 2.0f, mZonePos.y, 1, mZoneSize.x, 32, "Calibri.ttf", 1, black);
+	mBitmap->Print(mTitle, mZonePos.x + mZoneSize.x / 2.0f, mZonePos.y, 1, mZoneSize.x, 32, "Calibri.ttf", 1, lightGrey);
 
 	std::vector<T> sortedV = values;
 	std::sort(sortedV.begin(), sortedV.end());
@@ -600,13 +604,13 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 	for (u32 i = 0; i <= RoundedHigherPercent; i += 10)
 	{
 		u32 linePosY = DiagramPos.y + DiagramSize.y - (float)i * 0.01f * columnSizeCoef * DiagramSize.y;
-		mBitmap->Line(DiagramPos.x - 1, linePosY, DiagramPos.x + DiagramSize.x + 1, linePosY, { 0,0,0,128 });
+		mBitmap->Line(DiagramPos.x - 1, linePosY, DiagramPos.x + DiagramSize.x + 1, linePosY, { 220,220,220,128 });
 		std::string printedPercent = std::to_string(i) + "%";
-		mBitmap->Print(printedPercent, DiagramPos.x - 16, linePosY - 9, 1, 48, 18, "Calibri.ttf", 1, black);
+		mBitmap->Print(printedPercent, DiagramPos.x - 16, linePosY - 9, 1, 48, 18, "Calibri.ttf", 1, lightGrey);
 	}
 
 	// Y axis
-	mBitmap->Line(DiagramPos.x, DiagramPos.y - 1, DiagramPos.x, DiagramPos.y + DiagramSize.y + 1, { 0,0,0,128 });
+	mBitmap->Line(DiagramPos.x, DiagramPos.y - 1, DiagramPos.x, DiagramPos.y + DiagramSize.y + 1, { 220,220,220,128 });
 
 	// avegare line
 	//
@@ -653,8 +657,8 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 		{
 			averagePos = (float)(DiagramPos.x + DiagramSize.x);
 		}
-		mBitmap->Line(averagePos, DiagramPos.y - 1, averagePos, DiagramPos.y + DiagramSize.y + 14, { 255,0,0,128 });
-		mBitmap->Print(printedLegend, averagePos, DiagramPos.y + DiagramSize.y + 14, 1, 96, 16, "Calibri.ttf", 1, { 128,0,0,128 });
+		mBitmap->Line(averagePos, DiagramPos.y - 1, averagePos, DiagramPos.y + DiagramSize.y + 14, { 255,50,50,128 });
+		mBitmap->Print(printedLegend, averagePos, DiagramPos.y + DiagramSize.y + 14, 1, 96, 16, "Calibri.ttf", 1, { 200,50,50,128 });
 	}
 	// median line
 	//
@@ -701,8 +705,8 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 		{
 			medianPos = (float)(DiagramPos.x + DiagramSize.x);
 		}
-		mBitmap->Line(medianPos, DiagramPos.y - 1, medianPos, DiagramPos.y + DiagramSize.y + 24, { 0,200,0,128 });
-		mBitmap->Print(printedLegend, medianPos, DiagramPos.y + DiagramSize.y + 26, 1, 96, 16, "Calibri.ttf", 1, { 0,128,0,128 });
+		mBitmap->Line(medianPos, DiagramPos.y - 1, medianPos, DiagramPos.y + DiagramSize.y + 24, { 0,250,0,128 });
+		mBitmap->Print(printedLegend, medianPos, DiagramPos.y + DiagramSize.y + 26, 1, 96, 16, "Calibri.ttf", 1, { 0,200,0,128 });
 	}
 
 	// X legend
@@ -741,7 +745,7 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 			if (i == mColumnCount - 1)
 				printedLegend += " & more";
 
-			mBitmap->Print(printedLegend, printPosX, DiagramPos.y + DiagramSize.y + 2, 1, 96, 12, "Calibri.ttf", 0, black);
+			mBitmap->Print(printedLegend, printPosX, DiagramPos.y + DiagramSize.y + 2, 1, 96, 12, "Calibri.ttf", 0, lightGrey);
 		}
 	}
 	else
@@ -765,7 +769,7 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 			std::snprintf(buffer, 20, "%.1f", legend);
 			std::string printedLegend(buffer);
 
-			mBitmap->Print(printedLegend, printPosX, DiagramPos.y + DiagramSize.y + 2, 1, 96, 12, "Calibri.ttf", 1, black);
+			mBitmap->Print(printedLegend, printPosX, DiagramPos.y + DiagramSize.y + 2, 1, 96, 12, "Calibri.ttf", 1, lightGrey);
 		}
 	}
 }
@@ -777,21 +781,18 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	bitmap->Clear({ 0,0,0,0 });
 
 	// title
-	bitmap->Print("Sample statistics", 1920 / 2, 16, 1, 1920, 92, "Calibri.ttf", 1, { 0,0,0,128 });
+	bitmap->Print("Sample statistics", 1920 / 2, 16, 1, 1920, 92, "Calibri.ttf", 1, { 220,220,220,128 });
 
-	// followers
+	// Subscribers of subscribers
 	std::vector<float> currentData;
-	for (auto u : mYoutubeAnalyser->mPerPanelUsersStats)
+	for (const auto& u : mYoutubeAnalyser->mSubscribedAuthorInfos)
 	{
-		const auto& userdata = mYoutubeAnalyser->mSubscribedAuthorInfos[u.first];
-		if (userdata.mTotalSubscribers)
-		{
-			currentData.push_back(userdata.mTotalSubscribers);
-		}
+		const auto& userdata = u.second;		
+		currentData.push_back(userdata.mTotalSubscribers);
 	}
 
-	std::string panelsize = "(sample size = " + std::to_string(currentData.size()) + ")";
-	bitmap->Print(panelsize, 1920 / 2, 100, 1, 1920, 24, "Calibri.ttf", 1, { 0,0,0,128 });
+	std::string panelsize = "(subscribers sample size = " + std::to_string(currentData.size()) + ")";
+	bitmap->Print(panelsize, 1920 / 2, 100, 1, 1920, 24, "Calibri.ttf", 1, { 220,220,220,128 });
 
 	Diagram	diagram(bitmap);
 	diagram.mZonePos.Set(64, 256);
@@ -799,22 +800,42 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZoneSize.Set(512, 288);
 	diagram.mLimits.Set(10.0f, 10000.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "Subscribers Count";
+	diagram.mTitle = "Subscribers Count (for subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
 	if (currentData.size())
 	{
 		diagram.Draw(currentData);
 	}
 
-	// followings
+	// Subscribers of not subscribers
 	currentData.clear();
-	for (auto u : mYoutubeAnalyser->mPerPanelUsersStats)
+	for (const auto& u : mYoutubeAnalyser->mNotSubscribedAuthorInfos)
+	{
+		const auto& userdata = u.second;
+		currentData.push_back(userdata.mTotalSubscribers);
+	}
+
+	panelsize = "(not subscribers sample size = " + std::to_string(currentData.size()) + ")";
+	bitmap->Print(panelsize, 1920 / 2, 132, 1, 1920, 24, "Calibri.ttf", 1, { 220,220,220,128 });
+
+	diagram.mZonePos.Set(64, 512 + 64);
+	diagram.mColumnCount = 10;
+	diagram.mZoneSize.Set(512, 288);
+	diagram.mLimits.Set(10.0f, 10000.0f);
+	diagram.mUseLog = true;
+	diagram.mTitle = "Subscribers Count (for not subscribers)";
+	diagram.mColumnColor = { 94,169,221,255 };
+	if (currentData.size())
+	{
+		diagram.Draw(currentData);
+	}
+
+	// public channels
+	currentData.clear();
+	for (auto u : mYoutubeAnalyser->mSubscribedAuthorInfos)
 	{
 		const auto& userdata = mYoutubeAnalyser->mFoundUsers[u.first];
-		if (userdata.mPublicChannels.size())
-		{
-			currentData.push_back(userdata.mPublicChannels.size());
-		}
+		currentData.push_back(userdata.mPublicChannels.size());
 	}
 
 	diagram.mZonePos.Set(1920 / 2 - 256, 256);
@@ -822,12 +843,33 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZoneSize.Set(512, 288);
 	diagram.mLimits.Set(10.0f, 5000.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "public channel Count";
+	diagram.mTitle = "public channel Count (for subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
 	if (currentData.size())
 	{
 		diagram.Draw(currentData);
 	}
+
+	// public channels (not subscribers)
+	currentData.clear();
+	for (auto u : mYoutubeAnalyser->mNotSubscribedAuthorInfos)
+	{
+		const auto& userdata = mYoutubeAnalyser->mFoundUsers[u.first];
+			currentData.push_back(userdata.mPublicChannels.size());
+	}
+
+	diagram.mZonePos.Set(1920 / 2 - 256, 512+64);
+	diagram.mColumnCount = 8;
+	diagram.mZoneSize.Set(512, 288);
+	diagram.mLimits.Set(10.0f, 5000.0f);
+	diagram.mUseLog = true;
+	diagram.mTitle = "public channel Count (for not subscribers)";
+	diagram.mColumnColor = { 94,169,221,255 };
+	if (currentData.size())
+	{
+		diagram.Draw(currentData);
+	}
+
 
 	// user account "age"
 	/*currentData.clear();
@@ -952,12 +994,12 @@ void	GraphDrawer::drawGeneralStats()
 
 	sprintf(textBuffer, "Found Channels : %d", mYoutubeAnalyser->mFoundChannels.size());
 	mMainInterface["FoundChannels"]("Text") = textBuffer;
-	sprintf(textBuffer, "Parsed Comments : %d", mYoutubeAnalyser->mParsedComments);
+	sprintf(textBuffer, "Unsubscribed Writers : %d", mYoutubeAnalyser->mNotSubscribedAuthorInfos.size());
 	mMainInterface["ParsedComments"]("Text") = textBuffer;
 
 	if (!mEverythingDone)
 	{
-		sprintf(textBuffer, "Youtube Data API requests : %d", mYoutubeAnalyser->myRequestCount);
+		sprintf(textBuffer, "Youtube Data API requests : %d", mYoutubeAnalyser->mYoutubeConnect->getRequestCount());
 		mMainInterface["RequestCount"]("Text") = textBuffer;
 	}
 	else
@@ -1007,12 +1049,15 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 
 	for (auto c : mYoutubeAnalyser->mFoundChannels)
 	{
-		if (c.second->mSubscribersCount > 1)
+		if (c.first != mYoutubeAnalyser->mChannelID)
 		{
-			float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
-			if (percent > wantedpercent)
+			if (c.second->mSubscribersCount > 1)
 			{
-				toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
+				float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
+				if (percent > wantedpercent)
+				{
+					toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
+				}
 			}
 		}
 	}

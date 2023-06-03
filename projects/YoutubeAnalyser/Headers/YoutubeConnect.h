@@ -43,11 +43,15 @@ namespace Kigs
 			// channel name
 			usString					mName;
 			std::string					mID;
-			unsigned int				mSubscribersCount = 0;
-			unsigned int				mNotSubscribedSubscribersCount = 0;
+			std::string					mCreationDate;
 			unsigned int				mTotalSubscribers = 0;
 			unsigned int				mViewCount = 0;
+			unsigned int				mVideoCount = 0;
 			ThumbnailStruct				mThumb;
+
+			// dynamic values (not loaded / saved)
+			unsigned int				mSubscribersCount = 0;
+			unsigned int				mNotSubscribedSubscribersCount = 0;
 		};
 
 		struct videoStruct

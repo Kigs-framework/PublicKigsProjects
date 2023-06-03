@@ -178,8 +178,9 @@ namespace Kigs
 		void	mainChannelID(const std::string& id);
 		void	getChannelStats(const YoutubeConnect::ChannelStruct& chan);
 		void	requestDone();
+		bool	checkDone();
 
-		WRAP_METHODS( switchDisplay, switchForce, mainChannelID, getChannelStats);
+		WRAP_METHODS( switchDisplay, switchForce, mainChannelID, getChannelStats, checkDone);
 
 		// utility
 		CoreItemSP	LoadJSon(const std::string& fname, bool utf16 = false);
@@ -200,8 +201,7 @@ namespace Kigs
 
 		unsigned int									mySubscribedWriters = 0;
 		unsigned int									myPublicWriters = 0;
-		unsigned int									mParsedComments = 0;
-		unsigned int									myRequestCount = 0;
+
 
 		//all treated users
 		std::unordered_map<std::string, YoutubeConnect::UserStruct>		mFoundUsers;
@@ -212,17 +212,12 @@ namespace Kigs
 		// all not subscribed authors infos
 		std::unordered_map<std::string, YoutubeConnect::ChannelStruct>	mNotSubscribedAuthorInfos;
 
-
-		//list of subscribed users
-		std::vector<std::string>							mSubscriberList;
-
 		// for each user in panel, list of (likers, followers, retwetters...)
 		std::map<std::string, UserList>					mPerPanelUsersStats;
 
 		std::unordered_map<std::string, YoutubeConnect::ChannelStruct*>	mFoundChannels;
 
 		// display data
-		std::unordered_map<std::string, CMSP>			mShowedChannels;
 		SP<YoutubeConnect>								mYoutubeConnect = nullptr;
 		CMSP											mMainInterface;
 		SP<GraphDrawer>									mGraphDrawer = nullptr;

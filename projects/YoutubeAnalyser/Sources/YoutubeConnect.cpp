@@ -364,8 +364,11 @@ void		YoutubeConnect::SaveChannelStruct(const ChannelStruct& ch)
 	JSonFileParserUTF16 L_JsonParser;
 	CoreItemSP initP = MakeCoreMapUS();
 	initP->set("Name", ch.mName);
+	initP->set("ID", ch.mID);
+	initP->set("CreationDate", ch.mCreationDate);
 	initP->set("TotalSubscribers", (int)ch.mTotalSubscribers);
 	initP->set("ViewCount", (int)ch.mViewCount);
+	initP->set("VideoCount", (int)ch.mVideoCount);
 
 	if (ch.mThumb.mURL != "")
 	{
@@ -403,14 +406,15 @@ bool		YoutubeConnect::LoadChannelStruct(const std::string& id, ChannelStruct& ch
 	ch.mID = id;
 	ch.mName = (usString)initP["Name"];
 	ch.mTotalSubscribers = initP["TotalSubscribers"];
+	ch.mCreationDate = initP["CreationDate"];
 	ch.mViewCount = initP["ViewCount"];
+	ch.mVideoCount = initP["VideoCount"];
 	if (initP["ImgURL"])
 	{
 		ch.mThumb.mURL = initP["ImgURL"];
 	}
 	if (requestThumb && !ch.mThumb.mTexture)
 	{
-
 		filename = "Cache/Thumbs/";
 		filename += id;
 		filename += ".jpg";
@@ -585,9 +589,11 @@ DEFINE_METHOD(YoutubeConnect, getChannelStats)
 			{
 				newChannel.mName = (usString)infos["title"];
 				newChannel.mThumb.mURL = infos["thumbnails"]["default"]["url"];
+				newChannel.mCreationDate = infos["publishedAt"];
 			}
 			newChannel.mTotalSubscribers = 0;
 			newChannel.mViewCount = 0;
+			newChannel.mVideoCount = 0;
 			CoreItemSP subscount = json["items"][0]["statistics"]["subscriberCount"];
 			if (subscount)
 			{
@@ -597,6 +603,11 @@ DEFINE_METHOD(YoutubeConnect, getChannelStats)
 			if (viewcount)
 			{
 				newChannel.mViewCount = viewcount;
+			}
+			CoreItemSP vidcount = json["items"][0]["statistics"]["videoCount"];
+			if (vidcount)
+			{
+				newChannel.mVideoCount = vidcount;
 			}
 		}
 	}

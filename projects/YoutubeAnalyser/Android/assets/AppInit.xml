@@ -7,7 +7,7 @@
 	<Attr Type="string" N="PackageFileName" V="YoutubeAnalyser_assets.kpkg" Dyn="true"/>
 	<Inst N="theRenderingScreen" Type="RenderingScreen">
 		<Attr N="Size" V="[0,0]"/>
-		<Attr N="DesignSize" V="[1280,800]"/>
+		<Attr N="DesignSize" V="[1920,1080]"/>
 		<Attr N="BitsPerZ" V="32"/>
 		<Attr N="Brightness" V="0"/>
 		<Attr N="BackDropColor" V="[0.0,0.0,0.0]"/>
