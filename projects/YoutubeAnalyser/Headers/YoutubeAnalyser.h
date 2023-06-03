@@ -35,70 +35,117 @@ namespace Kigs
 		// if set, don't get videolist from channel but from keyword
 		std::string						mUseKeyword = "";
 
-		class PerChannelUserMap
+		// manage a list of users 
+		class UserList
 		{
 		public:
-			PerChannelUserMap() :m(nullptr), mSubscribedCount(0), mSize(0)
-			{
 
-			}
-
-			PerChannelUserMap(int SSize)
+			// return true if new one
+			bool	addUser(std::string id)
 			{
-				mSize = SSize;
-				m = new unsigned char[mSize];
-				memset(m, 0, mSize * sizeof(unsigned char));
-			}
-			PerChannelUserMap(const PerChannelUserMap& other)
-			{
-				if (m)
+				bool newone = false;
+				auto f = mUserIndexInVector.find(id);
+				if (f == mUserIndexInVector.end())
 				{
-					delete[] m;
+					mUserIndexInVector[id] = mUserList.size();
+					mUserList.push_back({ id,1 });
+					newone = true;
 				}
-				mSize = other.mSize;
-				m = new unsigned char[mSize];
-				memcpy(m, other.m, mSize * sizeof(unsigned char));
-				mSubscribedCount = other.mSubscribedCount;
-			}
-
-			PerChannelUserMap& operator=(const PerChannelUserMap& other)
-			{
-				if (m)
+				else
 				{
-					delete[] m;
+					mUserList[(*f).second].second++;
 				}
-				mSize = other.mSize;
-				m = new unsigned char[mSize];
-				memcpy(m, other.m, mSize * sizeof(unsigned char));
-				mSubscribedCount = other.mSubscribedCount;
-				mThumbnail = other.mThumbnail;
-				return *this;
+				return newone;
 			}
 
-			~PerChannelUserMap()
+
+			bool	addUser(const std::pair<std::string, u32>& user)
 			{
-				delete[] m;
+				bool newone = false;
+				auto f = mUserIndexInVector.find(user.first);
+				if (f == mUserIndexInVector.end())
+				{
+					mUserIndexInVector[user.first] = mUserList.size();
+					mUserList.push_back(user);
+					newone = true;
+				}
+				else
+				{
+					mUserList[(*f).second].second += user.second;
+				}
+				return newone;
 			}
 
-			void	SetSubscriber(int index)
+			void	addUsers(const std::vector<std::string>& users)
 			{
-				m[index] = 1;
-				mSubscribedCount++;
+				for (auto& u : users)
+				{
+					addUser(u);
+				}
 			}
 
-			unsigned char* m = nullptr;
-			std::vector<std::pair<int, float>>	mCoeffs;
-			unsigned int		mSubscribedCount = 0;
-			unsigned int		mSize = 0;
+			void	addUsers(const UserList& users)
+			{
+				for (auto& u : users.getList())
+				{
+					addUser(u);
+				}
+			}
 
-			CMSP				mThumbnail;
-			v2f					mForce;
-			v2f					mPos;
-			float				mRadius;
+			const std::vector<std::pair<std::string, u32>>& getList() const
+			{
+				return mUserList;
+			}
 
-			float	GetNormalisedSimilitude(const PerChannelUserMap& other);
-			float	GetNormalisedAttraction(const PerChannelUserMap& other);
+			size_t	size() const
+			{
+				return mUserList.size();
+			}
+
+			void	clear()
+			{
+				mUserIndexInVector.clear();
+				mUserList.clear();
+			}
+
+			bool hasUser(const std::string& u)
+			{
+				return (mUserIndexInVector.find(u) != mUserIndexInVector.end());
+			}
+
+		protected:
+			// pair of userID / user occurence count (for favorites, likers...)
+			std::vector<std::pair<std::string, u32>>			mUserList;
+			// given userID, find index in previous vector
+			std::unordered_map<std::string, size_t>				mUserIndexInVector;
 		};
+
+
+		void	askUserDetail(const std::string& userID)
+		{
+			if (mAlreadyAskedUserDetail.find(userID) == mAlreadyAskedUserDetail.end())
+			{
+				mAlreadyAskedUserDetail.insert(userID);
+				mUserDetailsAsked.push_back(userID);
+				mNeedUserListDetail = true;
+			}
+		}
+
+		bool	isUserOf(const std::string& paneluser,const std::string& account) const
+		{
+			const auto& found = mPerPanelUsersStats.find(paneluser);
+			if (found != mPerPanelUsersStats.end())
+			{
+				for (auto& c : (*found).second.getList())
+				{
+					if (c.first == account)
+					{
+						return true;
+					}
+				}
+			}
+			return false;
+		}
 
 
 	protected:
@@ -106,7 +153,12 @@ namespace Kigs
 		void	createFSMStates();
 
 
-		
+		// user detail asked
+		std::vector<std::string>			mUserDetailsAsked;
+		std::set<std::string>				mAlreadyAskedUserDetail;
+		maBool	mNeedUserListDetail = BASE_ATTRIBUTE(NeedUserListDetail, false);
+
+
 
 		void	DrawForceBased();
 		bool	mDrawForceBased = false;
@@ -163,7 +215,9 @@ namespace Kigs
 
 		//list of subscribed users
 		std::vector<std::string>							mSubscriberList;
-		std::unordered_map<std::string, PerChannelUserMap>	mChannelSubscriberMap;
+
+		// for each user in panel, list of (likers, followers, retwetters...)
+		std::map<std::string, UserList>					mPerPanelUsersStats;
 
 		std::unordered_map<std::string, YoutubeConnect::ChannelStruct*>	mFoundChannels;
 

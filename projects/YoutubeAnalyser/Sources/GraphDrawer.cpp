@@ -148,7 +148,7 @@ void	GraphDrawer::drawSpiral(std::vector < std::tuple<unsigned int, float, std::
 			{
 				if (!YoutubeConnect::LoadChannelStruct(std::get<2>(toS), *toPlace, true))
 				{
-					//mYoutubeAnalyser->askUserDetail(std::get<2>(toS));
+					mYoutubeAnalyser->askUserDetail(std::get<2>(toS));
 				}
 			}
 
@@ -243,8 +243,7 @@ void	GraphDrawer::drawSpiral(std::vector < std::tuple<unsigned int, float, std::
 
 void	GraphDrawer::prepareForceGraphData()
 {
-	// TODO
-	/*
+	
 	Utils::Histogram<float>	hist({ 0.0,1.0 }, 256);
 
 	mAccountSubscriberMap.clear();
@@ -253,7 +252,7 @@ void	GraphDrawer::prepareForceGraphData()
 	for (auto& c : mShowedUser)
 	{
 		const auto& UserStatsList = mYoutubeAnalyser->mPerPanelUsersStats;
-		TwitterConnect::PerAccountUserMap	toAdd(UserStatsList.size());
+		YoutubeConnect::PerAccountUserMap	toAdd(UserStatsList.size());
 		int sindex = 0;
 		int subcount = 0;
 		for (auto& s : UserStatsList)
@@ -358,13 +357,12 @@ void	GraphDrawer::prepareForceGraphData()
 		}
 		++index1;
 	}
-	*/
+	
 }
 
 void	GraphDrawer::drawForce()
 {
-	// TODO
-	/*
+
 	v2f center(1920.0 / 2.0, 1080.0 / 2.0);
 
 	const float timeDelay = 10.0f;
@@ -379,7 +377,7 @@ void	GraphDrawer::drawForce()
 	// first compute attraction force on each thumb
 	for (auto& l1 : mAccountSubscriberMap)
 	{
-		TwitterConnect::PerAccountUserMap& current = l1.second;
+		YoutubeConnect::PerAccountUserMap& current = l1.second;
 
 		// always a  bit of attraction to center
 		v2f	v(center);
@@ -425,7 +423,7 @@ void	GraphDrawer::drawForce()
 	// then move according to forces
 	for (auto& l1 : mAccountSubscriberMap)
 	{
-		TwitterConnect::PerAccountUserMap& current = l1.second;
+		YoutubeConnect::PerAccountUserMap& current = l1.second;
 		current.mPos += current.mForce;
 	}
 
@@ -434,7 +432,7 @@ void	GraphDrawer::drawForce()
 		// then adjust position with contact
 		for (auto& l1 : mAccountSubscriberMap)
 		{
-			TwitterConnect::PerAccountUserMap& current = l1.second;
+			YoutubeConnect::PerAccountUserMap& current = l1.second;
 
 			for (auto& l2 : mAccountSubscriberMap)
 			{
@@ -461,7 +459,7 @@ void	GraphDrawer::drawForce()
 	for (auto& cl1 : mAccountSubscriberMap)
 	{
 
-		TwitterConnect::PerAccountUserMap& current = cl1.second;
+		YoutubeConnect::PerAccountUserMap& current = cl1.second;
 		v2f	v(current.mPos);
 		v -= center;
 		float l1 = Norm(v);
@@ -490,7 +488,6 @@ void	GraphDrawer::drawForce()
 		current.mThumbnail("Dock") = dock;
 	}
 
-	*/
 }
 
 template<typename T>
@@ -777,8 +774,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 {
 
 	drawGeneralStats();
-	// TODO
-	/*	bitmap->Clear({ 0,0,0,0 });
+	bitmap->Clear({ 0,0,0,0 });
 
 	// title
 	bitmap->Print("Sample statistics", 1920 / 2, 16, 1, 1920, 92, "Calibri.ttf", 1, { 0,0,0,128 });
@@ -787,10 +783,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	std::vector<float> currentData;
 	for (auto u : mYoutubeAnalyser->mPerPanelUsersStats)
 	{
-		const auto& userdata = mYoutubeAnalyser->getRetreivedUser(u.first);
-		if (userdata.mFollowersCount + userdata.mFollowingCount)
+		const auto& userdata = mYoutubeAnalyser->mSubscribedAuthorInfos[u.first];
+		if (userdata.mTotalSubscribers)
 		{
-			currentData.push_back(userdata.mFollowersCount);
+			currentData.push_back(userdata.mTotalSubscribers);
 		}
 	}
 
@@ -803,7 +799,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZoneSize.Set(512, 288);
 	diagram.mLimits.Set(10.0f, 10000.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "Followers Count";
+	diagram.mTitle = "Subscribers Count";
 	diagram.mColumnColor = { 94,169,221,255 };
 	if (currentData.size())
 	{
@@ -814,10 +810,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	currentData.clear();
 	for (auto u : mYoutubeAnalyser->mPerPanelUsersStats)
 	{
-		const auto& userdata = mYoutubeAnalyser->getRetreivedUser(u.first);
-		if (userdata.mFollowersCount + userdata.mFollowingCount)
+		const auto& userdata = mYoutubeAnalyser->mFoundUsers[u.first];
+		if (userdata.mPublicChannels.size())
 		{
-			currentData.push_back(userdata.mFollowingCount);
+			currentData.push_back(userdata.mPublicChannels.size());
 		}
 	}
 
@@ -826,7 +822,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZoneSize.Set(512, 288);
 	diagram.mLimits.Set(10.0f, 5000.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "Following Count";
+	diagram.mTitle = "public channel Count";
 	diagram.mColumnColor = { 94,169,221,255 };
 	if (currentData.size())
 	{
@@ -834,15 +830,15 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	}
 
 	// user account "age"
-	currentData.clear();
+	/*currentData.clear();
 
 	std::vector<float>	activityIndice;
 	std::vector<float>	followerperage;
 
-	std::string endDate = TwitterConnect::getTodayDate();
-	if (TwitterConnect::useDates())
+	std::string endDate = YoutubeConnect::getTodayDate();
+	if (YoutubeConnect::useDates())
 	{
-		std::string endDate = TwitterConnect::getDate(1) + "T00:00:00.000Z";
+		std::string endDate = YoutubeConnect::getDate(1) + "T00:00:00.000Z";
 	}
 
 	for (auto u : mYoutubeAnalyser->mPerPanelUsersStats)
@@ -1102,57 +1098,46 @@ void CoreFSMStopMethod(GraphDrawer, Jaccard)
 
 DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 {
-	// TODO
-	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
-	/*
-	float wantedpercent = mYoutubeAnalyser - mValidUserPercent;
-
-	auto getData = [&](const TwitterConnect::UserStruct& strct)->u32
-	{
-		if (mYoutubeAnalyser->mPanelType == YoutubeAnalyser::dataType::Followers)
-		{
-			return strct.mFollowersCount;
-		}
-		return strct.mFollowingCount;
-	};
-
 	
-	for (auto c : mYoutubeAnalyser->mInStatsUsers)
+	std::vector<std::tuple<unsigned int, float, std::string>>	toShow;
+
+	float wantedpercent = mYoutubeAnalyser->mValidChannelPercent;
+
+	for (auto c : mYoutubeAnalyser->mFoundChannels)
 	{
-		if (c.first != mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
+		if (c.first != mYoutubeAnalyser->mChannelID)
 		{
-			if (c.second.first > 3)
+			if (c.second->mSubscribersCount > 3)
 			{
-				float percent = (float)c.second.first / (float)mYoutubeAnalyser->mCurrentVideoUserFound;
+				float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser-> mSubscribedAuthorInfos.size();
 				if (percent > wantedpercent)
 				{
-					const auto& a1User = mYoutubeAnalyser->mInStatsUsers[c.first];
-					if (a1User.second.mName.ToString() == "") // not loaded
+					if (c.second->mName.ToString() == "") // not loaded
 					{
 						mYoutubeAnalyser->askUserDetail(c.first);
 					}
 					else
 					{
-						toShow.push_back({ c.second.first,percent * 100.0f,c.first });
+						toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
 					}
 				}
 			}
 		}
 	}
-	*/
+	
 	if (toShow.size() == 0)
 	{
 		drawGeneralStats();
 		return false;
 	}
-	/*
-	float usedData = (float)getData(mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0));
+	
+	float usedData = mYoutubeAnalyser->mChannelInfos.mTotalSubscribers;
 
-	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, u64>& a1, const std::tuple<unsigned int, float, u64>& a2)
+	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, std::string>& a1, const std::tuple<unsigned int, float, std::string>& a2)
 		{
 
-			const auto& a1User = mYoutubeAnalyser->mInStatsUsers[std::get<2>(a1)];
-			const auto& a2User = mYoutubeAnalyser->mInStatsUsers[std::get<2>(a2)];
+			const auto& a1User = mYoutubeAnalyser->mFoundChannels[std::get<2>(a1)];
+			const auto& a2User = mYoutubeAnalyser->mFoundChannels[std::get<2>(a2)];
 
 			// apply Jaccard index (https://en.wikipedia.org/wiki/Jaccard_index)
 			// a1 subscribers %
@@ -1160,14 +1145,14 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 			// a1 intersection size with analysed channel
 			float A1_a_inter_b = usedData * A1_percent;
 			// a1 union size with analysed channel 
-			float A1_a_union_b = usedData + (float)getData(a1User.second) - A1_a_inter_b;
+			float A1_a_union_b = usedData + ((float)a1User->mTotalSubscribers) - A1_a_inter_b;
 
 			// a2 subscribers %
 			float A2_percent = std::get<1>(a2) * 0.01f;
 			// a2 intersection size with analysed channel
 			float A2_a_inter_b = usedData * A2_percent;
 			// a2 union size with analysed channel 
-			float A2_a_union_b = usedData + (float)getData(a2User.second) - A2_a_inter_b;
+			float A2_a_union_b = usedData + ((float)a2User->mTotalSubscribers) - A2_a_inter_b;
 
 			float k1 = A1_a_inter_b / A1_a_union_b;
 			float k2 = A2_a_inter_b / A2_a_union_b;
@@ -1181,25 +1166,25 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 		}
 	);
 
-	std::unordered_map<u64, unsigned int>	currentShowedChannels;
+	std::unordered_map<std::string, unsigned int>	currentShowedChannels;
 	int toShowCount = 0;
 	for (auto& tos : toShow)
 	{
 		currentShowedChannels[std::get<2>(tos)] = 1;
 		toShowCount++;
 
-		const auto& a1User = mYoutubeAnalyser->mInStatsUsers[std::get<2>(tos)];
+		const auto& a1User = mYoutubeAnalyser->mFoundChannels[std::get<2>(tos)];
 
 		// compute jaccard again
 		float fpercent = std::get<1>(tos) * 0.01f;
 		float A1_a_inter_b = usedData * fpercent;
 		// a1 union size with analysed channel 
-		float A1_a_union_b = usedData + (float)getData(a1User.second) - A1_a_inter_b;
+		float A1_a_union_b = usedData + ((float)a1User->mTotalSubscribers) - A1_a_inter_b;
 		float k1 = A1_a_inter_b / A1_a_union_b;
 
 		std::get<1>(tos) = k1 * 100.0f;
 
-		if (toShowCount >= (mYoutubeAnalyser->mMaxUserCount * 3))
+		if (toShowCount >= (mYoutubeAnalyser->mMaxChannelCount * 3))
 			break;
 	}
 
@@ -1227,7 +1212,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 		}
 		else if (update.second == 1) // to add
 		{
-			std::string thumbName = "thumbNail_" + TwitterConnect::GetIDString(update.first);
+			std::string thumbName = "thumbNail_" + update.first;
 			CMSP toAdd = CoreModifiable::Import("Thumbnail.xml", false, false, nullptr, thumbName);
 			toAdd->AddDynamicAttribute<maFloat, float>("Radius", 1.0f);
 			mShowedUser[update.first] = toAdd;
@@ -1237,7 +1222,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 	}
 
 	drawSpiral(toShow);
-	*/
+	
 	return false;
 }
 
@@ -1255,37 +1240,27 @@ void CoreFSMStopMethod(GraphDrawer, ReversePercent)
 
 DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ReversePercent))
 {
-	// TODO
-	/*
-	float wantedpercent = mYoutubeAnalyser->mValidUserPercent;
 
-	auto getData = [&](const TwitterConnect::UserStruct& strct)->u32
-	{
-		if (mYoutubeAnalyser->mPanelType == YoutubeAnalyser::dataType::Followers)
-		{
-			return strct.mFollowersCount;
-		}
-		return strct.mFollowingCount;
-	};
+	std::vector<std::tuple<unsigned int, float, std::string>>	toShow;
 
-	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
-	for (auto c : mYoutubeAnalyser->mInStatsUsers)
+	float wantedpercent = mYoutubeAnalyser->mValidChannelPercent;
+
+	for (auto c : mYoutubeAnalyser->mFoundChannels)
 	{
-		if (c.first != mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
+		if (c.first != mYoutubeAnalyser->mChannelID)
 		{
-			if (c.second.first > 3)
+			if (c.second->mSubscribersCount > 3)
 			{
-				float percent = (float)c.second.first / (float)mYoutubeAnalyser->mCurrentVideoUserFound;
+				float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
 				if (percent > wantedpercent)
 				{
-					const auto& a1User = mYoutubeAnalyser->mInStatsUsers[c.first];
-					if (a1User.second.mName.ToString() == "") // not loaded
+					if (c.second->mName.ToString() == "") // not loaded
 					{
 						mYoutubeAnalyser->askUserDetail(c.first);
 					}
 					else
 					{
-						toShow.push_back({ c.second.first,percent * 100.0f,c.first });
+						toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
 					}
 				}
 			}
@@ -1298,13 +1273,13 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ReversePercent))
 		return false;
 	}
 
-	float usedData = (float)getData(mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0));
+	float usedData = (float)mYoutubeAnalyser->mChannelInfos.mTotalSubscribers;
 
-	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, u64>& a1, const std::tuple<unsigned int, float, u64>& a2)
+	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, std::string > & a1, const std::tuple<unsigned int, float, std::string>& a2)
 		{
 
-			const auto& a1User = mYoutubeAnalyser->mInStatsUsers[std::get<2>(a1)];
-			const auto& a2User = mYoutubeAnalyser->mInStatsUsers[std::get<2>(a2)];
+			const auto& a1User = mYoutubeAnalyser->mFoundChannels[std::get<2>(a1)];
+			const auto& a2User = mYoutubeAnalyser->mFoundChannels[std::get<2>(a2)];
 
 			// apply reverse percent
 			// a1 subscribers %
@@ -1312,7 +1287,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ReversePercent))
 			// a1 intersection size with analysed channel
 			float A1_a_inter_b = usedData * A1_percent;
 			// revpercent
-			float A1_revPercent = A1_a_inter_b / (float)getData(a1User.second);
+			float A1_revPercent = A1_a_inter_b / ((float)a1User->mTotalSubscribers);
 			if (A1_revPercent > 1.0f)
 				A1_revPercent = 1.0f;
 
@@ -1321,7 +1296,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ReversePercent))
 			// a2 intersection size with analysed channel
 			float A2_a_inter_b = usedData * A2_percent;
 			// revpercent
-			float A2_revPercent = A2_a_inter_b / (float)getData(a2User.second);
+			float A2_revPercent = A2_a_inter_b / ((float)a2User->mTotalSubscribers);
 			if (A2_revPercent > 1.0f)
 				A2_revPercent = 1.0f;
 
@@ -1334,26 +1309,26 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ReversePercent))
 		}
 	);
 
-	std::unordered_map<u64, unsigned int>	currentShowedChannels;
+	std::unordered_map<std::string, unsigned int>	currentShowedChannels;
 	int toShowCount = 0;
 	for (auto& tos : toShow)
 	{
 		currentShowedChannels[std::get<2>(tos)] = 1;
 		toShowCount++;
 
-		const auto& a1User = mYoutubeAnalyser->mInStatsUsers[std::get<2>(tos)];
+		const auto& a1User = mYoutubeAnalyser->mFoundChannels[std::get<2>(tos)];
 
 		// compute rev percent again
 		float fpercent = std::get<1>(tos) * 0.01f;
 		float A1_a_inter_b = usedData * fpercent;
 		// revpercent
-		float A1_revPercent = A1_a_inter_b / (float)getData(a1User.second);
+		float A1_revPercent = A1_a_inter_b / ((float)a1User->mTotalSubscribers);
 		if (A1_revPercent > 1.0f)
 			A1_revPercent = 1.0f;
 
 		std::get<1>(tos) = A1_revPercent * 100.0f;
 
-		if (toShowCount >= (mYoutubeAnalyser->mMaxUserCount * 3))
+		if (toShowCount >= (mYoutubeAnalyser->mMaxChannelCount * 3))
 			break;
 	}
 
@@ -1381,7 +1356,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ReversePercent))
 		}
 		else if (update.second == 1) // to add
 		{
-			std::string thumbName = "thumbNail_" + TwitterConnect::GetIDString(update.first);
+			std::string thumbName = "thumbNail_" + update.first;
 			CMSP toAdd = CoreModifiable::Import("Thumbnail.xml", false, false, nullptr, thumbName);
 			toAdd->AddDynamicAttribute<maFloat, float>("Radius", 1.0f);
 			mShowedUser[update.first] = toAdd;
@@ -1391,7 +1366,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ReversePercent))
 	}
 
 	drawSpiral(toShow);
-	*/
+
 	return false;
 }
 
@@ -1410,28 +1385,26 @@ void CoreFSMStopMethod(GraphDrawer, Normalized)
 
 DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Normalized))
 {
-	// TODO
-	/*
-	float wantedpercent = mYoutubeAnalyser->mValidUserPercent;
+	std::vector<std::tuple<unsigned int, float, std::string>>	toShow;
 
-	std::vector<std::tuple<unsigned int, float, u64>>	toShow;
-	for (auto c : mYoutubeAnalyser->mInStatsUsers)
+	float wantedpercent = mYoutubeAnalyser->mValidChannelPercent;
+
+	for (auto c : mYoutubeAnalyser->mFoundChannels)
 	{
-		if (c.first != mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
+		if (c.first != mYoutubeAnalyser->mChannelID)
 		{
-			if (c.second.first > 3)
+			if (c.second->mSubscribersCount > 3)
 			{
-				float percent = (float)c.second.first / (float)mYoutubeAnalyser->mCurrentVideoUserFound;
+				float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
 				if (percent > wantedpercent)
 				{
-					const auto& a1User = mYoutubeAnalyser->mInStatsUsers[c.first];
-					if (a1User.second.mFollowersCount == 0) // not loaded
+					if (c.second->mName.ToString() == "") // not loaded
 					{
 						mYoutubeAnalyser->askUserDetail(c.first);
 					}
 					else
 					{
-						toShow.push_back({ c.second.first,percent * 100.0f,c.first });
+						toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
 					}
 				}
 			}
@@ -1443,13 +1416,13 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Normalized))
 		drawGeneralStats();
 		return false;
 	}
-	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, u64>& a1, const std::tuple<unsigned int, float, u64>& a2)
+	std::sort(toShow.begin(), toShow.end(), [&](const std::tuple<unsigned int, float, std::string>& a1, const std::tuple<unsigned int, float, std::string>& a2)
 		{
-			auto& a1User = mYoutubeAnalyser->mInStatsUsers[std::get<2>(a1)];
-			auto& a2User = mYoutubeAnalyser->mInStatsUsers[std::get<2>(a2)];
+			auto& a1User = mYoutubeAnalyser->mFoundChannels[std::get<2>(a1)];
+			auto& a2User = mYoutubeAnalyser->mFoundChannels[std::get<2>(a2)];
 
-			float a1fcount = (a1User.second.mFollowersCount < 10) ? logf(10.0f) : logf((float)a1User.second.mFollowersCount);
-			float a2fcount = (a2User.second.mFollowersCount < 10) ? logf(10.0f) : logf((float)a2User.second.mFollowersCount);
+			float a1fcount = (a1User->mTotalSubscribers < 10) ? logf(10.0f) : logf((float)a1User->mTotalSubscribers);
+			float a2fcount = (a2User->mTotalSubscribers < 10) ? logf(10.0f) : logf((float)a2User->mTotalSubscribers);
 
 			float A1_w = ((float)std::get<0>(a1) / a1fcount);
 			float A2_w = ((float)std::get<0>(a2) / a2fcount);
@@ -1466,18 +1439,18 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Normalized))
 
 	for (const auto& toS : toShow)
 	{
-		if (std::get<2>(toS) == mYoutubeAnalyser->mPanelRetreivedUsers.getUserStructAtIndex(0).mID)
+		if (std::get<2>(toS) == mYoutubeAnalyser->mChannelID)
 		{
 			continue;
 		}
 
-		auto& toPlace = mYoutubeAnalyser->mInStatsUsers[std::get<2>(toS)];
-		float toplacefcount = (toPlace.second.mFollowersCount < 10) ? logf(10.0f) : logf((float)toPlace.second.mFollowersCount);
+		auto& toPlace = mYoutubeAnalyser->mFoundChannels[std::get<2>(toS)];
+		float toplacefcount = (toPlace->mTotalSubscribers < 10) ? logf(10.0f) : logf((float)toPlace->mTotalSubscribers);
 		NormalizeFollowersCountForShown = toplacefcount;
 		break;
 	}
 
-	std::unordered_map<u64, unsigned int>	currentShowedChannels;
+	std::unordered_map<std::string, unsigned int>	currentShowedChannels;
 	int toShowCount = 0;
 	for (auto& tos : toShow)
 	{
@@ -1486,13 +1459,13 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Normalized))
 
 		// compute normalized percent
 		float fpercent = std::get<1>(tos);
-		int followcount = mYoutubeAnalyser->mInStatsUsers[std::get<2>(tos)].second.mFollowersCount;
+		int followcount = mYoutubeAnalyser->mFoundChannels[std::get<2>(tos)]->mTotalSubscribers;
 		float toplacefcount = (followcount < 10) ? logf(10.0f) : logf((float)followcount);
 		fpercent *= NormalizeFollowersCountForShown / toplacefcount;
 
 		std::get<1>(tos) = fpercent;
 
-		if (toShowCount >= (mYoutubeAnalyser->mMaxUserCount * 3))
+		if (toShowCount >= (mYoutubeAnalyser->mMaxChannelCount * 3))
 			break;
 	}
 
@@ -1520,7 +1493,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Normalized))
 		}
 		else if (update.second == 1) // to add
 		{
-			std::string thumbName = "thumbNail_" + TwitterConnect::GetIDString(update.first);
+			std::string thumbName = "thumbNail_" + update.first;
 			CMSP toAdd = CoreModifiable::Import("Thumbnail.xml", false, false, nullptr, thumbName);
 			toAdd->AddDynamicAttribute<maFloat, float>("Radius", 1.0f);
 			mShowedUser[update.first] = toAdd;
@@ -1529,7 +1502,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Normalized))
 		}
 	}
 
-	drawSpiral(toShow);*/
+	drawSpiral(toShow);
 
 	return false;
 }

@@ -414,12 +414,21 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, TreatAuthors))
 		thisUpgrador->activateTransition("getauthorinfostransition");
 		thisUpgrador->mStateStep = 3;
 	}
-	else if (thisUpgrador->mStateStep == 3) // this author is node, go to next one
+	else if (thisUpgrador->mStateStep == 3) // this author is done, go to next one
 	{
 		mAlreadyTreatedAuthors.insert(getAuthorInfos->mAuthorID);
 		if (getAuthorInfos->mIsValidAuthor)
 		{
 			thisUpgrador->mValidAuthorCount++;
+
+			auto& currentUserData = mPerPanelUsersStats[getAuthorInfos->mAuthorID];
+
+			for (const auto& f : getAuthorInfos->mCurrentUser.mPublicChannels)
+			{
+				currentUserData.addUser(f);
+			}
+
+
 		}
 		thisUpgrador->mCurrentTreatedAuthor++;
 		thisUpgrador->mStateStep = 0;
@@ -653,3 +662,37 @@ void	CoreFSMStateClassMethods(YoutubeAnalyser, RetrieveSubscriptions)::manageRet
 	requestDone(); // pop wait state
 
 }
+
+
+void	CoreFSMStartMethod(YoutubeAnalyser, GetUserListDetail)
+{
+
+}
+void	CoreFSMStopMethod(YoutubeAnalyser, GetUserListDetail)
+{
+
+}
+
+DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetUserListDetail))
+{
+	if (!mUserDetailsAsked.size())
+	{
+		mNeedUserListDetail = false;
+		GetUpgrador()->popState();
+		return false;
+	}
+
+	const std::string& userID = mUserDetailsAsked.back();
+
+	if (!YoutubeConnect::LoadChannelStruct(userID, GetUpgrador()->mTmpUserStruct, false))
+	{
+		KigsCore::Connect(mYoutubeConnect.get(), "ChannelStatsRetrieved", this, "getChannelStats");
+		mYoutubeConnect->launchGetChannelStats(userID);
+		GetUpgrador()->activateTransition("waittransition");
+		mNeedWait = true;
+	}
+	mUserDetailsAsked.pop_back();
+
+	return false;
+}
+

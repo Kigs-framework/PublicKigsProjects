@@ -50,7 +50,7 @@ namespace Kigs
 
 		void	prepareForceGraphData();
 
-		std::unordered_map<u64, YoutubeConnect::PerAccountUserMap>	mAccountSubscriberMap;
+		std::unordered_map < std::string, YoutubeConnect::PerAccountUserMap > mAccountSubscriberMap;
 
 		maBool	mDrawForce = BASE_ATTRIBUTE(DrawForce, false);
 		bool	mCurrentStateHasForceDraw = false;

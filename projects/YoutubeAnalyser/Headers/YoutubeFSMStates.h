@@ -94,4 +94,11 @@ protected:
 	ENDCOREFSMSTATE_WRAPMETHODS(manageRetrievedSubscriptions)
 	END_DECLARE_COREFSMSTATE()
 
+
+		// retrieve user details for each one in the list
+	START_DECLARE_COREFSMSTATE(YoutubeAnalyser, GetUserListDetail)
+	YoutubeConnect::ChannelStruct			mTmpUserStruct;
+	COREFSMSTATE_WITHOUT_METHODS()
+	END_DECLARE_COREFSMSTATE()
+
 }
