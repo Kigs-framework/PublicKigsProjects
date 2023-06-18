@@ -188,6 +188,29 @@
 					<Connect Si="ClickUp" E="this" Sl="switchForce" R="/CoreBaseApplication:YoutubeAnalyser"/>
 				</Inst>
 			</Inst>
+			<Inst N="switchUnsub" T="UIText">
+				<Attr N="Priority" V="11"/>
+				<Attr N="Text" V="Switch unsub"/>
+				<Attr N="Anchor" V="[0.500000,0.500000]"/>
+				<Attr N="Dock" V="[0.950,0.080]"/>
+				<Attr N="Color" V="[0.0, 0.0, 0.4]"/>
+				<Attr N="Size" V="[-1,-1]"/>
+				<Attr N="Font" V="Calibri.ttf"/>
+				<Attr N="FontSize" V="24"/>
+				<Attr N="MaxWidth" V="128"/>
+				<Inst N="force_btn" T="UIButtonImage">
+					<Attr N="Priority" V="10"/>
+					<Attr N="UpTexture" V="Up.png"/>	
+					<Attr N="DownTexture" V="Down.png"/>
+					<Attr N="Sliced" V="[5.0,5.0]"/>
+					<Attr N="SizeModeX" V="Add"/>
+					<Attr N="SizeModeY" V="Add"/>
+					<Attr N="Anchor" V="[0.5,0.5]"/>
+					<Attr N="Dock" V="[0.5,0.5]"/>
+					<Attr N="Size" V="[16,16]"/>
+					<Connect Si="ClickUp" E="this" Sl="switchUnsub" R="/CoreBaseApplication:YoutubeAnalyser"/>
+				</Inst>
+			</Inst>			
 		</Inst>
 	</Inst>
 </Inst>

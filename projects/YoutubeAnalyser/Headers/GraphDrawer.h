@@ -53,7 +53,9 @@ namespace Kigs
 		std::unordered_map < std::string, YoutubeConnect::PerAccountUserMap > mAccountSubscriberMap;
 
 		maBool	mDrawForce = BASE_ATTRIBUTE(DrawForce, false);
+		maBool	mDrawUnsub = BASE_ATTRIBUTE(DrawUnsub, false);
 		bool	mCurrentStateHasForceDraw = false;
+		bool	mCurrentStateHasUnsubscribedDraw = false;
 		bool	mShowMyself = false;
 
 		class Diagram

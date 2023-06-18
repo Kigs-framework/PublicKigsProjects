@@ -86,7 +86,9 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, BaseStepState))
 
 void	CoreFSMStartMethod(YoutubeAnalyser, Done)
 {
+	mGraphDrawer->setEverythingDone();
 
+	SaveStatFile();
 }
 void	CoreFSMStopMethod(YoutubeAnalyser, Done)
 {

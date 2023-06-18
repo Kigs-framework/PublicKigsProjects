@@ -90,14 +90,6 @@ void	YoutubeAnalyser::createFSMStates()
 	// this one is needed for all cases
 	fsm->addState("Done", new CoreFSMStateClass(YoutubeAnalyser, Done)());
 
-	// transition to done state when checkDone returns true
-	SP<CoreFSMTransition> donetransition = KigsCore::GetInstanceOf("donetransition", "CoreFSMOnMethodTransition");
-	donetransition->setState("Done");
-	donetransition->setValue("MethodName", "checkDone");
-	donetransition->Init();
-
-	mTransitionList["donetransition"] = donetransition;
-
 	// this one is needed for all cases
 	fsm->addState("GetUserListDetail", new CoreFSMStateClass(YoutubeAnalyser, GetUserListDetail)());
 	// only wait or pop
@@ -109,8 +101,17 @@ void	YoutubeAnalyser::createFSMStates()
 	userlistdetailtransition->setValue("ValueName", "NeedUserListDetail");
 	userlistdetailtransition->setState("GetUserListDetail");
 	userlistdetailtransition->Init();
-
 	mTransitionList["userlistdetailtransition"] = userlistdetailtransition;
+
+	fsm->getState("Done")->addTransition(userlistdetailtransition);
+
+	// transition to done state when checkDone returns true
+	SP<CoreFSMTransition> donetransition = KigsCore::GetInstanceOf("donetransition", "CoreFSMOnMethodTransition");
+	donetransition->setState("Done");
+	donetransition->setValue("MethodName", "checkDone");
+	donetransition->Init();
+
+	mTransitionList["donetransition"] = donetransition;
 
 
 	// go to RetrieveVideo
@@ -136,8 +137,9 @@ void	YoutubeAnalyser::createFSMStates()
 	fsm->addState("RetrieveVideo", new CoreFSMStateClass(YoutubeAnalyser, RetrieveVideo)());
 	fsm->getState("RetrieveVideo")->addTransition(getvideotransition);
 	fsm->getState("RetrieveVideo")->addTransition(processvideotransition);
-	fsm->getState("RetrieveVideo")->addTransition(mTransitionList["donetransition"]);
 	fsm->getState("RetrieveVideo")->addTransition(mTransitionList["userlistdetailtransition"]);
+	fsm->getState("RetrieveVideo")->addTransition(mTransitionList["donetransition"]);
+
 
 	// create GetVideo state
 	fsm->addState("GetVideo", new CoreFSMStateClass(YoutubeAnalyser, GetVideo)());
@@ -160,10 +162,9 @@ void	YoutubeAnalyser::createFSMStates()
 	fsm->addState("ProcessVideo", new CoreFSMStateClass(YoutubeAnalyser, ProcessVideo)());
 	fsm->getState("ProcessVideo")->addTransition(getcommenttransition);
 	fsm->getState("ProcessVideo")->addTransition(treatauthorstransition);
-	fsm->getState("ProcessVideo")->addTransition(mTransitionList["donetransition"]);
 	fsm->getState("ProcessVideo")->addTransition(mTransitionList["waittransition"]);
 	fsm->getState("ProcessVideo")->addTransition(mTransitionList["userlistdetailtransition"]);
-
+	fsm->getState("ProcessVideo")->addTransition(mTransitionList["popwhendone"]);
 
 	// create GetAuthorInfos transition (Push)
 	SP<CoreFSMTransition> getauthorinfostransition = KigsCore::GetInstanceOf("getauthorinfostransition", "CoreFSMInternalSetTransition");
@@ -176,6 +177,7 @@ void	YoutubeAnalyser::createFSMStates()
 	fsm->getState("TreatAuthors")->addTransition(getauthorinfostransition);
 	fsm->getState("TreatAuthors")->addTransition(mTransitionList["waittransition"]);
 	fsm->getState("TreatAuthors")->addTransition(mTransitionList["userlistdetailtransition"]);
+	fsm->getState("TreatAuthors")->addTransition(mTransitionList["popwhendone"]);
 
 
 	// create RetrieveSubscriptions transition (Push)
@@ -436,6 +438,8 @@ void	YoutubeAnalyser::ProtectedInitSequence(const std::string& sequence)
 		mMainInterface = GetFirstInstanceByName("UIItem", "Interface");
 		mMainInterface["switchForce"]("IsHidden") = true;
 		mMainInterface["switchForce"]("IsTouchable") = false;
+		mMainInterface["switchUnsub"]("IsHidden") = true;
+		mMainInterface["switchUnsub"]("IsTouchable") = false;
 
 		// launch fsm
 		SP<CoreFSM> fsm = mFsm;
@@ -481,6 +485,8 @@ void	YoutubeAnalyser::switchDisplay()
 {
 	mMainInterface["switchForce"]("IsHidden") = true;
 	mMainInterface["switchForce"]("IsTouchable") = false;
+	mMainInterface["switchUnsub"]("IsHidden") = true;
+	mMainInterface["switchUnsub"]("IsTouchable") = false;
 
 	mGraphDrawer->nextDrawType();
 }
@@ -516,6 +522,14 @@ void	YoutubeAnalyser::switchForce()
 
 }
 
+void	YoutubeAnalyser::switchUnsub()
+{
+	// TODO : display unsubscribed logo
+
+	bool currentDrawUnsubState = mGraphDrawer->getValue<bool>("DrawUnsub");
+	currentDrawUnsubState = !currentDrawUnsubState;
+	mGraphDrawer->setValue("DrawUnsub", currentDrawUnsubState);
+}
 
 
 void	YoutubeAnalyser::mainChannelID(const std::string& id)

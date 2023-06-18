@@ -1004,12 +1004,13 @@ void	GraphDrawer::drawGeneralStats()
 	}
 	else
 	{
-		
 		mMainInterface["RequestCount"]("Text") = "";
 
 		mMainInterface["switchForce"]("IsHidden") = !mCurrentStateHasForceDraw;
 		mMainInterface["switchForce"]("IsTouchable") = mCurrentStateHasForceDraw;
 
+		mMainInterface["switchUnsub"]("IsHidden") = !mCurrentStateHasUnsubscribedDraw;
+		mMainInterface["switchUnsub"]("IsTouchable") = mCurrentStateHasUnsubscribedDraw;
 	}
 
 	if (mYoutubeAnalyser->mChannelInfos.mThumb.mTexture && mMainInterface["thumbnail"])
@@ -1035,6 +1036,8 @@ void CoreFSMStartMethod(GraphDrawer, Percent)
 	mGoNext = false;
 	mCurrentUnit = 0;
 	mCurrentStateHasForceDraw = true;
+	mCurrentStateHasUnsubscribedDraw = true;
+	mDrawUnsub = false;
 }
 
 void CoreFSMStopMethod(GraphDrawer, Percent)
@@ -1051,13 +1054,28 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Percent))
 	{
 		if (c.first != mYoutubeAnalyser->mChannelID)
 		{
-			if (c.second->mSubscribersCount > 1)
+			if (mDrawUnsub)
 			{
-				float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
-				if (percent > wantedpercent)
+				if (c.second->mNotSubscribedSubscribersCount > 1)
 				{
-					toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
+					float percent = (float)c.second->mNotSubscribedSubscribersCount / (float)mYoutubeAnalyser->mNotSubscribedAuthorInfos.size();
+					if (percent > wantedpercent)
+					{
+						toShow.push_back({ c.second->mNotSubscribedSubscribersCount,percent * 100.0f,c.first });
+					}
 				}
+			}
+			else
+			{
+				if (c.second->mSubscribersCount > 1)
+				{
+					float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
+					if (percent > wantedpercent)
+					{
+						toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
+					}
+				}
+
 			}
 		}
 	}
@@ -1135,6 +1153,7 @@ void CoreFSMStartMethod(GraphDrawer, Jaccard)
 	mGoNext = false;
 	mCurrentUnit = 1;
 	mCurrentStateHasForceDraw = true;
+	mCurrentStateHasUnsubscribedDraw = false;
 }
 
 void CoreFSMStopMethod(GraphDrawer, Jaccard)
@@ -1277,6 +1296,8 @@ void CoreFSMStartMethod(GraphDrawer, ReversePercent)
 	mGoNext = false;
 	mCurrentUnit = Reverse_Percent;
 	mCurrentStateHasForceDraw = true;
+	mCurrentStateHasUnsubscribedDraw = false;
+	mDrawUnsub = false;
 }
 
 void CoreFSMStopMethod(GraphDrawer, ReversePercent)
@@ -1294,18 +1315,39 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, ReversePercent))
 	{
 		if (c.first != mYoutubeAnalyser->mChannelID)
 		{
-			if (c.second->mSubscribersCount > 3)
+			if (mDrawUnsub)
 			{
-				float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
-				if (percent > wantedpercent)
+				if (c.second->mNotSubscribedSubscribersCount > 3)
 				{
-					if (c.second->mName.ToString() == "") // not loaded
+					float percent = (float)c.second->mNotSubscribedSubscribersCount / (float)mYoutubeAnalyser->mNotSubscribedAuthorInfos.size();
+					if (percent > wantedpercent)
 					{
-						mYoutubeAnalyser->askUserDetail(c.first);
+						if (c.second->mName.ToString() == "") // not loaded
+						{
+							mYoutubeAnalyser->askUserDetail(c.first);
+						}
+						else
+						{
+							toShow.push_back({ c.second->mNotSubscribedSubscribersCount,percent * 100.0f,c.first });
+						}
 					}
-					else
+				}
+			}
+			else
+			{
+				if (c.second->mSubscribersCount > 3)
+				{
+					float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
+					if (percent > wantedpercent)
 					{
-						toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
+						if (c.second->mName.ToString() == "") // not loaded
+						{
+							mYoutubeAnalyser->askUserDetail(c.first);
+						}
+						else
+						{
+							toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
+						}
 					}
 				}
 			}
@@ -1422,6 +1464,8 @@ void CoreFSMStartMethod(GraphDrawer, Normalized)
 	mGoNext = false;
 	mCurrentUnit = 2;
 	mCurrentStateHasForceDraw = true;
+	mCurrentStateHasUnsubscribedDraw = true;
+	mDrawUnsub = false;
 }
 
 void CoreFSMStopMethod(GraphDrawer, Normalized)
@@ -1438,18 +1482,40 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Normalized))
 	{
 		if (c.first != mYoutubeAnalyser->mChannelID)
 		{
-			if (c.second->mSubscribersCount > 3)
+			if (mDrawUnsub)
 			{
-				float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
-				if (percent > wantedpercent)
+				if (c.second->mNotSubscribedSubscribersCount > 3)
 				{
-					if (c.second->mName.ToString() == "") // not loaded
+					float percent = (float)c.second->mNotSubscribedSubscribersCount / (float)mYoutubeAnalyser->mNotSubscribedAuthorInfos.size();
+					if (percent > wantedpercent)
 					{
-						mYoutubeAnalyser->askUserDetail(c.first);
+						if (c.second->mName.ToString() == "") // not loaded
+						{
+							mYoutubeAnalyser->askUserDetail(c.first);
+						}
+						else
+						{
+							toShow.push_back({ c.second->mNotSubscribedSubscribersCount,percent * 100.0f,c.first });
+						}
 					}
-					else
+				}
+
+			}
+			else
+			{
+				if (c.second->mSubscribersCount > 3)
+				{
+					float percent = (float)c.second->mSubscribersCount / (float)mYoutubeAnalyser->mSubscribedAuthorInfos.size();
+					if (percent > wantedpercent)
 					{
-						toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
+						if (c.second->mName.ToString() == "") // not loaded
+						{
+							mYoutubeAnalyser->askUserDetail(c.first);
+						}
+						else
+						{
+							toShow.push_back({ c.second->mSubscribersCount,percent * 100.0f,c.first });
+						}
 					}
 				}
 			}
@@ -1573,8 +1639,10 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Force))
 
 void CoreFSMStartMethod(GraphDrawer, UserStats)
 {
+
 	mGoNext = false;
 	mCurrentStateHasForceDraw = false;
+	mCurrentStateHasUnsubscribedDraw = false;
 	for (auto& u : mShowedUser)
 	{
 		const CMSP& toSetup = u.second;

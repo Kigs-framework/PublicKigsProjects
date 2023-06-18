@@ -175,12 +175,13 @@ namespace Kigs
 
 		void	switchDisplay();
 		void	switchForce();
+		void	switchUnsub();
 		void	mainChannelID(const std::string& id);
 		void	getChannelStats(const YoutubeConnect::ChannelStruct& chan);
 		void	requestDone();
 		bool	checkDone();
 
-		WRAP_METHODS( switchDisplay, switchForce, mainChannelID, getChannelStats, checkDone);
+		WRAP_METHODS( switchDisplay, switchForce, switchUnsub, mainChannelID, getChannelStats, checkDone);
 
 		// utility
 		CoreItemSP	LoadJSon(const std::string& fname, bool utf16 = false);
