@@ -39,7 +39,7 @@
 			<Inst N="TreatedWriters" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="[0.02,0.025]"/>
+				<Attr N="Dock" V="[0.02,0.02]"/>
 				<Attr N="Anchor" V="[0.0,0.5]"/>
 				<Attr N="Size" V="[-1,-1]"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -50,7 +50,7 @@
 			<Inst N="SubscWriters" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="[0.02,0.05]"/>
+				<Attr N="Dock" V="[0.02,0.04]"/>
 				<Attr N="Anchor" V="[0.0,0.5]"/>
 				<Attr N="Size" V="[-1,-1]"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -61,7 +61,7 @@
 			<Inst N="PublicWriters" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="[0.02,0.075]"/>
+				<Attr N="Dock" V="[0.02,0.06]"/>
 				<Attr N="Anchor" V="[0.0,0.5]"/>
 				<Attr N="Size" V="[-1,-1]"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -72,7 +72,7 @@
 			<Inst N="FoundChannels" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="[0.02,0.1]"/>
+				<Attr N="Dock" V="[0.02,0.08]"/>
 				<Attr N="Anchor" V="[0.0,0.5]"/>
 				<Attr N="Size" V="[-1,-1]"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -83,7 +83,7 @@
 			<Inst N="ParsedComments" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="[0.02,0.125]"/>
+				<Attr N="Dock" V="[0.02,0.1]"/>
 				<Attr N="Anchor" V="[0.0,0.5]"/>
 				<Attr N="Size" V="[-1,-1]"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -94,7 +94,7 @@
 			<Inst N="RequestCount" T="UIText">
 				<Attr N="Priority" V="10"/>
 				<Attr N="Text" V="Test"/>
-				<Attr N="Dock" V="[0.02,0.15]"/>
+				<Attr N="Dock" V="[0.02,0.12]"/>
 				<Attr N="Anchor" V="[0.0,0.5]"/>
 				<Attr N="Size" V="[-1,-1]"/>
 				<Attr N="Font" V="Calibri.ttf"/>
@@ -131,6 +131,13 @@
 				<Inst N="shape" T="UIShapeDisc">
 					<Attr N="SliceCount" V="32"/>
 				</Inst>
+				<Inst N="notsubscribers" T="UIImage">
+					<Attr N="TextureName" V="NotSubscribers.png"/>
+					<Attr N="Priority" V="11"/>
+					<Attr N="Dock" V="[0.5,0.5]"/>
+					<Attr N="Anchor" V="[0.5,0.5]"/>
+					<Attr N="PreScale" V="[0.8,0.8]"/>
+				</Inst>	
 			</Inst>
 			<Inst N="YouTubeLogo" T="UIImage">
 				<Attr N="TextureName" V="YouTube.png"/>

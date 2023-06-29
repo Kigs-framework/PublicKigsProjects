@@ -249,10 +249,17 @@ void	GraphDrawer::prepareForceGraphData()
 
 	mAccountSubscriberMap.clear();
 
+	std::unordered_map<std::string, YoutubeConnect::ChannelStruct>* dataToAnalyse=&mYoutubeAnalyser->mSubscribedAuthorInfos;
+
+	if (mDrawUnsub)
+	{
+		dataToAnalyse = &mYoutubeAnalyser->mNotSubscribedAuthorInfos;
+	}
+
 	// for each showed channel
 	for (auto& c : mShowedUser)
 	{
-		const auto& UserStatsList = mYoutubeAnalyser->mSubscribedAuthorInfos;
+		const auto& UserStatsList = *dataToAnalyse;
 
 		YoutubeConnect::PerAccountUserMap	toAdd(UserStatsList.size());
 		int sindex = 0;
@@ -1011,6 +1018,8 @@ void	GraphDrawer::drawGeneralStats()
 
 		mMainInterface["switchUnsub"]("IsHidden") = !mCurrentStateHasUnsubscribedDraw;
 		mMainInterface["switchUnsub"]("IsTouchable") = mCurrentStateHasUnsubscribedDraw;
+
+		mMainInterface["CurrentVideo"]("Text") = "";
 	}
 
 	if (mYoutubeAnalyser->mChannelInfos.mThumb.mTexture && mMainInterface["thumbnail"])

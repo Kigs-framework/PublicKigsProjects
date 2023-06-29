@@ -441,6 +441,9 @@ void	YoutubeAnalyser::ProtectedInitSequence(const std::string& sequence)
 		mMainInterface["switchUnsub"]("IsHidden") = true;
 		mMainInterface["switchUnsub"]("IsTouchable") = false;
 
+		mMainInterface["thumbnail"]["notsubscribers"]("IsHidden") = true;
+
+
 		// launch fsm
 		SP<CoreFSM> fsm = mFsm;
 		fsm->setStartState("Init");
@@ -506,6 +509,9 @@ void	YoutubeAnalyser::switchForce()
 		mMainInterface["switchV"]("IsHidden") = true;
 		mMainInterface["switchV"]("IsTouchable") = false;
 		mMainInterface["switchForce"]("Dock") = v2f(0.050f, 0.950f);
+
+		mMainInterface["switchUnsub"]("IsHidden") = true;
+		mMainInterface["switchUnsub"]("IsTouchable") = false;
 	}
 	else
 	{
@@ -516,6 +522,9 @@ void	YoutubeAnalyser::switchForce()
 		mMainInterface["switchForce"]("IsHidden") = true;
 		mMainInterface["switchForce"]("IsTouchable") = false;
 		mMainInterface["switchForce"]("Dock") = v2f(0.950f, 0.050f);
+
+		mMainInterface["switchUnsub"]("IsHidden") = false;
+		mMainInterface["switchUnsub"]("IsTouchable") = true;
 	}
 	currentDrawForceState = !currentDrawForceState;
 	mGraphDrawer->setValue("DrawForce", currentDrawForceState);
@@ -524,11 +533,12 @@ void	YoutubeAnalyser::switchForce()
 
 void	YoutubeAnalyser::switchUnsub()
 {
-	// TODO : display unsubscribed logo
-
 	bool currentDrawUnsubState = mGraphDrawer->getValue<bool>("DrawUnsub");
 	currentDrawUnsubState = !currentDrawUnsubState;
 	mGraphDrawer->setValue("DrawUnsub", currentDrawUnsubState);
+
+	mMainInterface["thumbnail"]["notsubscribers"]("IsHidden") = !currentDrawUnsubState;
+
 }
 
 

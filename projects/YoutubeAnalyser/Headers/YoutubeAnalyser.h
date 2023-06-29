@@ -225,7 +225,7 @@ namespace Kigs
 		double											mLastUpdate;
 
 		// current process data
-		std::vector<std::pair<std::string, std::string>>	mVideoListToProcess;
+		std::vector<YoutubeConnect::videoStruct>			mVideoListToProcess;
 		std::set<std::string>								mAlreadyTreatedAuthors;
 		unsigned int										mCurrentProcessedVideo = 0;
 		std::string											mCurrentProcessedUser;

@@ -199,7 +199,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetVideo))
 			mVideoListToProcess.clear();
 			for (int i = 0; i < videoList->size(); i++)
 			{
-				mVideoListToProcess.push_back({ videoList[i], videotitles[i] });
+				mVideoListToProcess.push_back({ videoList[i], "",videotitles[i]});
 			}
 		}
 		// pop current state
@@ -212,6 +212,9 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, GetVideo))
 void	CoreFSMStateClassMethods(YoutubeAnalyser, GetVideo)::manageRetrievedVideo(const std::vector< YoutubeConnect::videoStruct>& videolist, const std::string& nextPage)
 {
 	std::vector< YoutubeConnect::videoStruct> filterVideoList;
+
+	filterVideoList = mVideoListToProcess;
+
 	for (const auto& v : videolist)
 	{
 		if ((v.mChannelID != mChannelID) || (mUseKeyword == ""))
@@ -223,6 +226,9 @@ void	CoreFSMStateClassMethods(YoutubeAnalyser, GetVideo)::manageRetrievedVideo(c
 	KigsCore::Disconnect(mYoutubeConnect.get(), "videoRetrieved", this, "manageRetrievedVideo");
 
 	YoutubeConnect::SaveVideoList(mChannelID, filterVideoList, nextPage);
+
+	// no more video for now
+	GetUpgrador()->mNeedMoreData = false;
 
 	requestDone(); // pop wait state
 
@@ -252,17 +258,16 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, ProcessVideo))
 	// need to retreive more videos ?
 	if (mVideoListToProcess.size() == mCurrentProcessedVideo)
 	{
-		// pop current state
-		GetUpgrador()->popState();
 		thisUpgrador->mStateStep = 0;
+		thisUpgrador->popState();
 		return false;
 	}
 
 	if (thisUpgrador->mStateStep == 0) // start new video management
 	{
-		thisUpgrador->mVideoID = mVideoListToProcess[mCurrentProcessedVideo].first;
+		thisUpgrador->mVideoID = mVideoListToProcess[mCurrentProcessedVideo].mID;
 		// set current video title 
-		mMainInterface["CurrentVideo"]("Text") = mVideoListToProcess[mCurrentProcessedVideo].second;
+		mMainInterface["CurrentVideo"]("Text") = mVideoListToProcess[mCurrentProcessedVideo].mName;
 		thisUpgrador->mAuthorList.clear();
 		CoreItemSP initP = YoutubeConnect::LoadCommentList(mChannelID, thisUpgrador->mVideoID);
 		if (initP)
