@@ -1022,6 +1022,9 @@ void	GraphDrawer::drawGeneralStats()
 		mMainInterface["CurrentVideo"]("Text") = "";
 	}
 
+	bool currentDrawUnsubState = mDrawUnsub;
+	mMainInterface["thumbnail"]["notsubscribers"]("IsHidden") = !currentDrawUnsubState;
+
 	if (mYoutubeAnalyser->mChannelInfos.mThumb.mTexture && mMainInterface["thumbnail"])
 	{
 		const SP<UIImage>& tmp = mMainInterface["thumbnail"];
@@ -1163,6 +1166,7 @@ void CoreFSMStartMethod(GraphDrawer, Jaccard)
 	mCurrentUnit = 1;
 	mCurrentStateHasForceDraw = true;
 	mCurrentStateHasUnsubscribedDraw = false;
+	mDrawUnsub = false;
 }
 
 void CoreFSMStopMethod(GraphDrawer, Jaccard)
@@ -1648,7 +1652,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Force))
 
 void CoreFSMStartMethod(GraphDrawer, UserStats)
 {
-
+	mDrawUnsub = false;
 	mGoNext = false;
 	mCurrentStateHasForceDraw = false;
 	mCurrentStateHasUnsubscribedDraw = false;
