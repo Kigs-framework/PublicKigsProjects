@@ -1,0 +1,5 @@
+[
+	{"dir_rule" : ["toPack","{tFolder}\PacMan_assets.kpkg","kigsPackager.exe -i {iFullPathName} -o {tFolder}\PacMan_assets.kpkg"]},
+	{"rule" : ["","{tPath}\{iFileName}","copy {iFullPathName} {tPath}"]},
+	{"action" : ["changed","xcopy /E /Y {tFolder} {oFolder}"]}
+]
