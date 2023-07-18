@@ -506,7 +506,7 @@ void	GraphDrawer::Diagram::Draw(const std::vector<T>& values)
 	KigsBitmap::KigsBitmapPixel	black(0, 0, 0, 255);
 	KigsBitmap::KigsBitmapPixel	lightGrey(220, 220, 220, 255);
 	// print title
-	mBitmap->Print(mTitle, mZonePos.x + mZoneSize.x / 2.0f, mZonePos.y, 1, mZoneSize.x, 32, "Calibri.ttf", 1, lightGrey);
+	mBitmap->Print(mTitle, mZonePos.x + mZoneSize.x / 2.0f, mZonePos.y, 1, mZoneSize.x, mTitleFontSize, "Calibri.ttf", 1, lightGrey);
 
 	std::vector<T> sortedV = values;
 	std::sort(sortedV.begin(), sortedV.end());
@@ -807,8 +807,9 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZoneSize.Set(512, 288);
 	diagram.mLimits.Set(10.0f, 10000.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "Subscribers Count (for subscribers)";
+	diagram.mTitle = "Subscribers Count (subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
+	diagram.mTitleFontSize = 24;
 	if (currentData.size())
 	{
 		diagram.Draw(currentData);
@@ -830,7 +831,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZoneSize.Set(512, 288);
 	diagram.mLimits.Set(10.0f, 10000.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "Subscribers Count (for not subscribers)";
+	diagram.mTitle = "Subscribers Count (not subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
 	if (currentData.size())
 	{
@@ -850,7 +851,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZoneSize.Set(512, 288);
 	diagram.mLimits.Set(10.0f, 5000.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "public channel Count (for subscribers)";
+	diagram.mTitle = "public channel Count (subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
 	if (currentData.size())
 	{
@@ -870,7 +871,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZoneSize.Set(512, 288);
 	diagram.mLimits.Set(10.0f, 5000.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "public channel Count (for not subscribers)";
+	diagram.mTitle = "public channel Count (not subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
 	if (currentData.size())
 	{
@@ -879,103 +880,50 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 
 
 	// user account "age"
-	/*currentData.clear();
-
-	std::vector<float>	activityIndice;
-	std::vector<float>	followerperage;
-
+	currentData.clear();
 	std::string endDate = YoutubeConnect::getTodayDate();
-	if (YoutubeConnect::useDates())
+
+	for (auto u : mYoutubeAnalyser->mSubscribedAuthorInfos)
 	{
-		std::string endDate = YoutubeConnect::getDate(1) + "T00:00:00.000Z";
+		const auto& userdata = u.second;
+		std::string creationDate = userdata.mCreationDate;
+		int age = YoutubeConnect::getDateDiffInMonth(creationDate, endDate);
+		currentData.push_back(age);
 	}
 
-	for (auto u : mYoutubeAnalyser->mPerPanelUsersStats)
-	{
-		const auto& userdata = mYoutubeAnalyser->getRetreivedUser(u.first);
-		if (userdata.mFollowersCount + userdata.mFollowingCount)
-		{
-			std::string creationDate = userdata.UTCTime;
-
-			int age = TwitterConnect::getDateDiffInMonth(creationDate, endDate);
-
-			activityIndice.push_back((float)userdata.mStatuses_count / (float)(age + 1));
-			followerperage.push_back((float)userdata.mFollowersCount / (float)(age + 1));
-			currentData.push_back(age);
-		}
-
-	}
-
-	diagram.mZonePos.Set(64, 512 + 64);
+	diagram.mZonePos.Set(1920 - 64 - 512, 256);
 	diagram.mColumnCount = 8;
 	diagram.mZoneSize.Set(512, 288);
 	diagram.mLimits.Set(2.0f, 120.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "Account ages in months";
+	diagram.mTitle = "Account age in months (subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
 	if (currentData.size())
 	{
 		diagram.Draw(currentData);
 	}
 
-	// follower per tweet ratio
 	currentData.clear();
 
-	for (auto u : mYoutubeAnalyser->mPerPanelUsersStats)
+	for (auto u : mYoutubeAnalyser->mNotSubscribedAuthorInfos)
 	{
-		const auto& userdata = mYoutubeAnalyser->getRetreivedUser(u.first);
-		if (userdata.mFollowersCount + userdata.mFollowingCount)
-		{
-			float ratio = (float)userdata.mFollowersCount / (float)(userdata.mStatuses_count + 1);
-			currentData.push_back(ratio);
-		}
+		const auto& userdata = u.second;
+		std::string creationDate = userdata.mCreationDate;
+		int age = YoutubeConnect::getDateDiffInMonth(creationDate, endDate);
+		currentData.push_back(age);
 	}
 
-	diagram.mZonePos.Set(1920 / 2 - 256, 512 + 64);
-	diagram.mColumnCount = 10;
+	diagram.mZonePos.Set(1920 - 64 - 512, 512+64);
+	diagram.mColumnCount = 8;
 	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(0.1f, 2.0f);
-	diagram.mShift = 1.0f;
-	diagram.mMultiplier = 10.0f;
+	diagram.mLimits.Set(2.0f, 120.0f);
 	diagram.mUseLog = true;
-	diagram.mTitle = "Follower per tweet ratio";
+	diagram.mTitle = "Account age in months (not subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
 	if (currentData.size())
 	{
 		diagram.Draw(currentData);
 	}
-
-
-	diagram.mShift = 0.0f;
-	diagram.mMultiplier = 0.0f;
-	// activity indice
-	diagram.mZonePos.Set(1920 - 64 - 512, 512 + 64);
-	diagram.mColumnCount = 10;
-	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(10.0f, 2000.0f);
-	diagram.mUseLog = true;
-	diagram.mTitle = "Average activity per month";
-	diagram.mColumnColor = { 94,169,221,255 };
-	if (activityIndice.size())
-	{
-		diagram.Draw(activityIndice);
-	}
-
-	// follower per month
-	diagram.mZonePos.Set(1920 - 64 - 512, 256);
-	diagram.mColumnCount = 10;
-	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(0.0f, 50.0f);
-	diagram.mShift = 1.0f;
-	diagram.mMultiplier = 2.0f;
-	diagram.mUseLog = true;
-	diagram.mTitle = "Average follower per month";
-	diagram.mColumnColor = { 94,169,221,255 };
-	if (followerperage.size())
-	{
-		diagram.Draw(followerperage);
-	}
-	*/
 }
 
 void	GraphDrawer::nextDrawType()

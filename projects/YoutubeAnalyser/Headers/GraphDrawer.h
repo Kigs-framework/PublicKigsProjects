@@ -70,6 +70,7 @@ namespace Kigs
 			// apply multiplier, then shift
 			float			mMultiplier = 0.0f;
 			float			mShift = 0.0f;
+			u32				mTitleFontSize = 32;
 
 			Draw::KigsBitmap::KigsBitmapPixel	mColumnColor = { 0,0,0,255 };
 			friend class GraphDrawer;
