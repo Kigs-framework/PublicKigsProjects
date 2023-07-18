@@ -253,12 +253,14 @@ void	CoreFSMStopMethod(Ghost, FreeMove)
 
 }
 
-DEFINE_UPGRADOR_METHOD(CoreFSMStateClass(Ghost, FreeMove), seePacMan)
+bool CoreFSMStateClassMethods(Ghost, FreeMove)::seePacMan()
 {
 	v2i rpos = getRoundPos();
 	v2i pmpos = mBoard->ghostSeePacman(rpos);
 	if (pmpos.x != -1)
+	{
 		return true;
+	}
 
 	return false;
 }
@@ -387,11 +389,12 @@ void	CoreFSMStopMethod(Ghost, Hunted)
 	setSpeed(DEFAULT_SPEED);
 }
 
-DEFINE_UPGRADOR_METHOD(CoreFSMStateClass(Ghost, Hunted), checkDead)
+bool CoreFSMStateClassMethods(Ghost, Hunted)::checkDead()
 {
-	if(mIsDead)
+	if (mIsDead)
+	{
 		return true;
-
+	}
 	return false;
 }
 
