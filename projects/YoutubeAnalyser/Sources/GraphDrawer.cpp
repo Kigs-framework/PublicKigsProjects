@@ -805,7 +805,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZonePos.Set(64, 256);
 	diagram.mColumnCount = 10;
 	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(10.0f, 10000.0f);
+	diagram.mLimits.Set(10.0f, 2000.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "Subscribers Count (subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -829,7 +829,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZonePos.Set(64, 512 + 64);
 	diagram.mColumnCount = 10;
 	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(10.0f, 10000.0f);
+	diagram.mLimits.Set(10.0f, 2000.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "Subscribers Count (not subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -849,7 +849,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZonePos.Set(1920 / 2 - 256, 256);
 	diagram.mColumnCount = 8;
 	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(10.0f, 5000.0f);
+	diagram.mLimits.Set(10.0f, 2000.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "public channel Count (subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -869,7 +869,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZonePos.Set(1920 / 2 - 256, 512+64);
 	diagram.mColumnCount = 8;
 	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(10.0f, 5000.0f);
+	diagram.mLimits.Set(10.0f, 2000.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "public channel Count (not subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -894,7 +894,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZonePos.Set(1920 - 64 - 512, 256);
 	diagram.mColumnCount = 8;
 	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(2.0f, 120.0f);
+	diagram.mLimits.Set(2.0f, 12.0f*20.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "Account age in months (subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -916,7 +916,7 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	diagram.mZonePos.Set(1920 - 64 - 512, 512+64);
 	diagram.mColumnCount = 8;
 	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(2.0f, 120.0f);
+	diagram.mLimits.Set(2.0f, 12.0f * 20.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "Account age in months (not subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -1168,14 +1168,14 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 			// a1 subscribers %
 			float A1_percent = std::get<1>(a1) * 0.01f;
 			// a1 intersection size with analysed channel
-			float A1_a_inter_b = usedData * A1_percent;
+			float A1_a_inter_b = std::min(usedData * A1_percent, (float)a1User->mTotalSubscribers);
 			// a1 union size with analysed channel 
 			float A1_a_union_b = usedData + ((float)a1User->mTotalSubscribers) - A1_a_inter_b;
 
 			// a2 subscribers %
 			float A2_percent = std::get<1>(a2) * 0.01f;
 			// a2 intersection size with analysed channel
-			float A2_a_inter_b = usedData * A2_percent;
+			float A2_a_inter_b = std::min(usedData * A2_percent, (float)a2User->mTotalSubscribers);
 			// a2 union size with analysed channel 
 			float A2_a_union_b = usedData + ((float)a2User->mTotalSubscribers) - A2_a_inter_b;
 
@@ -1202,7 +1202,7 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(GraphDrawer, Jaccard))
 
 		// compute jaccard again
 		float fpercent = std::get<1>(tos) * 0.01f;
-		float A1_a_inter_b = usedData * fpercent;
+		float A1_a_inter_b = std::min(usedData * fpercent, (float)a1User->mTotalSubscribers);
 		// a1 union size with analysed channel 
 		float A1_a_union_b = usedData + ((float)a1User->mTotalSubscribers) - A1_a_inter_b;
 		float k1 = A1_a_inter_b / A1_a_union_b;
