@@ -57,6 +57,12 @@ void	YoutubeAnalyser::createFSMStates()
 	waittransition->setState("Wait");
 	waittransition->Init();
 
+	// go to error state 
+	SP<CoreFSMTransition> errortransition = KigsCore::GetInstanceOf("errortransition", "CoreFSMOnValueTransition");
+	errortransition->setValue("ValueName", "ErrorCode");
+	errortransition->setState("Error");
+	errortransition->Init();
+
 	// pop when objective is reached (pop)
 	SP<CoreFSMTransition> popwhendone = KigsCore::GetInstanceOf("popwhendone", "CoreFSMOnMethodTransition");
 	popwhendone->setValue("TransitionBehavior", "Pop");
@@ -66,12 +72,14 @@ void	YoutubeAnalyser::createFSMStates()
 
 	mTransitionList["waittransition"] = waittransition;
 	mTransitionList["popwhendone"] = popwhendone;
+	mTransitionList["error"] = errortransition;
 	
 	// init state
 	fsm->addState("Init", new CoreFSMStateClass(YoutubeAnalyser, InitChannel)());
 
 
 	fsm->getState("Init")->addTransition(mTransitionList["waittransition"]);
+	fsm->getState("Init")->addTransition(mTransitionList["error"]);
 
 	// pop wait state transition
 	SP<CoreFSMTransition> waitendtransition = KigsCore::GetInstanceOf("waitendtransition", "CoreFSMOnValueTransition");
@@ -86,14 +94,20 @@ void	YoutubeAnalyser::createFSMStates()
 	fsm->addState("Wait", new CoreFSMStateClass(YoutubeAnalyser, Wait)());
 	// Wait state can pop back to previous state
 	fsm->getState("Wait")->addTransition(waitendtransition);
+	fsm->getState("Wait")->addTransition(mTransitionList["error"]);
 
 	// this one is needed for all cases
 	fsm->addState("Done", new CoreFSMStateClass(YoutubeAnalyser, Done)());
+	fsm->getState("Done")->addTransition(mTransitionList["error"]);
+
+	// this one is called when quota is exceeded or on other kind of errors
+	fsm->addState("Error", new CoreFSMStateClass(YoutubeAnalyser, Error)());
 
 	// this one is needed for all cases
 	fsm->addState("GetUserListDetail", new CoreFSMStateClass(YoutubeAnalyser, GetUserListDetail)());
 	// only wait or pop
 	fsm->getState("GetUserListDetail")->addTransition(waittransition);
+	fsm->getState("GetUserListDetail")->addTransition(mTransitionList["error"]);
 
 	// go to GetUserListDetail state (push)
 	SP<CoreFSMTransition> userlistdetailtransition = KigsCore::GetInstanceOf("userlistdetailtransition", "CoreFSMOnValueTransition");
@@ -139,12 +153,12 @@ void	YoutubeAnalyser::createFSMStates()
 	fsm->getState("RetrieveVideo")->addTransition(processvideotransition);
 	fsm->getState("RetrieveVideo")->addTransition(mTransitionList["userlistdetailtransition"]);
 	fsm->getState("RetrieveVideo")->addTransition(mTransitionList["donetransition"]);
-
+	fsm->getState("RetrieveVideo")->addTransition(mTransitionList["error"]);
 
 	// create GetVideo state
 	fsm->addState("GetVideo", new CoreFSMStateClass(YoutubeAnalyser, GetVideo)());
 	fsm->getState("GetVideo")->addTransition(mTransitionList["waittransition"]);
-
+	fsm->getState("GetVideo")->addTransition(mTransitionList["error"]);
 
 	// create GetComment transition (Push)
 	SP<CoreFSMTransition> getcommenttransition = KigsCore::GetInstanceOf("getcommenttransition", "CoreFSMInternalSetTransition");
@@ -165,6 +179,7 @@ void	YoutubeAnalyser::createFSMStates()
 	fsm->getState("ProcessVideo")->addTransition(mTransitionList["waittransition"]);
 	fsm->getState("ProcessVideo")->addTransition(mTransitionList["userlistdetailtransition"]);
 	fsm->getState("ProcessVideo")->addTransition(mTransitionList["popwhendone"]);
+	fsm->getState("ProcessVideo")->addTransition(mTransitionList["error"]);
 
 	// create GetAuthorInfos transition (Push)
 	SP<CoreFSMTransition> getauthorinfostransition = KigsCore::GetInstanceOf("getauthorinfostransition", "CoreFSMInternalSetTransition");
@@ -178,7 +193,7 @@ void	YoutubeAnalyser::createFSMStates()
 	fsm->getState("TreatAuthors")->addTransition(mTransitionList["waittransition"]);
 	fsm->getState("TreatAuthors")->addTransition(mTransitionList["userlistdetailtransition"]);
 	fsm->getState("TreatAuthors")->addTransition(mTransitionList["popwhendone"]);
-
+	fsm->getState("TreatAuthors")->addTransition(mTransitionList["error"]);
 
 	// create RetrieveSubscriptions transition (Push)
 	SP<CoreFSMTransition> retrievesubscriptiontransition = KigsCore::GetInstanceOf("retrievesubscriptiontransition", "CoreFSMInternalSetTransition");
@@ -191,13 +206,13 @@ void	YoutubeAnalyser::createFSMStates()
 	fsm->getState("GetAuthorInfos")->addTransition(retrievesubscriptiontransition);
 	fsm->getState("GetAuthorInfos")->addTransition(mTransitionList["waittransition"]);
 	fsm->getState("GetAuthorInfos")->addTransition(mTransitionList["userlistdetailtransition"]);
-
+	fsm->getState("GetAuthorInfos")->addTransition(mTransitionList["error"]);
 
 	// create RetrieveSubscriptions state
 	fsm->addState("RetrieveSubscriptions", new CoreFSMStateClass(YoutubeAnalyser, RetrieveSubscriptions)());
 	fsm->getState("RetrieveSubscriptions")->addTransition(mTransitionList["waittransition"]);
-	fsm->getState("GetAuthorInfos")->addTransition(mTransitionList["userlistdetailtransition"]);
-
+	fsm->getState("RetrieveSubscriptions")->addTransition(mTransitionList["userlistdetailtransition"]);
+	fsm->getState("RetrieveSubscriptions")->addTransition(mTransitionList["error"]);
 
 }
 
@@ -279,7 +294,7 @@ void	YoutubeAnalyser::ProtectedInit()
 
 	// connect done msg
 	KigsCore::Connect(mYoutubeConnect.get(), "done", this, "requestDone");
-
+	KigsCore::Connect(mYoutubeConnect.get(), "QuotaExceeded", this, "QuotaExceeded");
 	initCoreFSM();
 
 	// add FSM
@@ -577,4 +592,9 @@ void	YoutubeAnalyser::requestDone()
 bool	YoutubeAnalyser::checkDone()
 {
 	return (mSubscribedAuthorInfos.size() >= mSubscribedUserCount);
+}
+
+void	YoutubeAnalyser::QuotaExceeded(int errorCode)
+{
+	mErrorCode = errorCode;
 }

@@ -180,8 +180,9 @@ namespace Kigs
 		void	getChannelStats(const YoutubeConnect::ChannelStruct& chan);
 		void	requestDone();
 		bool	checkDone();
+		void	QuotaExceeded(int errorCode);
 
-		WRAP_METHODS( switchDisplay, switchForce, switchUnsub, mainChannelID, getChannelStats, checkDone);
+		WRAP_METHODS( switchDisplay, switchForce, switchUnsub, mainChannelID, getChannelStats, checkDone, QuotaExceeded);
 
 		// utility
 		CoreItemSP	LoadJSon(const std::string& fname, bool utf16 = false);
@@ -197,8 +198,6 @@ namespace Kigs
 		std::string										mChannelID;
 
 		YoutubeConnect::ChannelStruct					mChannelInfos;
-
-		unsigned int									mErrorCode = 0;
 
 		unsigned int									mySubscribedWriters = 0;
 		unsigned int									myPublicWriters = 0;
@@ -262,5 +261,7 @@ namespace Kigs
 
 		// wait request was treated
 		maBool	mNeedWait = BASE_ATTRIBUTE(NeedWait, false);
+
+		maInt	mErrorCode = BASE_ATTRIBUTE(ErrorCode, 0);
 	};
 }

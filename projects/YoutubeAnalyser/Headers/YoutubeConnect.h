@@ -345,7 +345,7 @@ namespace Kigs
 
 		static YoutubeConnect* mInstance;
 
-		unsigned int	mApiErrorCode = 0;
+		unsigned int		mErrorCode = 0;
 
 		std::vector<u64>	mCurrentIDVector;
 
