@@ -546,7 +546,7 @@ CoreItemSP	YoutubeConnect::RetrieveJSON(CoreModifiable* sender)
 			{
 				return result;
 			}
-
+			mErrorCode = errorState;
 		}
 	}
 
@@ -565,9 +565,15 @@ DEFINE_METHOD(YoutubeConnect, getChannelID)
 		{
 			channelID = IDItem;
 		}
+		EmitSignal("ChannelIDRetrieved", channelID);
 	}
-	// TODO manage error
-	EmitSignal("ChannelIDRetrieved", channelID);
+	else
+	{
+		if (mErrorCode == 10)
+		{
+			EmitSignal("QuotaExceeded", mErrorCode);
+		}
+	}
 	return true;
 }
 

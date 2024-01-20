@@ -101,6 +101,23 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, Done))
 	return false;
 }
 
+void	CoreFSMStartMethod(YoutubeAnalyser, Error)
+{
+	mMainInterface["thumbnail"]["ChannelName"]("Text") = "Quota exceeded - close the application and launch again later";
+}
+void	CoreFSMStopMethod(YoutubeAnalyser, Error)
+{
+
+}
+
+DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, Error))
+{
+
+	return false;
+}
+
+
+
 void	CoreFSMStartMethod(YoutubeAnalyser, RetrieveVideo)
 {
 
