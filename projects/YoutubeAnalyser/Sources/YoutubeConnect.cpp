@@ -565,15 +565,18 @@ DEFINE_METHOD(YoutubeConnect, getChannelID)
 		{
 			channelID = IDItem;
 		}
-		EmitSignal("ChannelIDRetrieved", channelID);
+		
+	}
+	
+	if (mErrorCode == 10)
+	{
+		EmitSignal("QuotaExceeded", mErrorCode);
 	}
 	else
 	{
-		if (mErrorCode == 10)
-		{
-			EmitSignal("QuotaExceeded", mErrorCode);
-		}
+		EmitSignal("ChannelIDRetrieved", channelID);
 	}
+	
 	return true;
 }
 
@@ -617,8 +620,16 @@ DEFINE_METHOD(YoutubeConnect, getChannelStats)
 			}
 		}
 	}
-
-	EmitSignal("ChannelStatsRetrieved", newChannel);
+	
+	if (mErrorCode == 10)
+	{
+		EmitSignal("QuotaExceeded", mErrorCode);
+	}
+	else
+	{
+		EmitSignal("ChannelStatsRetrieved", newChannel);
+	}
+	
 
 	return true;
 }
@@ -673,7 +684,14 @@ DEFINE_METHOD(YoutubeConnect, getVideoList)
 		}
 	}
 
-	EmitSignal("videoRetrieved", videoVector, nextPageToken);
+	if (mErrorCode == 10)
+	{
+		EmitSignal("QuotaExceeded", mErrorCode);
+	}
+	else
+	{
+		EmitSignal("videoRetrieved", videoVector, nextPageToken);
+	}
 
 	return true;
 }
@@ -732,7 +750,14 @@ DEFINE_METHOD(YoutubeConnect, getCommentList)
 		}
 	}
 
-	EmitSignal("commentRetrieved", authorList, nextPageToken);
+	if (mErrorCode == 10)
+	{
+		EmitSignal("QuotaExceeded", mErrorCode);
+	}
+	else
+	{
+		EmitSignal("commentRetrieved", authorList, nextPageToken);
+	}
 
 	return true;
 }
@@ -772,9 +797,14 @@ DEFINE_METHOD(YoutubeConnect, getUserSubscription)
 		}
 	}
 
-
-	EmitSignal("subscriptionRetrieved", subscripList, nextPageToken);
-
+	if (mErrorCode == 10)
+	{
+		EmitSignal("QuotaExceeded", mErrorCode);
+	}
+	else
+	{
+		EmitSignal("subscriptionRetrieved", subscripList, nextPageToken);
+	}
 
 	return true;
 }

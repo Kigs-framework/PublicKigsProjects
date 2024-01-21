@@ -39,9 +39,8 @@ DEFINE_UPGRADOR_UPDATE(CoreFSMStateClass(YoutubeAnalyser, InitChannel))
 			auto availableTransitions = GetUpgrador()->getTransitionList();
 			for (const auto& t : availableTransitions)
 			{
-				// Init only have 2 transitions : "waittransition" and another
-				// so active the other one
-				if (t != "waittransition")
+				// Choose the transition which is not wait or error
+				if ( (t != "waittransition") && (t != "errortransition"))
 				{
 					GetUpgrador()->activateTransition(t);
 					break;
