@@ -53,7 +53,7 @@ bool	CharacterBase::moveToDest(const Time::Timer& timer,v2f& newpos)
 	v2f dpos = (newpos + dtmove * dt * mSpeed * mSpeedCoef) - mCurrentPos;
 	v2f dDest = v2f(mDestPos.x, mDestPos.y) - mCurrentPos;
 
-	if (Dot(dDest, dpos) < 0.0f)
+	if (dot(dDest, dpos) < 0.0f)
 	{
 		return true;
 	}

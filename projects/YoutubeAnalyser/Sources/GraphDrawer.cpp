@@ -231,7 +231,7 @@ void	GraphDrawer::drawSpiral(std::vector < std::tuple<unsigned int, float, std::
 
 			if (toShowCount >= mYoutubeAnalyser->mMaxChannelCount)
 			{
-				dock.Set(-5.0f, -5.0f);
+				dock = v2f(-5.0f, -5.0f);
 				toSetup("Dock") = dock;
 			}
 
@@ -284,7 +284,7 @@ void	GraphDrawer::prepareForceGraphData()
 		l1.second.mPos = l1.second.mThumbnail->getValue<v2f>("Dock");
 		l1.second.mPos.x = 960 + (rand() % 129) - 64;
 		l1.second.mPos.y = 540 + (rand() % 81) - 40;
-		l1.second.mForce.Set(0.0f, 0.0f);
+		l1.second.mForce = v2f(0.0f, 0.0f);
 		l1.second.mRadius = l1.second.mThumbnail->getValue<float>("Radius");
 
 		int index = 0;
@@ -410,8 +410,8 @@ void	GraphDrawer::drawForce()
 			}
 
 			v2f	v(l2.second.mPos - current.mPos);
-			float dist = Norm(v);
-			v.Normalize();
+			float dist = length(v);
+			v = normalize(v);
 			float coef = current.mCoeffs[i].second;
 			if (currentTime < 0.0f)
 			{
@@ -452,8 +452,8 @@ void	GraphDrawer::drawForce()
 				}
 
 				v2f	v(l2.second.mPos - current.mPos);
-				float dist = Norm(v);
-				v.Normalize();
+				float dist = length(v);
+				v = normalize(v);
 
 				float r = (current.mRadius + l2.second.mRadius) * currentTime;
 				if (dist < r)
@@ -472,19 +472,19 @@ void	GraphDrawer::drawForce()
 		YoutubeConnect::PerAccountUserMap& current = cl1.second;
 		v2f	v(current.mPos);
 		v -= center;
-		float l1 = Norm(v);
+		float l1 = length(v);
 
 		float angle = atan2f(v.y, v.x);
-		v.Normalize();
+		v = normalize(v);
 
 		v2f ellipse(center);
 		ellipse.x *= 0.9 * cosf(angle);
 		ellipse.y *= 0.9 * sinf(angle);
 
-		v2f tst = ellipse.Normalized();
+		v2f tst = normalize(ellipse);
 
 		ellipse -= tst * current.mRadius;
-		float l2 = Norm(ellipse);
+		float l2 = length(ellipse);
 
 		if (l1 > l2)
 		{
@@ -802,10 +802,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	bitmap->Print(panelsize, 1920 / 2, 100, 1, 1920, 24, "Calibri.ttf", 1, { 220,220,220,128 });
 
 	Diagram	diagram(bitmap);
-	diagram.mZonePos.Set(64, 256);
+	diagram.mZonePos = v2i(64, 256);
 	diagram.mColumnCount = 10;
-	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(10.0f, 10000.0f);
+	diagram.mZoneSize = v2i(512, 288);
+	diagram.mLimits = v2f(10.0f, 10000.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "Subscribers Count (subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -826,10 +826,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 	panelsize = "(not subscribers sample size = " + std::to_string(currentData.size()) + ")";
 	bitmap->Print(panelsize, 1920 / 2, 132, 1, 1920, 24, "Calibri.ttf", 1, { 220,220,220,128 });
 
-	diagram.mZonePos.Set(64, 512 + 64);
+	diagram.mZonePos = v2i(64, 512 + 64);
 	diagram.mColumnCount = 10;
-	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(10.0f, 10000.0f);
+	diagram.mZoneSize = v2i(512, 288);
+	diagram.mLimits = v2f(10.0f, 10000.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "Subscribers Count (not subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -846,10 +846,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 		currentData.push_back(userdata.mPublicChannels.size());
 	}
 
-	diagram.mZonePos.Set(1920 / 2 - 256, 256);
+	diagram.mZonePos = v2i(1920 / 2 - 256, 256);
 	diagram.mColumnCount = 8;
-	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(10.0f, 5000.0f);
+	diagram.mZoneSize = v2i(512, 288);
+	diagram.mLimits = v2f(10.0f, 5000.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "public channel Count (subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -866,10 +866,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 			currentData.push_back(userdata.mPublicChannels.size());
 	}
 
-	diagram.mZonePos.Set(1920 / 2 - 256, 512+64);
+	diagram.mZonePos = v2i(1920 / 2 - 256, 512+64);
 	diagram.mColumnCount = 8;
-	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(10.0f, 5000.0f);
+	diagram.mZoneSize = v2i(512, 288);
+	diagram.mLimits = v2f(10.0f, 5000.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "public channel Count (not subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -891,10 +891,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 		currentData.push_back(age);
 	}
 
-	diagram.mZonePos.Set(1920 - 64 - 512, 256);
+	diagram.mZonePos = v2i(1920 - 64 - 512, 256);
 	diagram.mColumnCount = 8;
-	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(2.0f, 120.0f);
+	diagram.mZoneSize = v2i(512, 288);
+	diagram.mLimits = v2f(2.0f, 120.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "Account age in months (subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };
@@ -913,10 +913,10 @@ void	GraphDrawer::drawStats(SP<KigsBitmap> bitmap)
 		currentData.push_back(age);
 	}
 
-	diagram.mZonePos.Set(1920 - 64 - 512, 512+64);
+	diagram.mZonePos = v2i(1920 - 64 - 512, 512+64);
 	diagram.mColumnCount = 8;
-	diagram.mZoneSize.Set(512, 288);
-	diagram.mLimits.Set(2.0f, 120.0f);
+	diagram.mZoneSize = v2i(512, 288);
+	diagram.mLimits = v2f(2.0f, 120.0f);
 	diagram.mUseLog = true;
 	diagram.mTitle = "Account age in months (not subscribers)";
 	diagram.mColumnColor = { 94,169,221,255 };

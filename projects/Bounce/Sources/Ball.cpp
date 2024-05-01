@@ -41,7 +41,7 @@ std::pair<double,double>	Ball::getCollisionTimeWithOther(const Ball& other)
 		double midtime = (t1 + t2) * 0.5;
 		if (midtime > 0.0)
 		{
-			DP.Set(GetPos(midtime) - other.GetPos(midtime));
+			DP = (GetPos(midtime) - other.GetPos(midtime));
 			CoefB = 2.0 * (DS.x * DP.x + DS.y * DP.y);
 			CoefC = DP.x * DP.x + DP.y * DP.y;
 
@@ -77,9 +77,9 @@ double	Ball::getCollisionTimeWithWall(const Wall& other)
 {
 	v2f	DP(GetPos(0.0) - other.GetPos());
 	// compute projected distance on wall normal, from the ball to the wall
-	double projectDist = Dot(DP, other.GetNormal());
+	double projectDist = dot(DP, other.GetNormal());
 	// compute projected speed on wall normal 
-	double projectSpeed = Dot(mSpeed, other.GetNormal());
+	double projectSpeed = dot(mSpeed, other.GetNormal());
 
 	// if projectSpeed >= 0 then the wall is "behind" de ball direction
 	if (projectSpeed < 0.0)
