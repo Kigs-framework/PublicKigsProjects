@@ -186,7 +186,7 @@ void Player::Update(const Time::Timer& timer, void* addParam)
 	}
 	if ((mDirection >= 0) && (prevDir != mDirection))
 	{
-		mGraphicRepresentation->setValue("RotationAngle", ((float)mDirection) * PI * 0.5f);
+		mGraphicRepresentation->setValue("RotationAngle", ((float)mDirection) * glm::pi<float>() * 0.5f);
 	}
 
 	mBoard->checkEat(rpos);

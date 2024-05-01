@@ -300,7 +300,7 @@ void	CoreFSMStartMethod(Ghost, Hunting)
 {
 	GetUpgrador()->mPacmanSeenPos = getBoard()->ghostSeePacman(getCurrentPos());
 	// compute direction
-	getGraphicRepresentation()->setValue("RotationAngle", PI);
+	getGraphicRepresentation()->setValue("RotationAngle", glm::pi<float>());
 
 	AddDynamicAttribute(CoreModifiable::ATTRIBUTE_TYPE::BOOL, "PacManNotVisible", false);
 

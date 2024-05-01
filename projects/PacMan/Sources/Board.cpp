@@ -68,7 +68,7 @@ void	Board::manageTouchGhost()
 			continue;
 		v2f gpos = mGhosts[i]->getCurrentPos();
 
-		if (DistSquare(pacpos, gpos) < 1.0f)
+		if (length2(pacpos - gpos) < 1.0f)
 		{
 			if (mGhosts[i]->isHunted())
 			{
@@ -262,12 +262,12 @@ void	Board::initGraphicBoard()
 			break;
 			case 5:
 			{
-				mTeleport[0].Set(j, i);
+				mTeleport[0] = v2i(j, i);
 			}
 			break;
 			case 6:
 			{
-				mTeleport[1].Set(j, i);
+				mTeleport[1] = v2i(j, i);
 			}
 			break;
 			}

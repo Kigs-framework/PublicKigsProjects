@@ -14,7 +14,7 @@ namespace Kigs
 	public:
 		Wall(v2f pos, v2f normal) : mPos(pos), mNormal(normal)
 		{
-			mNormal.Normalize();// normalize normal vector 
+			mNormal = normalize(mNormal);// normalize normal vector 
 		}
 
 		v2f	GetPos() const

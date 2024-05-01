@@ -118,7 +118,7 @@ void	Bounce::FindFutureCollisions(double time)
 					double collision_duration = (futureC.second - futureC.first);
 					v2f DS(mBalls[i].GetSpeed()- mBalls[j].GetSpeed());
 					DS *= collision_duration;
-					float norm = Norm(DS);
+					float norm = length(DS);
 					if ((norm < mBalls[i].GetRadius()) && (norm < mBalls[j].GetRadius())) // not a bounce, just already interpenetrating balls
 					{
 						break;
@@ -183,8 +183,8 @@ bool	Bounce::computeNewTrajectories(double currentTime)
 				v2f	newSpeed(mFutureCollisions[collindex].mBall1->GetSpeed());
 
 				// compute speed symetry according to wall
-				float dot = Dot(newSpeed, mFutureCollisions[collindex].mWall->GetNormal());
-				newSpeed -= 2.0f * dot * mFutureCollisions[collindex].mWall->GetNormal();
+				float wdot = dot(newSpeed, mFutureCollisions[collindex].mWall->GetNormal());
+				newSpeed -= 2.0f * wdot * mFutureCollisions[collindex].mWall->GetNormal();
 
 				// and set new speed
 				mFutureCollisions[collindex].mBall1->SetSpeed(newSpeed);
@@ -211,17 +211,17 @@ bool	Bounce::computeNewTrajectories(double currentTime)
 				//                      (mA + mB)      
 
 				v2f	SphereSphere(mFutureCollisions[collindex].mBall2->GetPos(firstCollisionTime) - mFutureCollisions[collindex].mBall1->GetPos(firstCollisionTime));
-				SphereSphere.Normalize();
+				SphereSphere = normalize(SphereSphere);
 				
 				v2f sp1 = mFutureCollisions[collindex].mBall1->GetSpeed();
 				v2f sp2 = mFutureCollisions[collindex].mBall2->GetSpeed();
 
 				v2f	newSpeed(sp1);
-				newSpeed -= (2.0f* mFutureCollisions[collindex].mBall2->GetMass() / (mFutureCollisions[collindex].mBall1->GetMass() + mFutureCollisions[collindex].mBall2->GetMass())) * Dot(sp1 - sp2, SphereSphere) * SphereSphere;
+				newSpeed -= (2.0f* mFutureCollisions[collindex].mBall2->GetMass() / (mFutureCollisions[collindex].mBall1->GetMass() + mFutureCollisions[collindex].mBall2->GetMass())) * dot(sp1 - sp2, SphereSphere) * SphereSphere;
 				mFutureCollisions[collindex].mBall1->SetSpeed(newSpeed);
 
 				newSpeed = sp2;
-				newSpeed -= (2.0f * mFutureCollisions[collindex].mBall1->GetMass() / (mFutureCollisions[collindex].mBall1->GetMass() + mFutureCollisions[collindex].mBall2->GetMass())) * Dot(sp2 - sp1, SphereSphere) * SphereSphere;
+				newSpeed -= (2.0f * mFutureCollisions[collindex].mBall1->GetMass() / (mFutureCollisions[collindex].mBall1->GetMass() + mFutureCollisions[collindex].mBall2->GetMass())) * dot(sp2 - sp1, SphereSphere) * SphereSphere;
 				
 				mFutureCollisions[collindex].mBall2->SetSpeed(newSpeed);
 			}
